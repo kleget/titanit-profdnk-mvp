@@ -47,9 +47,25 @@ jobs:
             AUTO_SEED=true
             EOF
 
+            # Keep hackathon app as primary service on 8000.
+            for svc in recallio-web recallio-api recallio-jobs; do
+              if systemctl list-unit-files | grep -q "^${svc}.service"; then
+                systemctl stop "$svc" || true
+                systemctl disable "$svc" || true
+              fi
+            done
+
             systemctl daemon-reload
             systemctl restart titanit-profdnk.service
             nginx -t
             systemctl reload nginx
+
+            # Wait for app health instead of single immediate check.
+            for i in {1..30}; do
+              if curl -fsS http://127.0.0.1:8000/api/health >/dev/null; then
+                break
+              fi
+              sleep 1
+            done
             curl -fsS http://127.0.0.1:8000/api/health
 
