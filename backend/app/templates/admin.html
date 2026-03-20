@@ -34,7 +34,7 @@
   <article class="panel">
     <h2>Список психологов</h2>
     <div class="table-wrap">
-      <table>
+      <table class="responsive-table">
         <thead>
           <tr>
             <th>ФИО</th>
@@ -48,12 +48,12 @@
         <tbody>
           {% for p in psychologists %}
             <tr>
-              <td>{{ p.full_name }}</td>
-              <td>{{ p.email }}</td>
-              <td>{{ p.phone or "-" }}</td>
-              <td>{{ p.access_until.strftime("%Y-%m-%d") if p.access_until else "без срока" }}</td>
-              <td>{{ "Заблокирован" if p.is_blocked else "Активен" }}</td>
-              <td>
+              <td data-label="ФИО">{{ p.full_name }}</td>
+              <td data-label="E-mail">{{ p.email }}</td>
+              <td data-label="Телефон">{{ p.phone or "-" }}</td>
+              <td data-label="Доступ до">{{ p.access_until.strftime("%Y-%m-%d") if p.access_until else "без срока" }}</td>
+              <td data-label="Статус">{{ "Заблокирован" if p.is_blocked else "Активен" }}</td>
+              <td data-label="Действия">
                 <form method="post" action="/admin/psychologists/{{ p.id }}/toggle-block" class="inline-form">
                   <button class="btn small ghost" type="submit">
                     {{ "Разблокировать" if p.is_blocked else "Блокировать" }}
@@ -72,4 +72,3 @@
   </article>
 </section>
 {% endblock %}
-

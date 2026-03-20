@@ -112,7 +112,7 @@ Last update: 2026-03-21
 ### UX/UI
 - [ ] Improve builder UX: inline validation + better hints.
 - [ ] Add empty states and success/error toasts.
-- [ ] Improve mobile layout for tables and long forms.
+- [x] Improve mobile layout for tables and long forms.
 - [ ] Add printable report styles for HTML.
 
 ### Demo readiness
@@ -132,9 +132,9 @@ Last update: 2026-03-21
 
 ## Current score
 - P0 completion: 63 / 65.
-- P1 completion: 0 / 16.
+- P1 completion: 1 / 16.
 - P2 completion: 0 / 7.
-- Global completion: 63 / 88.
+- Global completion: 64 / 88.
 
 ## Notes
 - P0 blockers now: organizer Q&A clarifications (dynamic fields, reminders).

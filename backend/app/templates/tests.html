@@ -8,7 +8,7 @@
     {% endif %}
   </div>
   <div class="table-wrap">
-    <table>
+    <table class="responsive-table">
       <thead>
         <tr>
           <th>Название</th>
@@ -21,23 +21,23 @@
       <tbody>
       {% for test in tests %}
         <tr>
-          <td><a href="/tests/{{ test.id }}">{{ test.title }}</a></td>
-          <td>{{ test.submissions | length }}</td>
-          <td>
+          <td data-label="Название"><a href="/tests/{{ test.id }}">{{ test.title }}</a></td>
+          <td data-label="Заполнили">{{ test.submissions | length }}</td>
+          <td data-label="Последнее заполнение">
             {% if test.submissions %}
               {{ (test.submissions | sort(attribute='submitted_at', reverse=True) | first).submitted_at.strftime("%Y-%m-%d %H:%M") }}
             {% else %}
               -
             {% endif %}
           </td>
-          <td>
+          <td data-label="Доступ">
             {% if user.role.value == "psychologist" %}
               До {{ user.access_until.strftime("%Y-%m-%d") if user.access_until else "без срока" }}
             {% else %}
               Управляется админом
             {% endif %}
           </td>
-          <td>
+          <td data-label="Действия">
             <button class="btn small ghost copy-link" data-link="{{ base_url }}/t/{{ test.share_token }}">Скопировать ссылку</button>
             <a class="btn small ghost" href="/tests/{{ test.id }}/export.json">Export JSON</a>
           </td>
@@ -58,4 +58,3 @@
   });
 </script>
 {% endblock %}
-

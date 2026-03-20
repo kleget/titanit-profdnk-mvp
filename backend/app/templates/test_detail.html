@@ -27,7 +27,7 @@
   </div>
 
   <div class="table-wrap">
-    <table>
+    <table class="responsive-table">
       <thead>
         <tr>
           <th>Метка</th>
@@ -38,19 +38,19 @@
       </thead>
       <tbody>
         <tr>
-          <td>Основная ссылка</td>
-          <td>Активна</td>
-          <td><code>{{ base_url }}/t/{{ test.share_token }}</code></td>
-          <td>
+          <td data-label="Метка">Основная ссылка</td>
+          <td data-label="Статус">Активна</td>
+          <td data-label="Ссылка"><code>{{ base_url }}/t/{{ test.share_token }}</code></td>
+          <td data-label="Действия">
             <button class="btn small ghost copy-link-btn" type="button" data-link="{{ base_url }}/t/{{ test.share_token }}">Копировать</button>
           </td>
         </tr>
         {% for link in test.invite_links %}
           <tr>
-            <td>{{ link.label }}</td>
-            <td>{{ "Активна" if link.is_active else "Отключена" }}</td>
-            <td><code>{{ base_url }}/t/{{ link.token }}</code></td>
-            <td class="actions-row">
+            <td data-label="Метка">{{ link.label }}</td>
+            <td data-label="Статус">{{ "Активна" if link.is_active else "Отключена" }}</td>
+            <td data-label="Ссылка"><code>{{ base_url }}/t/{{ link.token }}</code></td>
+            <td data-label="Действия" class="actions-row">
               <button class="btn small ghost copy-link-btn" type="button" data-link="{{ base_url }}/t/{{ link.token }}">Копировать</button>
               <form method="post" action="/tests/{{ test.id }}/links/{{ link.id }}/toggle">
                 <button class="btn small ghost" type="submit">{{ "Отключить" if link.is_active else "Включить" }}</button>
@@ -66,7 +66,7 @@
 <section class="panel">
   <h2>Группы по меткам ссылок</h2>
   <div class="table-wrap">
-    <table>
+    <table class="responsive-table">
       <thead>
         <tr>
           <th>Метка</th>
@@ -77,9 +77,9 @@
       <tbody id="invite-groups-body">
       {% for group in invite_groups %}
         <tr>
-          <td>{{ group.label }}</td>
-          <td>{{ group.count }}</td>
-          <td>{{ group.last_submitted_at.strftime("%Y-%m-%d %H:%M") }}</td>
+          <td data-label="Метка">{{ group.label }}</td>
+          <td data-label="Прохождений">{{ group.count }}</td>
+          <td data-label="Последнее прохождение">{{ group.last_submitted_at.strftime("%Y-%m-%d %H:%M") }}</td>
         </tr>
       {% else %}
         <tr>
@@ -94,7 +94,7 @@
 <section class="panel">
   <h2>Результаты прохождений</h2>
   <div class="table-wrap">
-    <table>
+    <table class="responsive-table">
       <thead>
         <tr>
           <th>Клиент</th>
@@ -107,15 +107,15 @@
       <tbody id="submissions-body">
       {% for submission in submissions %}
         <tr>
-          <td>{{ submission.client_full_name }}</td>
-          <td>{{ (submission.client_extra_json or {}).get("invite_label", "Default link") }}</td>
-          <td>{{ submission.submitted_at.strftime("%Y-%m-%d %H:%M") }}</td>
-          <td>
+          <td data-label="Клиент">{{ submission.client_full_name }}</td>
+          <td data-label="Источник">{{ (submission.client_extra_json or {}).get("invite_label", "Default link") }}</td>
+          <td data-label="Дата">{{ submission.submitted_at.strftime("%Y-%m-%d %H:%M") }}</td>
+          <td data-label="Метрики">
             Балл: {{ (submission.metrics_json or {}).get("total_score", 0) }} /
             {{ (submission.metrics_json or {}).get("max_score", 0) }},
             заполнение: {{ (submission.metrics_json or {}).get("completion_percent", 0) }}%
           </td>
-          <td class="actions-row">
+          <td data-label="Действия" class="actions-row">
             {% if test.allow_client_report %}
               <a class="btn small ghost" href="/reports/{{ submission.id }}/client.html" target="_blank">Client HTML</a>
               <a class="btn small ghost" href="/reports/{{ submission.id }}/client.docx">Client DOCX</a>
@@ -156,11 +156,11 @@
   function renderRow(item) {
     return `
       <tr>
-        <td>${item.client_full_name}</td>
-        <td>${item.invite_label ?? "Default link"}</td>
-        <td>${new Date(item.submitted_at).toLocaleString()}</td>
-        <td>Балл: ${item.score ?? 0}, заполнение: ${item.completion_percent ?? 0}%</td>
-        <td class="actions-row">
+        <td data-label="Клиент">${item.client_full_name}</td>
+        <td data-label="Источник">${item.invite_label ?? "Default link"}</td>
+        <td data-label="Дата">${new Date(item.submitted_at).toLocaleString()}</td>
+        <td data-label="Метрики">Балл: ${item.score ?? 0}, заполнение: ${item.completion_percent ?? 0}%</td>
+        <td data-label="Действия" class="actions-row">
           {% if test.allow_client_report %}
             <a class="btn small ghost" href="/reports/${item.id}/client.html" target="_blank">Client HTML</a>
             <a class="btn small ghost" href="/reports/${item.id}/client.docx">Client DOCX</a>
@@ -205,9 +205,9 @@
       .map((group) => {
         return `
           <tr>
-            <td>${group.label}</td>
-            <td>${group.count}</td>
-            <td>${new Date(group.last_submitted_at).toLocaleString()}</td>
+            <td data-label="Метка">${group.label}</td>
+            <td data-label="Прохождений">${group.count}</td>
+            <td data-label="Последнее прохождение">${new Date(group.last_submitted_at).toLocaleString()}</td>
           </tr>
         `;
       })
