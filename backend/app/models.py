@@ -94,6 +94,11 @@ class Test(Base):
     submissions: Mapped[list[Submission]] = relationship(
         back_populates="test", cascade="all, delete-orphan"
     )
+    invite_links: Mapped[list[InviteLink]] = relationship(
+        back_populates="test",
+        cascade="all, delete-orphan",
+        order_by="InviteLink.created_at.desc()",
+    )
     formulas: Mapped[list[MetricFormula]] = relationship(
         back_populates="test",
         cascade="all, delete-orphan",
@@ -207,3 +212,19 @@ class MetricFormula(Base):
     )
 
     test: Mapped[Test] = relationship(back_populates="formulas")
+
+
+class InviteLink(Base):
+    __tablename__ = "invite_links"
+    __table_args__ = (UniqueConstraint("test_id", "label", name="uq_invite_link_label_per_test"),)
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    test_id: Mapped[int] = mapped_column(ForeignKey("tests.id"), nullable=False, index=True)
+    label: Mapped[str] = mapped_column(String(255), nullable=False)
+    token: Mapped[str] = mapped_column(String(120), unique=True, nullable=False, index=True)
+    is_active: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), default=utcnow, nullable=False
+    )
+
+    test: Mapped[Test] = relationship(back_populates="invite_links")

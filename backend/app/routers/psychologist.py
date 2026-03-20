@@ -14,7 +14,7 @@ from sqlalchemy.orm import Session, selectinload
 from app.config import settings
 from app.db import get_db
 from app.dependencies import get_optional_user, require_psychologist_or_admin
-from app.models import Answer, Submission, Test, TestSection, User, UserRole
+from app.models import Answer, InviteLink, Submission, Test, TestSection, User, UserRole
 from app.services.reports import build_docx_report, build_report_context, render_html_report
 from app.services.scoring import calculate_metrics
 from app.services.tests import (
@@ -33,7 +33,7 @@ UPLOAD_DIR.mkdir(parents=True, exist_ok=True)
 
 
 def _slugify(value: str) -> str:
-    cleaned = re.sub(r"[^a-zA-Z0-9а-яА-Я_-]+", "_", value)
+    cleaned = re.sub(r"[^a-zA-Z0-9Ð°-ÑÐ-Ð¯_-]+", "_", value)
     return cleaned.strip("_")[:50] or "report"
 
 
@@ -42,6 +42,49 @@ def _ensure_test_access(test: Test, user: User) -> None:
         return
     if test.psychologist_id != user.id:
         raise HTTPException(status_code=404, detail="Test not found")
+
+
+def _normalize_label(value: str) -> str:
+    return " ".join(value.strip().split())
+
+
+def _submission_invite_label(submission: Submission) -> str:
+    extra = submission.client_extra_json or {}
+    raw_value = extra.get("invite_label")
+    if isinstance(raw_value, str):
+        cleaned = _normalize_label(raw_value)
+        if cleaned:
+            return cleaned
+    return "Default link"
+
+
+def _build_invite_groups(submissions: list[Submission]) -> list[dict[str, object]]:
+    grouped: dict[str, dict[str, object]] = {}
+    for sub in submissions:
+        label = _submission_invite_label(sub)
+        if label not in grouped:
+            grouped[label] = {
+                "label": label,
+                "count": 0,
+                "last_submitted_at": sub.submitted_at,
+            }
+        grouped[label]["count"] = int(grouped[label]["count"]) + 1
+        if sub.submitted_at > grouped[label]["last_submitted_at"]:
+            grouped[label]["last_submitted_at"] = sub.submitted_at
+    return sorted(
+        grouped.values(),
+        key=lambda item: (int(item["count"]), item["last_submitted_at"]),
+        reverse=True,
+    )
+
+
+def _generate_unique_invite_token(db: Session) -> str:
+    while True:
+        token = secrets.token_urlsafe(24)
+        invite_exists = db.scalar(select(InviteLink.id).where(InviteLink.token == token))
+        test_exists = db.scalar(select(Test.id).where(Test.share_token == token))
+        if not invite_exists and not test_exists:
+            return token
 
 
 @router.get("/")
@@ -74,7 +117,7 @@ def dashboard(
         "dashboard.html",
         {
             "request": request,
-            "title": "Личный кабинет",
+            "title": "Ð›Ð¸Ñ‡Ð½Ñ‹Ð¹ ÐºÐ°Ð±Ð¸Ð½ÐµÑ‚",
             "user": current_user,
             "tests_count": tests_count,
             "submissions_count": submissions_count,
@@ -132,7 +175,7 @@ def tests_page(
         "tests.html",
         {
             "request": request,
-            "title": "Мои опросники",
+            "title": "ÐœÐ¾Ð¸ Ð¾Ð¿Ñ€Ð¾ÑÐ½Ð¸ÐºÐ¸",
             "user": current_user,
             "tests": tests,
             "base_url": settings.base_url,
@@ -151,7 +194,7 @@ def new_test_page(
         "test_builder.html",
         {
             "request": request,
-            "title": "Конструктор методик",
+            "title": "ÐšÐ¾Ð½ÑÑ‚Ñ€ÑƒÐºÑ‚Ð¾Ñ€ Ð¼ÐµÑ‚Ð¾Ð´Ð¸Ðº",
             "user": current_user,
         },
     )
@@ -253,6 +296,7 @@ def test_detail(
             selectinload(Test.psychologist),
             selectinload(Test.sections).selectinload(TestSection.questions),
             selectinload(Test.formulas),
+            selectinload(Test.invite_links),
             selectinload(Test.submissions).selectinload(Submission.answers),
         )
     )
@@ -261,17 +305,77 @@ def test_detail(
     _ensure_test_access(test, current_user)
 
     submissions = sorted(test.submissions, key=lambda item: item.submitted_at, reverse=True)
+    invite_groups = _build_invite_groups(submissions)
     return templates.TemplateResponse(
         "test_detail.html",
         {
             "request": request,
-            "title": f"Тест: {test.title}",
+            "title": f"Ð¢ÐµÑÑ‚: {test.title}",
             "user": current_user,
             "test": test,
             "submissions": submissions,
+            "invite_groups": invite_groups,
             "base_url": settings.base_url,
         },
     )
+
+
+@router.post("/tests/{test_id}/links")
+def create_invite_link(
+    test_id: int,
+    label: str = Form(""),
+    current_user: User = Depends(require_psychologist_or_admin),
+    db: Session = Depends(get_db),
+) -> object:
+    test = db.scalar(select(Test).where(Test.id == test_id))
+    if not test:
+        raise HTTPException(status_code=404, detail="Test not found")
+    _ensure_test_access(test, current_user)
+
+    cleaned_label = _normalize_label(label)
+    if not cleaned_label:
+        raise HTTPException(status_code=400, detail="Link label is required")
+    if len(cleaned_label) > 120:
+        raise HTTPException(status_code=400, detail="Link label is too long")
+
+    duplicate = db.scalar(
+        select(InviteLink.id).where(InviteLink.test_id == test_id, InviteLink.label == cleaned_label)
+    )
+    if duplicate:
+        raise HTTPException(status_code=400, detail="Link label already exists")
+
+    invite_link = InviteLink(
+        test_id=test.id,
+        label=cleaned_label,
+        token=_generate_unique_invite_token(db),
+        is_active=True,
+    )
+    db.add(invite_link)
+    db.commit()
+    return RedirectResponse(f"/tests/{test.id}", status_code=303)
+
+
+@router.post("/tests/{test_id}/links/{link_id}/toggle")
+def toggle_invite_link(
+    test_id: int,
+    link_id: int,
+    current_user: User = Depends(require_psychologist_or_admin),
+    db: Session = Depends(get_db),
+) -> object:
+    test = db.scalar(select(Test).where(Test.id == test_id))
+    if not test:
+        raise HTTPException(status_code=404, detail="Test not found")
+    _ensure_test_access(test, current_user)
+
+    link = db.scalar(
+        select(InviteLink).where(InviteLink.id == link_id, InviteLink.test_id == test_id)
+    )
+    if not link:
+        raise HTTPException(status_code=404, detail="Invite link not found")
+
+    link.is_active = not link.is_active
+    db.commit()
+    return RedirectResponse(f"/tests/{test.id}", status_code=303)
 
 
 @router.get("/tests/{test_id}/submissions.json")
@@ -292,6 +396,7 @@ def submissions_json(
             "submitted_at": sub.submitted_at.isoformat(),
             "score": (sub.metrics_json or {}).get("total_score"),
             "completion_percent": (sub.metrics_json or {}).get("completion_percent"),
+            "invite_label": _submission_invite_label(sub),
         }
         for sub in sorted(test.submissions, key=lambda item: item.submitted_at, reverse=True)
     ]

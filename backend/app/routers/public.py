@@ -4,14 +4,14 @@ from io import BytesIO
 
 import markdown
 import qrcode
-from fastapi import APIRouter, Depends, Form, HTTPException, Request
+from fastapi import APIRouter, Depends, HTTPException, Request
 from fastapi.responses import HTMLResponse, RedirectResponse, Response
 from sqlalchemy import select
 from sqlalchemy.orm import Session, selectinload
 
 from app.config import settings
 from app.db import get_db
-from app.models import Answer, QuestionType, Submission, Test, TestSection, User
+from app.models import Answer, InviteLink, QuestionType, Submission, Test, TestSection, User
 from app.services.reports import build_docx_report, build_report_context, render_html_report
 from app.services.scoring import calculate_metrics
 from app.web import templates
@@ -23,19 +23,31 @@ def _is_empty(value: object) -> bool:
     return value is None or value == "" or (isinstance(value, list) and len(value) == 0)
 
 
-def _get_test_by_token(token: str, db: Session) -> Test:
-    test = db.scalar(
+def _load_test_for_client(test_id: int, db: Session) -> Test | None:
+    return db.scalar(
         select(Test)
-        .where(Test.share_token == token)
+        .where(Test.id == test_id)
         .options(
             selectinload(Test.psychologist),
             selectinload(Test.sections).selectinload(TestSection.questions),
             selectinload(Test.formulas),
         )
     )
+
+
+def _get_test_by_token(token: str, db: Session) -> tuple[Test, InviteLink | None]:
+    invite_link = db.scalar(
+        select(InviteLink).where(InviteLink.token == token, InviteLink.is_active.is_(True))
+    )
+    if invite_link:
+        test = _load_test_for_client(invite_link.test_id, db)
+    else:
+        test_id = db.scalar(select(Test.id).where(Test.share_token == token))
+        test = _load_test_for_client(test_id, db) if test_id else None
+
     if not test:
         raise HTTPException(status_code=404, detail="Тест не найден")
-    return test
+    return test, invite_link
 
 
 @router.get("/public/psychologists/{psychologist_id}")
@@ -80,7 +92,7 @@ def client_test_page(
     request: Request,
     db: Session = Depends(get_db),
 ) -> object:
-    test = _get_test_by_token(token, db)
+    test, invite_link = _get_test_by_token(token, db)
     return templates.TemplateResponse(
         "client_test.html",
         {
@@ -88,6 +100,7 @@ def client_test_page(
             "title": test.title,
             "test": test,
             "token": token,
+            "invite_link": invite_link,
         },
     )
 
@@ -98,7 +111,7 @@ async def submit_client_test(
     request: Request,
     db: Session = Depends(get_db),
 ) -> object:
-    test = _get_test_by_token(token, db)
+    test, invite_link = _get_test_by_token(token, db)
     form = await request.form()
 
     client_full_name = str(form.get("client_full_name", "")).strip()
@@ -136,12 +149,21 @@ async def submit_client_test(
             answer_map[question.id] = value
 
     metrics_result = calculate_metrics(test, answer_map)
+
+    client_extra: dict[str, object] = {}
+    if client_age:
+        client_extra["age"] = client_age
+    if invite_link:
+        client_extra["invite_label"] = invite_link.label
+        client_extra["invite_token"] = invite_link.token
+        client_extra["invite_link_id"] = invite_link.id
+
     submission = Submission(
         test_id=test.id,
         client_full_name=client_full_name,
         client_email=client_email or None,
         client_phone=client_phone or None,
-        client_extra_json={"age": client_age} if client_age else None,
+        client_extra_json=client_extra or None,
         score=metrics_result.total_score,
         metrics_json=metrics_result.as_metrics(),
     )
@@ -170,8 +192,10 @@ def client_done_page(
     request: Request,
     db: Session = Depends(get_db),
 ) -> object:
-    test = _get_test_by_token(token, db)
-    submission = db.scalar(select(Submission).where(Submission.id == submission_id, Submission.test_id == test.id))
+    test, _invite_link = _get_test_by_token(token, db)
+    submission = db.scalar(
+        select(Submission).where(Submission.id == submission_id, Submission.test_id == test.id)
+    )
     if not submission:
         raise HTTPException(status_code=404, detail="Результат не найден")
     return templates.TemplateResponse(
@@ -192,7 +216,7 @@ def client_report_html(
     submission_id: int,
     db: Session = Depends(get_db),
 ) -> HTMLResponse:
-    test = _get_test_by_token(token, db)
+    test, _invite_link = _get_test_by_token(token, db)
     if not test.allow_client_report:
         raise HTTPException(status_code=403, detail="Клиентский отчёт отключён")
     submission = db.scalar(
@@ -218,7 +242,7 @@ def client_report_docx(
     submission_id: int,
     db: Session = Depends(get_db),
 ) -> Response:
-    test = _get_test_by_token(token, db)
+    test, _invite_link = _get_test_by_token(token, db)
     if not test.allow_client_report:
         raise HTTPException(status_code=403, detail="Клиентский отчёт отключён")
     submission = db.scalar(
