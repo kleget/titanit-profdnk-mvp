@@ -14,8 +14,8 @@ from app.services.seed import seed_initial_data
 
 def create_app() -> FastAPI:
     app = FastAPI(
-        title="Profdnk MVP",
-        description="MVP платформы ПрофДНК для хакатона ТИТАНИТ",
+        title="ПрофДНК API",
+        description="Минимальная версия платформы ПрофДНК для хакатона ТИТАНИТ",
         version="0.1.0",
     )
     app.add_middleware(SessionMiddleware, secret_key=settings.app_secret_key)
@@ -40,4 +40,3 @@ def create_app() -> FastAPI:
 
 
 app = create_app()
-

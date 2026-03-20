@@ -34,7 +34,7 @@ UPLOAD_DIR.mkdir(parents=True, exist_ok=True)
 
 
 def _slugify(value: str) -> str:
-    cleaned = re.sub(r"[^a-zA-Z0-9Ð°-ÑÐ-Ð¯_-]+", "_", value)
+    cleaned = re.sub(r"[^a-zA-Z0-9а-яА-ЯёЁ_-]+", "_", value)
     return cleaned.strip("_")[:50] or "report"
 
 
@@ -119,7 +119,7 @@ def dashboard(
         "dashboard.html",
         {
             "request": request,
-            "title": "Ð›Ð¸Ñ‡Ð½Ñ‹Ð¹ ÐºÐ°Ð±Ð¸Ð½ÐµÑ‚",
+            "title": "Личный кабинет",
             "user": current_user,
             "tests_count": tests_count,
             "submissions_count": submissions_count,
@@ -178,7 +178,7 @@ def tests_page(
         "tests.html",
         {
             "request": request,
-            "title": "ÐœÐ¾Ð¸ Ð¾Ð¿Ñ€Ð¾ÑÐ½Ð¸ÐºÐ¸",
+            "title": "Мои опросники",
             "user": current_user,
             "tests": tests,
             "base_url": settings.base_url,
@@ -197,7 +197,7 @@ def new_test_page(
         "test_builder.html",
         {
             "request": request,
-            "title": "ÐšÐ¾Ð½ÑÑ‚Ñ€ÑƒÐºÑ‚Ð¾Ñ€ Ð¼ÐµÑ‚Ð¾Ð´Ð¸Ðº",
+            "title": "Конструктор методик",
             "user": current_user,
         },
     )
@@ -313,7 +313,7 @@ def test_detail(
         "test_detail.html",
         {
             "request": request,
-            "title": f"Ð¢ÐµÑÑ‚: {test.title}",
+            "title": f"Тест: {test.title}",
             "user": current_user,
             "test": test,
             "submissions": submissions,
