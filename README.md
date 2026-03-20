@@ -104,6 +104,7 @@ docs/
 - ÐºÐ»Ð¾Ð½Ð¸Ñ€Ð¾Ð²Ð°Ð½Ð¸Ðµ Ñ‚ÐµÑÑ‚Ð¾Ð², Ñ‚Ñ‘Ð¼Ð½Ð°Ñ/ÑÐ²ÐµÑ‚Ð»Ð°Ñ Ñ‚ÐµÐ¼Ð°
 
 Ð Ð°Ð±Ð¾Ñ‡Ð¸Ð¹ Ñ‚Ñ€ÐµÐºÐµÑ€ Ð·Ð°Ð´Ð°Ñ‡ Ð¸ Ð¿Ñ€Ð¾Ð³Ñ€ÐµÑÑÐ°: [docs/TODO.md](docs/TODO.md)
+Progress and bonus log for jury: [docs/PROGRESS.md](docs/PROGRESS.md)
 
 ## ÐŸÑ€Ð¾Ð²ÐµÑ€ÐºÐ°, ÐºÐ¾Ñ‚Ð¾Ñ€ÑƒÑŽ ÑƒÐ¶Ðµ Ð¿Ñ€Ð¾ÑˆÑ‘Ð» Ð¿Ñ€Ð¾ÐµÐºÑ‚
 - `python -m compileall backend/app`

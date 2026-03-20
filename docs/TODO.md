@@ -6,6 +6,7 @@ Last update: 2026-03-21
 - Rule: only mark `[x]` when feature is demo-ready and tested manually.
 - Rule: every dev session starts from first unchecked task in `P0`.
 - Rule: if task is half-done, keep `[ ]` and add short note in `Notes`.
+- Rule: after each closed task, add an entry to `docs/PROGRESS.md` with commit hash and `BONUS` tag (if applicable).
 - Goal: when all `P0` + `P1` are closed, project is "final demo grade".
 
 ## P0: Mandatory case coverage (must be 100%)
