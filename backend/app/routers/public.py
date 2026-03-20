@@ -30,6 +30,7 @@ def _get_test_by_token(token: str, db: Session) -> Test:
         .options(
             selectinload(Test.psychologist),
             selectinload(Test.sections).selectinload(TestSection.questions),
+            selectinload(Test.formulas),
         )
     )
     if not test:

@@ -59,7 +59,7 @@ Last update: 2026-03-21
 - [x] Question type: datetime.
 - [x] Question type: rating.
 - [x] Section grouping.
-- [ ] Advanced custom formulas editor for derived metrics.
+- [x] Advanced custom formulas editor for derived metrics.
 
 ### Reports
 - [x] On-demand HTML report generation.
@@ -68,7 +68,7 @@ Last update: 2026-03-21
 - [x] Two templates: client and psychologist.
 - [x] Report includes answers.
 - [x] Report includes computed metrics.
-- [ ] Report includes charts/visual profile.
+- [x] Report includes charts/visual profile.
 
 ### Delivery requirements
 - [x] GitHub repository exists.
@@ -120,12 +120,11 @@ Last update: 2026-03-21
 - [ ] Multi-psychologist workspace isolation and permissions hardening.
 
 ## Current score
-- P0 completion: 52 / 56.
+- P0 completion: 55 / 56.
 - P1 completion: 0 / 16.
 - P2 completion: 0 / 7.
-- Global completion: 52 / 79.
+- Global completion: 55 / 79.
 
 ## Notes
-- P0 blockers now: custom formulas editor, charts in reports, public VPS URL.
+- P0 blockers now: public VPS URL in README.
 - Fastest path to jury impact: close P0 first, then 3-4 tasks from P1 UX + Tests.
-

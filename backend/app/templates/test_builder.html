@@ -6,7 +6,7 @@
     <form method="post" action="/tests/new/manual" class="form-grid" id="manual-builder">
       <label>
         Название теста
-        <input name="title" required placeholder="Например: ПрофДНК v1">
+        <input name="title" required placeholder="Например: ПрофДНК v2">
       </label>
       <label>
         Описание
@@ -19,9 +19,10 @@
           <option value="false">Не показывать клиенту</option>
         </select>
       </label>
+
       <fieldset>
         <legend>Обязательные поля клиента</legend>
-        <label><input type="checkbox" checked disabled> full_name (обязательно всегда)</label>
+        <label><input type="checkbox" checked disabled> full_name (всегда обязательно)</label>
         <label><input type="checkbox" name="required_client_fields" value="email"> email</label>
         <label><input type="checkbox" name="required_client_fields" value="phone"> phone</label>
         <label><input type="checkbox" name="required_client_fields" value="age"> age</label>
@@ -47,13 +48,28 @@
         </div>
         <div id="question-list"></div>
       </div>
+
+      <div class="subpanel">
+        <div class="panel-head">
+          <h3>Редактор формул метрик</h3>
+          <button type="button" id="add-metric-formula" class="btn small">+ Формула</button>
+        </div>
+        <p class="muted">
+          Переменные: ключи вопросов + базовые метрики:
+          <code>total_score</code>, <code>score_percent</code>, <code>completion_percent</code>,
+          <code>answered_count</code>, <code>total_questions</code>.
+          Функции: <code>min</code>, <code>max</code>, <code>abs</code>, <code>round</code>.
+        </p>
+        <div id="metric-formula-list"></div>
+      </div>
+
       <button class="btn" type="submit">Создать тест</button>
     </form>
   </article>
 
   <article class="panel">
     <h2>Импорт JSON</h2>
-    <p class="muted">Можно быстро импортировать конфигурацию методики в формате JSON.</p>
+    <p class="muted">Можно быстро импортировать методику вместе с формулами.</p>
     <form method="post" action="/tests/new/import" class="form-grid">
       <label>
         Название (опционально, если есть в JSON)
@@ -79,19 +95,38 @@
       </fieldset>
       <label>
         JSON конфиг
-        <textarea name="config_json" rows="20" required>{
+        <textarea name="config_json" rows="24" required>{
   "title": "Импортируемый тест",
   "description": "Пример структуры",
   "required_client_fields": ["full_name", "email"],
+  "formula_metrics": [
+    {
+      "key": "adaptability_index",
+      "label": "Индекс адаптивности",
+      "expression": "round((digital_skill + stress_level) / 2, 2)",
+      "description": "Средняя оценка цифровых навыков и устойчивости к нагрузке"
+    }
+  ],
   "sections": [
     {
       "title": "Секция 1",
       "questions": [
         {
-          "key": "motivation",
-          "text": "Что мотивирует вас в карьере?",
-          "question_type": "textarea",
+          "key": "digital_skill",
+          "text": "Оцените цифровые навыки (1-5)",
+          "question_type": "rating",
           "required": true,
+          "min_value": 1,
+          "max_value": 5,
+          "weight": 1
+        },
+        {
+          "key": "stress_level",
+          "text": "Оцените устойчивость к нагрузке (1-10)",
+          "question_type": "slider",
+          "required": true,
+          "min_value": 1,
+          "max_value": 10,
           "weight": 1
         }
       ]

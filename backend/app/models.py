@@ -94,6 +94,11 @@ class Test(Base):
     submissions: Mapped[list[Submission]] = relationship(
         back_populates="test", cascade="all, delete-orphan"
     )
+    formulas: Mapped[list[MetricFormula]] = relationship(
+        back_populates="test",
+        cascade="all, delete-orphan",
+        order_by="MetricFormula.position",
+    )
 
 
 class TestSection(Base):
@@ -184,3 +189,21 @@ class Answer(Base):
 
     submission: Mapped[Submission] = relationship(back_populates="answers")
     question: Mapped[Question] = relationship(back_populates="answers")
+
+
+class MetricFormula(Base):
+    __tablename__ = "metric_formulas"
+    __table_args__ = (UniqueConstraint("test_id", "key", name="uq_metric_formula_key_per_test"),)
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    test_id: Mapped[int] = mapped_column(ForeignKey("tests.id"), nullable=False, index=True)
+    key: Mapped[str] = mapped_column(String(128), nullable=False)
+    label: Mapped[str] = mapped_column(String(255), nullable=False)
+    expression: Mapped[str] = mapped_column(Text, nullable=False)
+    description: Mapped[str] = mapped_column(Text, default="", nullable=False)
+    position: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), default=utcnow, nullable=False
+    )
+
+    test: Mapped[Test] = relationship(back_populates="formulas")

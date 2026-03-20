@@ -12,7 +12,8 @@
 - `routers/public.py`: публичная визитка, клиентское прохождение
 - `routers/api.py`: health endpoint
 - `services/tests.py`: сборка теста из UI/JSON, экспорт
-- `services/scoring.py`: расчёт метрик
+- `services/scoring.py`: расчёт базовых и производных метрик
+- `services/formulas.py`: безопасный вычислитель формул (AST sandbox)
 - `services/reports.py`: HTML/DOCX отчёты
 - `services/seed.py`: первичное наполнение БД
 
@@ -49,4 +50,3 @@
 - Ввести Alembic и версионирование схемы.
 - Добавить background tasks и кэш для тяжёлых отчётов.
 - Внедрить объектное хранилище для медиа и CDN.
-

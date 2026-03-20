@@ -1,4 +1,4 @@
-from __future__ import annotations
+﻿from __future__ import annotations
 
 import re
 import secrets
@@ -7,7 +7,7 @@ from collections import OrderedDict
 from fastapi import HTTPException, status
 from sqlalchemy.orm import Session
 
-from app.models import Question, QuestionType, Test, TestSection
+from app.models import MetricFormula, Question, QuestionType, Test, TestSection
 
 
 def normalize_key(source: str, fallback: str) -> str:
@@ -48,6 +48,7 @@ def create_test_from_payload(
     allow_client_report: bool,
     required_client_fields: list[str],
     sections_payload: list[dict],
+    formulas_payload: list[dict] | None = None,
 ) -> Test:
     if not title.strip():
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Title is required")
@@ -101,6 +102,34 @@ def create_test_from_payload(
             )
             db.add(question)
 
+    used_formula_keys: set[str] = set()
+    for formula_pos, formula in enumerate(formulas_payload or [], start=1):
+        key = normalize_key(str(formula.get("key") or ""), f"metric_{formula_pos}")
+        if key in used_formula_keys:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=f"Duplicate formula key: {key}",
+            )
+        used_formula_keys.add(key)
+        label = str(formula.get("label") or "").strip() or key
+        expression = str(formula.get("expression") or "").strip()
+        description = str(formula.get("description") or "").strip()
+        if not expression:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=f"Formula expression is required for {label}",
+            )
+        db.add(
+            MetricFormula(
+                test_id=test.id,
+                key=key,
+                label=label,
+                expression=expression,
+                description=description,
+                position=formula_pos,
+            )
+        )
+
     db.commit()
     db.refresh(test)
     return test
@@ -132,7 +161,60 @@ def export_test_config(test: Test) -> dict:
         "allow_client_report": test.allow_client_report,
         "required_client_fields": test.required_client_fields,
         "sections": sections,
+        "formula_metrics": [
+            {
+                "key": formula.key,
+                "label": formula.label,
+                "expression": formula.expression,
+                "description": formula.description,
+                "position": formula.position,
+            }
+            for formula in test.formulas
+        ],
     }
+
+
+def formulas_from_flat_form(
+    metric_keys: list[str],
+    metric_labels: list[str],
+    metric_expressions: list[str],
+    metric_descriptions: list[str],
+) -> list[dict]:
+    lengths = {
+        len(metric_keys),
+        len(metric_labels),
+        len(metric_expressions),
+        len(metric_descriptions),
+    }
+    if len(lengths) != 1:
+        raise HTTPException(status_code=400, detail="Invalid formula payload")
+
+    formulas: list[dict] = []
+    used_keys: set[str] = set()
+    for idx, raw_expression in enumerate(metric_expressions):
+        expression = raw_expression.strip()
+        label = metric_labels[idx].strip()
+        input_key = metric_keys[idx].strip()
+        description = metric_descriptions[idx].strip()
+
+        if not expression and not label and not input_key and not description:
+            continue
+        if not expression:
+            raise HTTPException(status_code=400, detail=f"Formula expression is required in row {idx+1}")
+
+        key = normalize_key(input_key or label, f"metric_{idx+1}")
+        if key in used_keys:
+            raise HTTPException(status_code=400, detail=f"Duplicate formula key: {key}")
+        used_keys.add(key)
+        formulas.append(
+            {
+                "key": key,
+                "label": label or key,
+                "expression": expression,
+                "description": description,
+            }
+        )
+    return formulas
 
 
 def sections_from_flat_form(
@@ -169,7 +251,7 @@ def sections_from_flat_form(
         text = question_texts[idx].strip()
         if not text:
             continue
-        section_title = question_section_titles[idx].strip() or "Общий раздел"
+        section_title = question_section_titles[idx].strip() or "General section"
         unique_sections.setdefault(section_title, [])
         q_type = question_types[idx].strip()
         required = question_required[idx].strip().lower() in {"true", "1", "yes"}
@@ -206,4 +288,5 @@ def sections_from_flat_form(
         if questions:
             result.append({"title": title, "questions": questions})
     return result
+
 

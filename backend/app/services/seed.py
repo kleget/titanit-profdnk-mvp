@@ -6,7 +6,7 @@ from datetime import datetime, timedelta, timezone
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from app.models import Question, QuestionType, Test, TestSection, User, UserRole
+from app.models import MetricFormula, Question, QuestionType, Test, TestSection, User, UserRole
 from app.security import hash_password
 
 
@@ -169,5 +169,32 @@ def seed_initial_data(db: Session) -> None:
         ),
     ]
     db.add_all(questions)
-    db.commit()
 
+    formulas = [
+        MetricFormula(
+            test_id=test.id,
+            key="adaptability_index",
+            label="Индекс адаптивности",
+            expression="round((digital_skill + stress_level) / 2, 2)",
+            description="Средняя оценка цифровых навыков и устойчивости к нагрузке.",
+            position=1,
+        ),
+        MetricFormula(
+            test_id=test.id,
+            key="remote_readiness",
+            label="Готовность к удалёнке",
+            expression="ready_remote * 100",
+            description="100, если клиент готов к удаленной работе.",
+            position=2,
+        ),
+        MetricFormula(
+            test_id=test.id,
+            key="career_energy",
+            label="Карьерная энергия",
+            expression="round((experience_years + stress_level + digital_skill) / 3, 2)",
+            description="Сводная метрика опыта и устойчивости к нагрузке.",
+            position=3,
+        ),
+    ]
+    db.add_all(formulas)
+    db.commit()

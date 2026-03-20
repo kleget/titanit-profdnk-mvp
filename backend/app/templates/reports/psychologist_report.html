@@ -5,13 +5,24 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>{{ title }}</title>
   <style>
-    body { font-family: "Segoe UI", Arial, sans-serif; margin: 24px; color: #16181d; }
+    :root { --ink: #16181d; --muted: #5c6574; --line: #e3e7ee; --bg: #f6f8fb; --accent: #6be13f; --accent2: #38bdf8; }
+    body { font-family: "Segoe UI", Arial, sans-serif; margin: 24px; color: var(--ink); }
     h1, h2, h3 { margin: 0 0 12px; }
-    .muted { color: #5c6574; }
-    .panel { border: 1px solid #e3e7ee; border-radius: 12px; padding: 16px; margin: 12px 0; }
+    .muted { color: var(--muted); }
+    .panel { border: 1px solid var(--line); border-radius: 12px; padding: 16px; margin: 12px 0; }
+    .panel-soft { background: var(--bg); }
     table { width: 100%; border-collapse: collapse; margin-top: 10px; }
-    th, td { border: 1px solid #e3e7ee; padding: 8px; text-align: left; vertical-align: top; }
-    th { background: #f6f8fb; }
+    th, td { border: 1px solid var(--line); padding: 8px; text-align: left; vertical-align: top; }
+    th { background: var(--bg); }
+    .metric-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px; }
+    .metric-card { border: 1px solid var(--line); border-radius: 10px; padding: 10px; background: #fff; }
+    .metric-card strong { font-size: 20px; display: block; }
+    .chart-grid { display: grid; gap: 10px; }
+    .chart-row { display: grid; gap: 6px; }
+    .chart-head { display: flex; justify-content: space-between; font-size: 14px; }
+    .bar { height: 12px; border-radius: 999px; background: #dfe7f0; overflow: hidden; }
+    .bar span { display: block; height: 100%; background: linear-gradient(90deg, var(--accent2), var(--accent)); }
+    .formula-table td code { font-size: 12px; }
   </style>
 </head>
 <body>
@@ -25,12 +36,73 @@
     <p><strong>Телефон:</strong> {{ client_phone }}</p>
   </div>
 
-  <div class="panel">
+  <div class="panel panel-soft">
     <h2>Метрики прохождения</h2>
-    <p>Итоговый балл: <strong>{{ metrics.total_score }}</strong> из {{ metrics.max_score }}</p>
-    <p>Процент от максимума: <strong>{{ metrics.score_percent }}%</strong></p>
-    <p>Заполнение теста: <strong>{{ metrics.completion_percent }}%</strong></p>
+    <div class="metric-grid">
+      <div class="metric-card">
+        <span class="muted">Итоговый балл</span>
+        <strong>{{ metrics.total_score }}</strong>
+        <span class="muted">из {{ metrics.max_score }}</span>
+      </div>
+      <div class="metric-card">
+        <span class="muted">Процент от максимума</span>
+        <strong>{{ metrics.score_percent }}%</strong>
+      </div>
+      <div class="metric-card">
+        <span class="muted">Заполнение теста</span>
+        <strong>{{ metrics.completion_percent }}%</strong>
+      </div>
+    </div>
   </div>
+
+  <div class="panel">
+    <h2>Визуализация метрик</h2>
+    <div class="chart-grid">
+      {% for item in chart_items %}
+        <div class="chart-row">
+          <div class="chart-head">
+            <span>{{ item.label }}</span>
+            <strong>{{ item.value }}</strong>
+          </div>
+          <div class="bar">
+            <span style="width: {{ item.percent }}%;"></span>
+          </div>
+        </div>
+      {% endfor %}
+    </div>
+  </div>
+
+  {% if derived_metrics %}
+    <div class="panel">
+      <h2>Производные метрики и формулы</h2>
+      <table class="formula-table">
+        <thead>
+          <tr>
+            <th>Метрика</th>
+            <th>Значение</th>
+            <th>Формула</th>
+            <th>Описание</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for metric in derived_metrics %}
+            <tr>
+              <td>{{ metric.label }}</td>
+              <td>
+                {% if metric.status == "ok" %}
+                  {{ metric.value }}
+                {% else %}
+                  Ошибка
+                {% endif %}
+              </td>
+              <td><code>{{ metric.expression }}</code></td>
+              <td>{{ metric.description or "-" }}</td>
+            </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  {% endif %}
 
   <div class="panel">
     <h2>Ответы по методике</h2>

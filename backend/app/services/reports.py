@@ -33,6 +33,53 @@ def _format_answer(value: object, question_type: QuestionType) -> str:
     return str(value)
 
 
+def _safe_float(value: object) -> float | None:
+    if value is None:
+        return None
+    try:
+        return float(value)
+    except (TypeError, ValueError):
+        return None
+
+
+def _build_chart_items(metrics: dict, derived_metrics: list[dict]) -> list[dict]:
+    chart_items: list[dict] = []
+
+    completion_percent = _safe_float(metrics.get("completion_percent")) or 0.0
+    score_percent = _safe_float(metrics.get("score_percent")) or 0.0
+    chart_items.append(
+        {
+            "label": "Заполнение теста",
+            "value": round(completion_percent, 2),
+            "percent": max(0.0, min(100.0, completion_percent)),
+        }
+    )
+    chart_items.append(
+        {
+            "label": "Процент от максимума",
+            "value": round(score_percent, 2),
+            "percent": max(0.0, min(100.0, score_percent)),
+        }
+    )
+
+    ok_derived = [
+        metric for metric in derived_metrics if metric.get("status") == "ok" and metric.get("value") is not None
+    ]
+    if ok_derived:
+        max_abs = max(abs(float(metric["value"])) for metric in ok_derived)
+        scale = max(1.0, max_abs)
+        for metric in ok_derived:
+            numeric = float(metric["value"])
+            chart_items.append(
+                {
+                    "label": metric.get("label") or metric.get("key"),
+                    "value": round(numeric, 2),
+                    "percent": max(0.0, min(100.0, (abs(numeric) / scale) * 100)),
+                }
+            )
+    return chart_items
+
+
 def build_report_context(
     test: Test,
     submission: Submission,
@@ -54,6 +101,7 @@ def build_report_context(
             )
 
     metrics = submission.metrics_json or {}
+    derived_metrics = metrics.get("derived_metrics") or []
     title = (
         "Клиентский отчёт"
         if report_kind == "client"
@@ -71,6 +119,8 @@ def build_report_context(
         "client_phone": submission.client_phone or "-",
         "submitted_at": submitted_local,
         "metrics": metrics,
+        "derived_metrics": derived_metrics,
+        "chart_items": _build_chart_items(metrics, derived_metrics),
         "answers": rows,
     }
 
@@ -106,6 +156,17 @@ def build_docx_report(context: dict, report_kind: ReportKind) -> BytesIO:
     doc.add_paragraph(f"Заполнено: {metrics.get('completion_percent', 0)}%")
     doc.add_paragraph(f"Процент от максимума: {metrics.get('score_percent', 0)}%")
 
+    derived_metrics = context.get("derived_metrics", [])
+    if derived_metrics:
+        doc.add_heading("Производные метрики", level=1)
+        for metric in derived_metrics:
+            label = metric.get("label") or metric.get("key")
+            value = metric.get("value")
+            if metric.get("status") == "error":
+                doc.add_paragraph(f"{label}: ошибка расчёта ({metric.get('error', 'unknown')})")
+                continue
+            doc.add_paragraph(f"{label}: {value}")
+
     doc.add_heading("Ответы", level=1)
     for row in context["answers"]:
         doc.add_paragraph(f"[{row.section_title}] {row.question_text}", style="List Bullet")
@@ -115,4 +176,3 @@ def build_docx_report(context: dict, report_kind: ReportKind) -> BytesIO:
     doc.save(buffer)
     buffer.seek(0)
     return buffer
-

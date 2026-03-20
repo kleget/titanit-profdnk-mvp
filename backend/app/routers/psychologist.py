@@ -17,7 +17,12 @@ from app.dependencies import get_optional_user, require_psychologist_or_admin
 from app.models import Answer, Submission, Test, TestSection, User, UserRole
 from app.services.reports import build_docx_report, build_report_context, render_html_report
 from app.services.scoring import calculate_metrics
-from app.services.tests import create_test_from_payload, export_test_config, sections_from_flat_form
+from app.services.tests import (
+    create_test_from_payload,
+    export_test_config,
+    formulas_from_flat_form,
+    sections_from_flat_form,
+)
 from app.web import templates
 
 router = APIRouter(tags=["psychologist"])
@@ -178,6 +183,12 @@ async def create_test_manual(
         question_weight=form.getlist("q_weight[]"),
         question_section_titles=form.getlist("q_section[]"),
     )
+    formulas = formulas_from_flat_form(
+        metric_keys=form.getlist("metric_key[]"),
+        metric_labels=form.getlist("metric_label[]"),
+        metric_expressions=form.getlist("metric_expression[]"),
+        metric_descriptions=form.getlist("metric_description[]"),
+    )
     test = create_test_from_payload(
         db=db,
         psychologist_id=current_user.id,
@@ -186,6 +197,7 @@ async def create_test_manual(
         allow_client_report=allow_client_report,
         required_client_fields=required_client_fields,
         sections_payload=sections,
+        formulas_payload=formulas,
     )
     return RedirectResponse(f"/tests/{test.id}", status_code=303)
 
@@ -209,6 +221,9 @@ def create_test_import(
     sections = parsed.get("sections")
     if not isinstance(sections, list):
         raise HTTPException(status_code=400, detail="JSON must include sections[]")
+    formulas = parsed.get("formula_metrics") or parsed.get("metric_formulas") or []
+    if not isinstance(formulas, list):
+        raise HTTPException(status_code=400, detail="JSON formula_metrics must be an array")
     test = create_test_from_payload(
         db=db,
         psychologist_id=current_user.id,
@@ -219,6 +234,7 @@ def create_test_import(
         or parsed.get("required_client_fields")
         or ["full_name"],
         sections_payload=sections,
+        formulas_payload=formulas,
     )
     return RedirectResponse(f"/tests/{test.id}", status_code=303)
 
@@ -236,6 +252,7 @@ def test_detail(
         .options(
             selectinload(Test.psychologist),
             selectinload(Test.sections).selectinload(TestSection.questions),
+            selectinload(Test.formulas),
             selectinload(Test.submissions).selectinload(Submission.answers),
         )
     )
@@ -290,7 +307,10 @@ def export_test(
     test = db.scalar(
         select(Test)
         .where(Test.id == test_id)
-        .options(selectinload(Test.sections).selectinload(TestSection.questions))
+        .options(
+            selectinload(Test.sections).selectinload(TestSection.questions),
+            selectinload(Test.formulas),
+        )
     )
     if not test:
         raise HTTPException(status_code=404, detail="Test not found")
