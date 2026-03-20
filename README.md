@@ -160,3 +160,26 @@ docs/
 ### Notes for deployment
 - `invite_links` is a new table and is created automatically on app startup via `Base.metadata.create_all(...)`.
 - No schema change was made to `submissions`; invite metadata is stored in existing `client_extra_json`.
+
+## New in this iteration: responsive UI + feature list page
+
+### UI/UX changes
+- Reworked responsive behavior for desktop and mobile:
+  - adaptive top navigation
+  - better panel/form/button stacking on narrow screens
+  - mobile-friendly table mode for key management screens
+  - long values and URLs now wrap instead of breaking layout
+- Added responsive table markup for:
+  - `/admin`
+  - `/tests`
+  - `/tests/{id}`
+
+### Feature list page
+- Added dedicated page: `/features`
+- Purpose: quick overview of platform capabilities for demo and jury.
+- Added navigation link in header and quick access from psychologist dashboard.
+
+### How to verify quickly
+1. Open `/admin` and `/tests/{id}` on desktop: no forced horizontal scrollbar inside split panels.
+2. Open same pages on mobile width (DevTools): rows become card-like blocks with field labels.
+3. Open `/features`: capability list should be visible and readable on both desktop/mobile.

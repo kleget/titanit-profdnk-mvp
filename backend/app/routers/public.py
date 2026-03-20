@@ -50,6 +50,17 @@ def _get_test_by_token(token: str, db: Session) -> tuple[Test, InviteLink | None
     return test, invite_link
 
 
+@router.get("/features")
+def features_page(request: Request) -> object:
+    return templates.TemplateResponse(
+        "features.html",
+        {
+            "request": request,
+            "title": "Возможности платформы",
+        },
+    )
+
+
 @router.get("/public/psychologists/{psychologist_id}")
 def psychologist_business_card(
     psychologist_id: int,

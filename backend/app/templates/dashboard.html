@@ -23,6 +23,11 @@
         <p class="muted">{{ user.email }} · {{ user.phone or "телефон не указан" }}</p>
       </div>
       <div class="card-item">
+        <h3>Возможности платформы</h3>
+        <p class="muted">Сводка текущих функций для демонстрации клиенту и жюри.</p>
+        <a class="btn small ghost" href="/features">Открыть список возможностей</a>
+      </div>
+      <div class="card-item">
         <h3>Публичная визитка</h3>
         <p class="muted">Ссылка для клиентов: <a href="/public/psychologists/{{ user.id }}" target="_blank">открыть</a></p>
         <img class="qr" src="/public/psychologists/{{ user.id }}/qr" alt="QR визитки">
@@ -55,4 +60,3 @@
   </article>
 </section>
 {% endblock %}
-
