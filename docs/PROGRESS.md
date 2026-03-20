@@ -1,41 +1,42 @@
-# ProfDNK Progress & Bonus Log
+# Журнал прогресса и бонусов
 
-Last update: 2026-03-21
+Последнее обновление: 2026-03-21
 
-## Purpose
-- Keep one place with completed work, especially features that go beyond minimum case scope.
-- Help prepare fast jury narrative: "what is done", "what is mandatory", "what is bonus".
+## Назначение
+- Хранить в одном месте, что уже реализовано.
+- Отдельно фиксировать функции сверх минимального ТЗ.
+- Упростить подготовку к защите: что обязательное, что бонус, какой эффект для жюри.
 
-## Update Rule
-- After each completed task, add one short entry to `Recent Entries`.
-- If feature is beyond minimum case scope, mark it as `BONUS`.
-- Always include commit hash for traceability.
+## Правило обновления
+- После каждой закрытой задачи добавлять короткую запись в раздел `Последние записи`.
+- Если функция не обязательна по минимуму ТЗ, помечать тип как `БОНУС`.
+- Всегда указывать хеш коммита для прозрачной трассировки.
 
-## Current Snapshot
+## Снимок состояния
 - P0: 64 / 65
 - P1: 1 / 16
 - P2: 0 / 7
-- Global: 65 / 88
+- Общий прогресс: 65 / 88
 
-## Bonus Track (Beyond Minimum)
-- Access expiry reminders (admin + psychologist, 7/3/1 days) with visual levels.
-- Responsive table/card layout for mobile + layout hardening on desktop.
-- Dedicated `/features` page for product capabilities and demo navigation.
-- Named invite links + campaign grouping in analytics view.
+## Бонусный трек (сверх минимума)
+- Напоминания об окончании доступа (админ + психолог, 7/3/1 день) с уровнями важности.
+- Адаптивная верстка таблиц и форм для мобильных + усиление desktop-раскладки.
+- Отдельная страница `/features` с возможностями продукта для демо.
+- Именованные ссылки кампаний и группировка результатов по источникам.
 
-## Recent Entries
-| Date | Scope | Type | Impact for Jury | Commit |
+## Последние записи
+| Дата | Область | Тип | Польза для жюри | Коммит |
 |---|---|---|---|---|
-| 2026-03-21 | Access expiry reminders for admin + psychologist | BONUS | Shows product maturity and proactive UX, not only raw MVP flow | `b95144b` |
-| 2026-03-21 | Responsive UI for admin/tests/test-detail tables | BONUS | Better real-world usability on desktop/mobile during live demo | `36e6c29` |
-| 2026-03-21 | `/features` page + global navigation link | BONUS | Makes demo story clear and quick for evaluators | `a368f8e` |
-| 2026-03-21 | Named invite links UI + grouped stats + docs | P0 | Closes organizer clarification and improves campaign analytics | `21d5cca` |
-| 2026-03-21 | Invite links backend model + token resolver | P0 | Adds multi-link test distribution and source tracking | `9c76e9b` |
+| 2026-03-21 | Напоминания об окончании доступа (админ + психолог) | БОНУС | Показывает зрелость продукта и проактивный UX, а не только базовый поток | `b95144b` |
+| 2026-03-21 | Адаптивный UI для админки/опросников/деталей теста | БОНУС | Повышает качество демонстрации и реальную применимость на мобильных устройствах | `36e6c29` |
+| 2026-03-21 | Страница `/features` + ссылка в глобальной навигации | БОНУС | Упрощает структуру презентации и восприятие решения | `a368f8e` |
+| 2026-03-21 | UI именованных ссылок + группировка статистики + документация | P0 | Закрывает уточнение организаторов и усиливает аналитику кампаний | `21d5cca` |
+| 2026-03-21 | Бэкенд именованных ссылок + резолвер токенов | P0 | Добавляет мультиссылочную раздачу тестов и учет источника прохождения | `9c76e9b` |
 
-## Jury Pitch Notes
-- Core scenario is complete end-to-end.
-- We additionally delivered practical "productization" layers:
-- access reminders,
-- responsive interface quality,
-- campaign-level invite analytics,
-- explicit capabilities page for clarity.
+## Тезисы для защиты
+- Базовый сквозной сценарий работает полностью от начала до конца.
+- Поверх обязательного минимума добавлены слои продуктовой зрелости:
+- напоминания доступа,
+- адаптивный интерфейс,
+- аналитика по ссылкам кампаний,
+- отдельная страница возможностей для быстрого объяснения решения.

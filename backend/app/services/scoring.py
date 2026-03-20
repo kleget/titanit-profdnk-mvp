@@ -243,7 +243,7 @@ def calculate_metrics(test: Test, answer_map: dict[int, object]) -> ScoringResul
                 total_score += _score_for_number_like(question, answer_value)
                 max_score += question.weight
             else:
-                # Non-numeric questions contribute only to completion.
+                # Нечисловые вопросы влияют только на процент завершения.
                 max_score += 0
 
     completion = 0.0
