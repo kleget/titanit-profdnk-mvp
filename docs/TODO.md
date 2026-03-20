@@ -17,6 +17,17 @@ Last update: 2026-03-21
 - [x] Admin can set access end date.
 - [x] Admin can block/unblock psychologist.
 
+### Organizer clarifications (Q&A 2026-03-21)
+- [x] Psychologist self-registration is disabled; accounts are created by admin only.
+- [x] Access period behaves like manual subscription window (admin sets/extends date).
+- [x] No automatic access renewal without admin action.
+- [ ] Access expiry reminders for admin and psychologist (e.g., 7/3/1 days before expiry).
+- [x] Payment integration is not required.
+- [x] One public test link can be used by multiple clients.
+- [ ] Named invite links/campaign labels for grouping (e.g., "School-234").
+- [ ] Dynamic extra client fields per test (full_name fixed + configurable fields/templates).
+- [ ] Grouped results view by invite-link label/campaign.
+
 ### Psychologist cabinet
 - [x] Upload photo.
 - [x] "About me" field with Markdown support.
@@ -120,11 +131,11 @@ Last update: 2026-03-21
 - [ ] Multi-psychologist workspace isolation and permissions hardening.
 
 ## Current score
-- P0 completion: 55 / 56.
+- P0 completion: 60 / 65.
 - P1 completion: 0 / 16.
 - P2 completion: 0 / 7.
-- Global completion: 55 / 79.
+- Global completion: 60 / 88.
 
 ## Notes
-- P0 blockers now: public VPS URL in README.
+- P0 blockers now: public VPS URL + organizer Q&A clarifications (named links, dynamic fields, reminders).
 - Fastest path to jury impact: close P0 first, then 3-4 tasks from P1 UX + Tests.
