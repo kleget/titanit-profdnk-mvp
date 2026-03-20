@@ -3,6 +3,9 @@
 <section class="grid two-col">
   <article class="panel">
     <h1>Личный кабинет психолога</h1>
+    {% if access_reminder %}
+      <div class="alert {{ access_reminder.level }}">{{ access_reminder.message }}</div>
+    {% endif %}
     <div class="stats">
       <div class="stat">
         <strong>{{ tests_count }}</strong>

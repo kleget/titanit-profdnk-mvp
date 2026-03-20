@@ -15,6 +15,7 @@ from app.config import settings
 from app.db import get_db
 from app.dependencies import get_optional_user, require_psychologist_or_admin
 from app.models import Answer, InviteLink, Submission, Test, TestSection, User, UserRole
+from app.services.access_reminders import build_psychologist_access_reminder
 from app.services.reports import build_docx_report, build_report_context, render_html_report
 from app.services.scoring import calculate_metrics
 from app.services.tests import (
@@ -112,6 +113,7 @@ def dashboard(
         )
         or 0
     )
+    access_reminder = build_psychologist_access_reminder(current_user)
     about_html = markdown.markdown(current_user.about_md or "")
     return templates.TemplateResponse(
         "dashboard.html",
@@ -121,6 +123,7 @@ def dashboard(
             "user": current_user,
             "tests_count": tests_count,
             "submissions_count": submissions_count,
+            "access_reminder": access_reminder,
             "about_html": about_html,
             "base_url": settings.base_url,
         },

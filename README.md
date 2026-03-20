@@ -183,3 +183,18 @@ docs/
 1. Open `/admin` and `/tests/{id}` on desktop: no forced horizontal scrollbar inside split panels.
 2. Open same pages on mobile width (DevTools): rows become card-like blocks with field labels.
 3. Open `/features`: capability list should be visible and readable on both desktop/mobile.
+
+## New in this iteration: access expiry reminders (admin + psychologist)
+
+### What was added
+- Reminder logic for access expiration at `7 / 3 / 1` days before end date.
+- Admin page now shows a dedicated reminder panel with psychologists who are close to expiry.
+- Psychologist dashboard now shows personal warning banner when access is close to expiry.
+- Reminder levels:
+  - `info`: 7 or 3 days left
+  - `warning`: 1 day left
+
+### How to verify quickly
+1. In admin panel, set psychologist `access_until` to +7 days from current date.
+2. Check `/admin`: reminder block should show this psychologist and date.
+3. Log in as this psychologist and open `/dashboard`: personal reminder banner should be visible.

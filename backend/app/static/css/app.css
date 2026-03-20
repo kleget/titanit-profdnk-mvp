@@ -159,6 +159,23 @@ a {
   margin-bottom: 12px;
 }
 
+.alert.info {
+  border-color: rgba(43, 226, 243, 0.45);
+  color: #d7fbff;
+  background: rgba(43, 226, 243, 0.12);
+}
+
+.alert.warning {
+  border-color: rgba(255, 214, 87, 0.5);
+  color: #fff2c4;
+  background: rgba(255, 214, 87, 0.12);
+}
+
+.notice-list {
+  display: grid;
+  gap: 8px;
+}
+
 .form-grid {
   display: grid;
   gap: 12px;

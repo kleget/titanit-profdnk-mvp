@@ -1,5 +1,21 @@
 {% extends "base.html" %}
 {% block content %}
+<section class="panel">
+  <h2>Напоминания по доступу (7 / 3 / 1 дней)</h2>
+  {% if access_reminders %}
+    <div class="notice-list">
+      {% for reminder in access_reminders %}
+        <div class="alert {{ reminder.level }}">
+          <strong>{{ reminder.full_name }}</strong> · {{ reminder.email }}<br>
+          {{ reminder.message }}
+        </div>
+      {% endfor %}
+    </div>
+  {% else %}
+    <p class="muted">Сейчас нет психологов с напоминанием по доступу.</p>
+  {% endif %}
+</section>
+
 <section class="grid two-col">
   <article class="panel">
     <h1>Администрирование психологов</h1>

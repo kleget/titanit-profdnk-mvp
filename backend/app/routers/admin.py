@@ -11,6 +11,7 @@ from app.db import get_db
 from app.dependencies import get_optional_user, require_admin
 from app.models import User, UserRole
 from app.security import hash_password
+from app.services.access_reminders import build_admin_access_expiry_reminders
 from app.web import templates
 
 router = APIRouter(prefix="/admin", tags=["admin"])
@@ -26,6 +27,7 @@ def admin_page(
     psychologists = db.scalars(
         select(User).where(User.role == UserRole.PSYCHOLOGIST).order_by(User.created_at.desc())
     ).all()
+    access_reminders = build_admin_access_expiry_reminders(psychologists)
     return templates.TemplateResponse(
         "admin.html",
         {
@@ -33,6 +35,7 @@ def admin_page(
             "title": "Админ",
             "user": current_user,
             "psychologists": psychologists,
+            "access_reminders": access_reminders,
             "error": None,
         },
     )
@@ -54,6 +57,7 @@ def create_psychologist(
         psychologists = db.scalars(
             select(User).where(User.role == UserRole.PSYCHOLOGIST).order_by(User.created_at.desc())
         ).all()
+        access_reminders = build_admin_access_expiry_reminders(psychologists)
         return templates.TemplateResponse(
             "admin.html",
             {
@@ -61,6 +65,7 @@ def create_psychologist(
                 "title": "Админ",
                 "user": db.get(User, request.session.get("user_id")),
                 "psychologists": psychologists,
+                "access_reminders": access_reminders,
                 "error": "Пользователь с таким email уже существует",
             },
             status_code=400,
@@ -124,4 +129,3 @@ def update_access(
         user.access_until = None
     db.commit()
     return RedirectResponse("/admin", status_code=303)
-

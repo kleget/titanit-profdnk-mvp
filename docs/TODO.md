@@ -21,7 +21,7 @@ Last update: 2026-03-21
 - [x] Psychologist self-registration is disabled; accounts are created by admin only.
 - [x] Access period behaves like manual subscription window (admin sets/extends date).
 - [x] No automatic access renewal without admin action.
-- [ ] Access expiry reminders for admin and psychologist (e.g., 7/3/1 days before expiry).
+- [x] Access expiry reminders for admin and psychologist (e.g., 7/3/1 days before expiry).
 - [x] Payment integration is not required.
 - [x] One public test link can be used by multiple clients.
 - [x] Named invite links/campaign labels for grouping (e.g., "School-234").
@@ -131,11 +131,11 @@ Last update: 2026-03-21
 - [ ] Multi-psychologist workspace isolation and permissions hardening.
 
 ## Current score
-- P0 completion: 63 / 65.
+- P0 completion: 64 / 65.
 - P1 completion: 1 / 16.
 - P2 completion: 0 / 7.
-- Global completion: 64 / 88.
+- Global completion: 65 / 88.
 
 ## Notes
-- P0 blockers now: organizer Q&A clarifications (dynamic fields, reminders).
+- P0 blockers now: organizer Q&A clarifications (dynamic fields).
 - Fastest path to jury impact: close P0 first, then 3-4 tasks from P1 UX + Tests.
