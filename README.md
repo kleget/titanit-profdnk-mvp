@@ -48,6 +48,10 @@ docker compose up -d --build
 - Приложение: `http://localhost:8000`
 - Health: `http://localhost:8000/api/health`
 
+## Публичное демо
+- URL: `https://recallio.tech`
+- Health: `https://recallio.tech/api/health`
+
 ## Локальный запуск (без Docker)
 
 1. Установить зависимости:

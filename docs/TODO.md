@@ -87,7 +87,7 @@ Last update: 2026-03-21
 - [x] Architecture description in docs.
 - [x] At least one seeded test and templates.
 - [x] docker-compose deployment setup.
-- [ ] Public VPS demo URL in README.
+- [x] Public VPS demo URL in README.
 
 ## P1: Quality and "winner-level" polish
 
@@ -131,11 +131,11 @@ Last update: 2026-03-21
 - [ ] Multi-psychologist workspace isolation and permissions hardening.
 
 ## Current score
-- P0 completion: 60 / 65.
+- P0 completion: 61 / 65.
 - P1 completion: 0 / 16.
 - P2 completion: 0 / 7.
-- Global completion: 60 / 88.
+- Global completion: 61 / 88.
 
 ## Notes
-- P0 blockers now: public VPS URL + organizer Q&A clarifications (named links, dynamic fields, reminders).
+- P0 blockers now: organizer Q&A clarifications (named links, dynamic fields, reminders).
 - Fastest path to jury impact: close P0 first, then 3-4 tasks from P1 UX + Tests.
