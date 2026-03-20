@@ -1,0 +1,109 @@
+{% extends "base.html" %}
+{% block content %}
+<section class="grid two-col">
+  <article class="panel">
+    <h1>Конструктор методик (ручной)</h1>
+    <form method="post" action="/tests/new/manual" class="form-grid" id="manual-builder">
+      <label>
+        Название теста
+        <input name="title" required placeholder="Например: ПрофДНК v1">
+      </label>
+      <label>
+        Описание
+        <textarea name="description" rows="4" placeholder="Кратко о методике"></textarea>
+      </label>
+      <label>
+        Клиентский отчёт
+        <select name="allow_client_report">
+          <option value="true">Показывать клиенту</option>
+          <option value="false">Не показывать клиенту</option>
+        </select>
+      </label>
+      <fieldset>
+        <legend>Обязательные поля клиента</legend>
+        <label><input type="checkbox" checked disabled> full_name (обязательно всегда)</label>
+        <label><input type="checkbox" name="required_client_fields" value="email"> email</label>
+        <label><input type="checkbox" name="required_client_fields" value="phone"> phone</label>
+        <label><input type="checkbox" name="required_client_fields" value="age"> age</label>
+      </fieldset>
+
+      <div class="subpanel">
+        <h3>Секции</h3>
+        <div id="sections">
+          <div class="inline-form">
+            <input name="section_titles[]" value="Профиль клиента" required>
+          </div>
+          <div class="inline-form">
+            <input name="section_titles[]" value="Интересы и стиль работы" required>
+          </div>
+        </div>
+        <button type="button" id="add-section" class="btn small ghost">+ Секция</button>
+      </div>
+
+      <div class="subpanel">
+        <div class="panel-head">
+          <h3>Вопросы</h3>
+          <button type="button" id="add-question" class="btn small">+ Вопрос</button>
+        </div>
+        <div id="question-list"></div>
+      </div>
+      <button class="btn" type="submit">Создать тест</button>
+    </form>
+  </article>
+
+  <article class="panel">
+    <h2>Импорт JSON</h2>
+    <p class="muted">Можно быстро импортировать конфигурацию методики в формате JSON.</p>
+    <form method="post" action="/tests/new/import" class="form-grid">
+      <label>
+        Название (опционально, если есть в JSON)
+        <input name="title">
+      </label>
+      <label>
+        Описание (опционально)
+        <textarea name="description" rows="3"></textarea>
+      </label>
+      <label>
+        Клиентский отчёт
+        <select name="allow_client_report">
+          <option value="true">Показывать клиенту</option>
+          <option value="false">Не показывать клиенту</option>
+        </select>
+      </label>
+      <fieldset>
+        <legend>Обязательные поля клиента</legend>
+        <label><input type="checkbox" checked disabled> full_name</label>
+        <label><input type="checkbox" name="required_client_fields" value="email"> email</label>
+        <label><input type="checkbox" name="required_client_fields" value="phone"> phone</label>
+        <label><input type="checkbox" name="required_client_fields" value="age"> age</label>
+      </fieldset>
+      <label>
+        JSON конфиг
+        <textarea name="config_json" rows="20" required>{
+  "title": "Импортируемый тест",
+  "description": "Пример структуры",
+  "required_client_fields": ["full_name", "email"],
+  "sections": [
+    {
+      "title": "Секция 1",
+      "questions": [
+        {
+          "key": "motivation",
+          "text": "Что мотивирует вас в карьере?",
+          "question_type": "textarea",
+          "required": true,
+          "weight": 1
+        }
+      ]
+    }
+  ]
+}</textarea>
+      </label>
+      <button class="btn" type="submit">Импортировать</button>
+    </form>
+  </article>
+</section>
+
+<script src="/static/js/builder.js"></script>
+{% endblock %}
+

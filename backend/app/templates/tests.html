@@ -1,0 +1,61 @@
+{% extends "base.html" %}
+{% block content %}
+<section class="panel">
+  <div class="panel-head">
+    <h1>Мои опросники</h1>
+    {% if user.role.value != "admin" %}
+      <a class="btn" href="/tests/new">Создать тест</a>
+    {% endif %}
+  </div>
+  <div class="table-wrap">
+    <table>
+      <thead>
+        <tr>
+          <th>Название</th>
+          <th>Заполнили</th>
+          <th>Последнее заполнение</th>
+          <th>Доступ</th>
+          <th>Действия</th>
+        </tr>
+      </thead>
+      <tbody>
+      {% for test in tests %}
+        <tr>
+          <td><a href="/tests/{{ test.id }}">{{ test.title }}</a></td>
+          <td>{{ test.submissions | length }}</td>
+          <td>
+            {% if test.submissions %}
+              {{ (test.submissions | sort(attribute='submitted_at', reverse=True) | first).submitted_at.strftime("%Y-%m-%d %H:%M") }}
+            {% else %}
+              -
+            {% endif %}
+          </td>
+          <td>
+            {% if user.role.value == "psychologist" %}
+              До {{ user.access_until.strftime("%Y-%m-%d") if user.access_until else "без срока" }}
+            {% else %}
+              Управляется админом
+            {% endif %}
+          </td>
+          <td>
+            <button class="btn small ghost copy-link" data-link="{{ base_url }}/t/{{ test.share_token }}">Скопировать ссылку</button>
+            <a class="btn small ghost" href="/tests/{{ test.id }}/export.json">Export JSON</a>
+          </td>
+        </tr>
+      {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</section>
+
+<script>
+  document.querySelectorAll(".copy-link").forEach((btn) => {
+    btn.addEventListener("click", async () => {
+      await navigator.clipboard.writeText(btn.dataset.link);
+      btn.textContent = "Ссылка скопирована";
+      setTimeout(() => { btn.textContent = "Скопировать ссылку"; }, 1200);
+    });
+  });
+</script>
+{% endblock %}
+

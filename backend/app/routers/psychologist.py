@@ -1,0 +1,392 @@
+from __future__ import annotations
+
+import json
+import re
+import secrets
+from pathlib import Path
+
+import markdown
+from fastapi import APIRouter, Depends, Form, HTTPException, Request, UploadFile
+from fastapi.responses import HTMLResponse, JSONResponse, RedirectResponse, StreamingResponse
+from sqlalchemy import func, select
+from sqlalchemy.orm import Session, selectinload
+
+from app.config import settings
+from app.db import get_db
+from app.dependencies import get_optional_user, require_psychologist_or_admin
+from app.models import Answer, Submission, Test, TestSection, User, UserRole
+from app.services.reports import build_docx_report, build_report_context, render_html_report
+from app.services.scoring import calculate_metrics
+from app.services.tests import create_test_from_payload, export_test_config, sections_from_flat_form
+from app.web import templates
+
+router = APIRouter(tags=["psychologist"])
+
+
+UPLOAD_DIR = Path(__file__).resolve().parents[1] / "static" / "uploads"
+UPLOAD_DIR.mkdir(parents=True, exist_ok=True)
+
+
+def _slugify(value: str) -> str:
+    cleaned = re.sub(r"[^a-zA-Z0-9а-яА-Я_-]+", "_", value)
+    return cleaned.strip("_")[:50] or "report"
+
+
+def _ensure_test_access(test: Test, user: User) -> None:
+    if user.role == UserRole.ADMIN:
+        return
+    if test.psychologist_id != user.id:
+        raise HTTPException(status_code=404, detail="Test not found")
+
+
+@router.get("/")
+def root_redirect(user: User | None = Depends(get_optional_user)) -> object:
+    if not user:
+        return RedirectResponse("/login", status_code=303)
+    return RedirectResponse("/admin" if user.role == UserRole.ADMIN else "/dashboard", status_code=303)
+
+
+@router.get("/dashboard")
+def dashboard(
+    request: Request,
+    current_user: User = Depends(require_psychologist_or_admin),
+    db: Session = Depends(get_db),
+) -> object:
+    if current_user.role == UserRole.ADMIN:
+        return RedirectResponse("/admin", status_code=303)
+
+    tests_count = db.scalar(select(func.count(Test.id)).where(Test.psychologist_id == current_user.id)) or 0
+    submissions_count = (
+        db.scalar(
+            select(func.count(Submission.id))
+            .join(Test, Submission.test_id == Test.id)
+            .where(Test.psychologist_id == current_user.id)
+        )
+        or 0
+    )
+    about_html = markdown.markdown(current_user.about_md or "")
+    return templates.TemplateResponse(
+        "dashboard.html",
+        {
+            "request": request,
+            "title": "Личный кабинет",
+            "user": current_user,
+            "tests_count": tests_count,
+            "submissions_count": submissions_count,
+            "about_html": about_html,
+            "base_url": settings.base_url,
+        },
+    )
+
+
+@router.post("/profile")
+def update_profile(
+    about_md: str = Form(""),
+    current_user: User = Depends(require_psychologist_or_admin),
+    db: Session = Depends(get_db),
+) -> object:
+    if current_user.role == UserRole.ADMIN:
+        raise HTTPException(status_code=400, detail="Admin profile is not editable here")
+    current_user.about_md = about_md
+    db.commit()
+    return RedirectResponse("/dashboard", status_code=303)
+
+
+@router.post("/profile/photo")
+async def upload_photo(
+    photo: UploadFile,
+    current_user: User = Depends(require_psychologist_or_admin),
+    db: Session = Depends(get_db),
+) -> object:
+    if current_user.role == UserRole.ADMIN:
+        raise HTTPException(status_code=400, detail="Admin photo upload is disabled")
+    if not photo.filename:
+        raise HTTPException(status_code=400, detail="File is empty")
+    suffix = Path(photo.filename).suffix.lower()
+    if suffix not in {".png", ".jpg", ".jpeg", ".webp"}:
+        raise HTTPException(status_code=400, detail="Unsupported file type")
+    file_name = f"{current_user.id}_{secrets.token_hex(6)}{suffix}"
+    file_path = UPLOAD_DIR / file_name
+    file_path.write_bytes(await photo.read())
+    current_user.photo_filename = file_name
+    db.commit()
+    return RedirectResponse("/dashboard", status_code=303)
+
+
+@router.get("/tests")
+def tests_page(
+    request: Request,
+    current_user: User = Depends(require_psychologist_or_admin),
+    db: Session = Depends(get_db),
+) -> object:
+    query = select(Test).order_by(Test.created_at.desc()).options(selectinload(Test.submissions))
+    if current_user.role == UserRole.PSYCHOLOGIST:
+        query = query.where(Test.psychologist_id == current_user.id)
+    tests = db.scalars(query).all()
+    return templates.TemplateResponse(
+        "tests.html",
+        {
+            "request": request,
+            "title": "Мои опросники",
+            "user": current_user,
+            "tests": tests,
+            "base_url": settings.base_url,
+        },
+    )
+
+
+@router.get("/tests/new")
+def new_test_page(
+    request: Request,
+    current_user: User = Depends(require_psychologist_or_admin),
+) -> object:
+    if current_user.role == UserRole.ADMIN:
+        raise HTTPException(status_code=403, detail="Admin cannot create tests")
+    return templates.TemplateResponse(
+        "test_builder.html",
+        {
+            "request": request,
+            "title": "Конструктор методик",
+            "user": current_user,
+        },
+    )
+
+
+@router.post("/tests/new/manual")
+async def create_test_manual(
+    request: Request,
+    current_user: User = Depends(require_psychologist_or_admin),
+    db: Session = Depends(get_db),
+) -> object:
+    if current_user.role == UserRole.ADMIN:
+        raise HTTPException(status_code=403, detail="Admin cannot create tests")
+
+    form = await request.form()
+    title = str(form.get("title", ""))
+    description = str(form.get("description", ""))
+    allow_client_report = str(form.get("allow_client_report", "false")).lower() == "true"
+    required_client_fields = form.getlist("required_client_fields")
+
+    sections = sections_from_flat_form(
+        section_titles=form.getlist("section_titles[]"),
+        question_texts=form.getlist("q_text[]"),
+        question_types=form.getlist("q_type[]"),
+        question_required=form.getlist("q_required[]"),
+        question_options=form.getlist("q_options[]"),
+        question_min=form.getlist("q_min[]"),
+        question_max=form.getlist("q_max[]"),
+        question_weight=form.getlist("q_weight[]"),
+        question_section_titles=form.getlist("q_section[]"),
+    )
+    test = create_test_from_payload(
+        db=db,
+        psychologist_id=current_user.id,
+        title=title,
+        description=description,
+        allow_client_report=allow_client_report,
+        required_client_fields=required_client_fields,
+        sections_payload=sections,
+    )
+    return RedirectResponse(f"/tests/{test.id}", status_code=303)
+
+
+@router.post("/tests/new/import")
+def create_test_import(
+    title: str = Form(""),
+    description: str = Form(""),
+    allow_client_report: str = Form("true"),
+    required_client_fields: list[str] = Form(default=[]),
+    config_json: str = Form(...),
+    current_user: User = Depends(require_psychologist_or_admin),
+    db: Session = Depends(get_db),
+) -> object:
+    if current_user.role == UserRole.ADMIN:
+        raise HTTPException(status_code=403, detail="Admin cannot create tests")
+    try:
+        parsed = json.loads(config_json)
+    except json.JSONDecodeError as exc:
+        raise HTTPException(status_code=400, detail="Invalid JSON config") from exc
+    sections = parsed.get("sections")
+    if not isinstance(sections, list):
+        raise HTTPException(status_code=400, detail="JSON must include sections[]")
+    test = create_test_from_payload(
+        db=db,
+        psychologist_id=current_user.id,
+        title=(title or parsed.get("title") or "").strip(),
+        description=(description or parsed.get("description") or "").strip(),
+        allow_client_report=allow_client_report.lower() == "true",
+        required_client_fields=required_client_fields
+        or parsed.get("required_client_fields")
+        or ["full_name"],
+        sections_payload=sections,
+    )
+    return RedirectResponse(f"/tests/{test.id}", status_code=303)
+
+
+@router.get("/tests/{test_id}")
+def test_detail(
+    test_id: int,
+    request: Request,
+    current_user: User = Depends(require_psychologist_or_admin),
+    db: Session = Depends(get_db),
+) -> object:
+    test = db.scalar(
+        select(Test)
+        .where(Test.id == test_id)
+        .options(
+            selectinload(Test.psychologist),
+            selectinload(Test.sections).selectinload(TestSection.questions),
+            selectinload(Test.submissions).selectinload(Submission.answers),
+        )
+    )
+    if not test:
+        raise HTTPException(status_code=404, detail="Test not found")
+    _ensure_test_access(test, current_user)
+
+    submissions = sorted(test.submissions, key=lambda item: item.submitted_at, reverse=True)
+    return templates.TemplateResponse(
+        "test_detail.html",
+        {
+            "request": request,
+            "title": f"Тест: {test.title}",
+            "user": current_user,
+            "test": test,
+            "submissions": submissions,
+            "base_url": settings.base_url,
+        },
+    )
+
+
+@router.get("/tests/{test_id}/submissions.json")
+def submissions_json(
+    test_id: int,
+    current_user: User = Depends(require_psychologist_or_admin),
+    db: Session = Depends(get_db),
+) -> JSONResponse:
+    test = db.scalar(select(Test).where(Test.id == test_id).options(selectinload(Test.submissions)))
+    if not test:
+        raise HTTPException(status_code=404, detail="Test not found")
+    _ensure_test_access(test, current_user)
+
+    payload = [
+        {
+            "id": sub.id,
+            "client_full_name": sub.client_full_name,
+            "submitted_at": sub.submitted_at.isoformat(),
+            "score": (sub.metrics_json or {}).get("total_score"),
+            "completion_percent": (sub.metrics_json or {}).get("completion_percent"),
+        }
+        for sub in sorted(test.submissions, key=lambda item: item.submitted_at, reverse=True)
+    ]
+    return JSONResponse(payload)
+
+
+@router.get("/tests/{test_id}/export.json")
+def export_test(
+    test_id: int,
+    current_user: User = Depends(require_psychologist_or_admin),
+    db: Session = Depends(get_db),
+) -> JSONResponse:
+    test = db.scalar(
+        select(Test)
+        .where(Test.id == test_id)
+        .options(selectinload(Test.sections).selectinload(TestSection.questions))
+    )
+    if not test:
+        raise HTTPException(status_code=404, detail="Test not found")
+    _ensure_test_access(test, current_user)
+    return JSONResponse(export_test_config(test))
+
+
+@router.get("/reports/{submission_id}/{report_kind}.html", response_class=HTMLResponse)
+def report_html(
+    submission_id: int,
+    report_kind: str,
+    current_user: User = Depends(require_psychologist_or_admin),
+    db: Session = Depends(get_db),
+) -> HTMLResponse:
+    if report_kind not in {"client", "psychologist"}:
+        raise HTTPException(status_code=400, detail="Invalid report type")
+    submission = db.scalar(
+        select(Submission)
+        .where(Submission.id == submission_id)
+        .options(
+            selectinload(Submission.answers).selectinload(Answer.question),
+            selectinload(Submission.test)
+            .selectinload(Test.sections)
+            .selectinload(TestSection.questions),
+            selectinload(Submission.test).selectinload(Test.psychologist),
+        )
+    )
+    if not submission:
+        raise HTTPException(status_code=404, detail="Submission not found")
+    _ensure_test_access(submission.test, current_user)
+    if report_kind == "client" and not submission.test.allow_client_report:
+        raise HTTPException(status_code=403, detail="Client report disabled")
+
+    context = build_report_context(submission.test, submission, report_kind=report_kind)  # type: ignore[arg-type]
+    html = render_html_report(context, report_kind=report_kind)  # type: ignore[arg-type]
+    return HTMLResponse(content=html)
+
+
+@router.get("/reports/{submission_id}/{report_kind}.docx")
+def report_docx(
+    submission_id: int,
+    report_kind: str,
+    current_user: User = Depends(require_psychologist_or_admin),
+    db: Session = Depends(get_db),
+) -> StreamingResponse:
+    if report_kind not in {"client", "psychologist"}:
+        raise HTTPException(status_code=400, detail="Invalid report type")
+    submission = db.scalar(
+        select(Submission)
+        .where(Submission.id == submission_id)
+        .options(
+            selectinload(Submission.answers).selectinload(Answer.question),
+            selectinload(Submission.test)
+            .selectinload(Test.sections)
+            .selectinload(TestSection.questions),
+            selectinload(Submission.test).selectinload(Test.psychologist),
+        )
+    )
+    if not submission:
+        raise HTTPException(status_code=404, detail="Submission not found")
+    _ensure_test_access(submission.test, current_user)
+    if report_kind == "client" and not submission.test.allow_client_report:
+        raise HTTPException(status_code=403, detail="Client report disabled")
+
+    context = build_report_context(submission.test, submission, report_kind=report_kind)  # type: ignore[arg-type]
+    document = build_docx_report(context, report_kind=report_kind)  # type: ignore[arg-type]
+    filename = _slugify(f"{submission.client_full_name}_{submission.id}_{report_kind}") + ".docx"
+    headers = {"Content-Disposition": f'attachment; filename="{filename}"'}
+    return StreamingResponse(
+        document,
+        media_type="application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+        headers=headers,
+    )
+
+
+@router.get("/tests/{test_id}/stats")
+def test_stats(
+    test_id: int,
+    current_user: User = Depends(require_psychologist_or_admin),
+    db: Session = Depends(get_db),
+) -> JSONResponse:
+    test = db.scalar(select(Test).where(Test.id == test_id))
+    if not test:
+        raise HTTPException(status_code=404, detail="Test not found")
+    _ensure_test_access(test, current_user)
+
+    submissions_count = db.scalar(select(func.count(Submission.id)).where(Submission.test_id == test_id)) or 0
+    latest_submission = db.scalar(
+        select(Submission)
+        .where(Submission.test_id == test_id)
+        .order_by(Submission.submitted_at.desc())
+        .limit(1)
+    )
+    return JSONResponse(
+        {
+            "submissions_count": submissions_count,
+            "last_submitted_at": latest_submission.submitted_at.isoformat() if latest_submission else None,
+        }
+    )

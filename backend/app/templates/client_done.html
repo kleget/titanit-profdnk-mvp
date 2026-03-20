@@ -1,0 +1,15 @@
+{% extends "base.html" %}
+{% block content %}
+<section class="panel center-wrap done">
+  <h1>Спасибо, тест завершён</h1>
+  <p>Ваши ответы сохранены и отправлены психологу.</p>
+  <p class="muted">ID результата: {{ submission.id }}</p>
+  {% if test.allow_client_report %}
+    <div class="actions">
+      <a class="btn" href="/t/{{ token }}/report/{{ submission.id }}.html" target="_blank">Открыть HTML-отчёт</a>
+      <a class="btn ghost" href="/t/{{ token }}/report/{{ submission.id }}.docx">Скачать DOCX</a>
+    </div>
+  {% endif %}
+</section>
+{% endblock %}
+

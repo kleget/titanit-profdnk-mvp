@@ -1,0 +1,58 @@
+{% extends "base.html" %}
+{% block content %}
+<section class="grid two-col">
+  <article class="panel">
+    <h1>Личный кабинет психолога</h1>
+    <div class="stats">
+      <div class="stat">
+        <strong>{{ tests_count }}</strong>
+        <span>Тестов</span>
+      </div>
+      <div class="stat">
+        <strong>{{ submissions_count }}</strong>
+        <span>Прохождений</span>
+      </div>
+      <div class="stat">
+        <strong>{{ user.access_until.strftime("%Y-%m-%d") if user.access_until else "без срока" }}</strong>
+        <span>Доступ до</span>
+      </div>
+    </div>
+    <div class="card-list">
+      <div class="card-item">
+        <h3>{{ user.full_name }}</h3>
+        <p class="muted">{{ user.email }} · {{ user.phone or "телефон не указан" }}</p>
+      </div>
+      <div class="card-item">
+        <h3>Публичная визитка</h3>
+        <p class="muted">Ссылка для клиентов: <a href="/public/psychologists/{{ user.id }}" target="_blank">открыть</a></p>
+        <img class="qr" src="/public/psychologists/{{ user.id }}/qr" alt="QR визитки">
+      </div>
+    </div>
+  </article>
+
+  <article class="panel">
+    <h2>Профиль</h2>
+    {% if user.photo_filename %}
+      <img class="avatar" src="/static/uploads/{{ user.photo_filename }}" alt="Фото психолога">
+    {% else %}
+      <div class="avatar placeholder">Фото</div>
+    {% endif %}
+    <form method="post" action="/profile/photo" enctype="multipart/form-data" class="inline-form">
+      <input type="file" name="photo" accept=".png,.jpg,.jpeg,.webp" required>
+      <button class="btn ghost" type="submit">Загрузить фото</button>
+    </form>
+    <form method="post" action="/profile" class="form-grid">
+      <label>
+        О себе (Markdown)
+        <textarea name="about_md" rows="8">{{ user.about_md }}</textarea>
+      </label>
+      <button class="btn" type="submit">Сохранить</button>
+    </form>
+    <div class="md-preview">
+      <h3>Предпросмотр визитки</h3>
+      <div class="rich">{{ about_html | safe }}</div>
+    </div>
+  </article>
+</section>
+{% endblock %}
+

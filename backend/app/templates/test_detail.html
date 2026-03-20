@@ -1,0 +1,98 @@
+{% extends "base.html" %}
+{% block content %}
+<section class="panel">
+  <div class="panel-head">
+    <div>
+      <h1>{{ test.title }}</h1>
+      <p class="muted">{{ test.description }}</p>
+    </div>
+    <div class="actions">
+      <button class="btn ghost" id="copy-test-link" data-link="{{ base_url }}/t/{{ test.share_token }}">Скопировать ссылку клиента</button>
+      <button class="btn" id="refresh-submissions">Обновить (AJAX)</button>
+    </div>
+  </div>
+  <p class="muted">Доступ психолога до: {{ test.psychologist.access_until.strftime("%Y-%m-%d") if test.psychologist.access_until else "без срока" }}</p>
+</section>
+
+<section class="panel">
+  <h2>Результаты прохождений</h2>
+  <div class="table-wrap">
+    <table>
+      <thead>
+        <tr>
+          <th>Клиент</th>
+          <th>Дата</th>
+          <th>Метрики</th>
+          <th>Действия</th>
+        </tr>
+      </thead>
+      <tbody id="submissions-body">
+      {% for submission in submissions %}
+        <tr>
+          <td>{{ submission.client_full_name }}</td>
+          <td>{{ submission.submitted_at.strftime("%Y-%m-%d %H:%M") }}</td>
+          <td>
+            Балл: {{ (submission.metrics_json or {}).get("total_score", 0) }} /
+            {{ (submission.metrics_json or {}).get("max_score", 0) }},
+            заполнение: {{ (submission.metrics_json or {}).get("completion_percent", 0) }}%
+          </td>
+          <td class="actions-row">
+            {% if test.allow_client_report %}
+              <a class="btn small ghost" href="/reports/{{ submission.id }}/client.html" target="_blank">Client HTML</a>
+              <a class="btn small ghost" href="/reports/{{ submission.id }}/client.docx">Client DOCX</a>
+            {% endif %}
+            <a class="btn small ghost" href="/reports/{{ submission.id }}/psychologist.html" target="_blank">Pro HTML</a>
+            <a class="btn small ghost" href="/reports/{{ submission.id }}/psychologist.docx">Pro DOCX</a>
+          </td>
+        </tr>
+      {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</section>
+
+<script>
+  const copyBtn = document.getElementById("copy-test-link");
+  copyBtn.addEventListener("click", async () => {
+    await navigator.clipboard.writeText(copyBtn.dataset.link);
+    copyBtn.textContent = "Ссылка скопирована";
+    setTimeout(() => copyBtn.textContent = "Скопировать ссылку клиента", 1200);
+  });
+
+  const refreshBtn = document.getElementById("refresh-submissions");
+  const body = document.getElementById("submissions-body");
+  const testId = {{ test.id }};
+
+  function renderRow(item) {
+    return `
+      <tr>
+        <td>${item.client_full_name}</td>
+        <td>${new Date(item.submitted_at).toLocaleString()}</td>
+        <td>Балл: ${item.score ?? 0}, заполнение: ${item.completion_percent ?? 0}%</td>
+        <td class="actions-row">
+          {% if test.allow_client_report %}
+            <a class="btn small ghost" href="/reports/${item.id}/client.html" target="_blank">Client HTML</a>
+            <a class="btn small ghost" href="/reports/${item.id}/client.docx">Client DOCX</a>
+          {% endif %}
+          <a class="btn small ghost" href="/reports/${item.id}/psychologist.html" target="_blank">Pro HTML</a>
+          <a class="btn small ghost" href="/reports/${item.id}/psychologist.docx">Pro DOCX</a>
+        </td>
+      </tr>
+    `;
+  }
+
+  refreshBtn.addEventListener("click", async () => {
+    refreshBtn.disabled = true;
+    refreshBtn.textContent = "Обновляю...";
+    try {
+      const response = await fetch(`/tests/${testId}/submissions.json`);
+      const data = await response.json();
+      body.innerHTML = data.map(renderRow).join("");
+    } finally {
+      refreshBtn.disabled = false;
+      refreshBtn.textContent = "Обновить (AJAX)";
+    }
+  });
+</script>
+{% endblock %}
+

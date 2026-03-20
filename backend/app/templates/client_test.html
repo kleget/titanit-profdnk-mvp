@@ -1,0 +1,136 @@
+{% extends "base.html" %}
+{% block content %}
+<section class="panel">
+  <h1>{{ test.title }}</h1>
+  <p class="muted">{{ test.description }}</p>
+  <div class="progress-wrap">
+    <div class="progress-bar"><span id="progress-fill"></span></div>
+    <strong id="progress-text">0%</strong>
+  </div>
+</section>
+
+<section class="panel">
+  <form method="post" action="/t/{{ token }}" id="client-test-form" class="form-grid">
+    <h2>Данные клиента</h2>
+    <label>
+      ФИО *
+      <input name="client_full_name" required>
+    </label>
+
+    {% if "email" in test.required_client_fields %}
+      <label>
+        Email *
+        <input type="email" name="client_email" required>
+      </label>
+    {% else %}
+      <label>
+        Email
+        <input type="email" name="client_email">
+      </label>
+    {% endif %}
+
+    {% if "phone" in test.required_client_fields %}
+      <label>
+        Телефон *
+        <input name="client_phone" required>
+      </label>
+    {% else %}
+      <label>
+        Телефон
+        <input name="client_phone">
+      </label>
+    {% endif %}
+
+    {% if "age" in test.required_client_fields %}
+      <label>
+        Возраст *
+        <input name="client_age" required>
+      </label>
+    {% else %}
+      <label>
+        Возраст
+        <input name="client_age">
+      </label>
+    {% endif %}
+
+    {% for section in test.sections %}
+      <div class="section-title">{{ section.title }}</div>
+      {% for q in section.questions %}
+        <div class="question" data-question>
+          <label>
+            {{ q.text }} {% if q.required %}*{% endif %}
+
+            {% if q.question_type.value == "text" %}
+              <input name="q_{{ q.id }}" {% if q.required %}required{% endif %}>
+            {% elif q.question_type.value == "textarea" %}
+              <textarea name="q_{{ q.id }}" rows="4" {% if q.required %}required{% endif %}></textarea>
+            {% elif q.question_type.value == "single_choice" %}
+              <select name="q_{{ q.id }}" {% if q.required %}required{% endif %}>
+                <option value="">Выберите</option>
+                {% for option in q.options_json or [] %}
+                  <option value="{{ option.value }}">{{ option.label }}</option>
+                {% endfor %}
+              </select>
+            {% elif q.question_type.value == "multiple_choice" %}
+              <div class="multi">
+                {% for option in q.options_json or [] %}
+                  <label>
+                    <input type="checkbox" name="q_{{ q.id }}" value="{{ option.value }}">
+                    {{ option.label }}
+                  </label>
+                {% endfor %}
+              </div>
+            {% elif q.question_type.value == "yes_no" %}
+              <div class="inline-form">
+                <label><input type="radio" name="q_{{ q.id }}" value="true" {% if q.required %}required{% endif %}> Да</label>
+                <label><input type="radio" name="q_{{ q.id }}" value="false" {% if q.required %}required{% endif %}> Нет</label>
+              </div>
+            {% elif q.question_type.value == "number" %}
+              <input type="number" name="q_{{ q.id }}" min="{{ q.min_value if q.min_value is not none else '' }}" max="{{ q.max_value if q.max_value is not none else '' }}" {% if q.required %}required{% endif %}>
+            {% elif q.question_type.value == "slider" %}
+              <input type="range" name="q_{{ q.id }}" min="{{ q.min_value if q.min_value is not none else 0 }}" max="{{ q.max_value if q.max_value is not none else 10 }}" value="{{ q.min_value if q.min_value is not none else 0 }}" {% if q.required %}required{% endif %}>
+            {% elif q.question_type.value == "datetime" %}
+              <input type="datetime-local" name="q_{{ q.id }}" {% if q.required %}required{% endif %}>
+            {% elif q.question_type.value == "rating" %}
+              <input type="number" name="q_{{ q.id }}" min="{{ q.min_value if q.min_value is not none else 1 }}" max="{{ q.max_value if q.max_value is not none else 5 }}" value="{{ q.min_value if q.min_value is not none else 1 }}" {% if q.required %}required{% endif %}>
+            {% endif %}
+          </label>
+        </div>
+      {% endfor %}
+    {% endfor %}
+    <button class="btn" type="submit">Отправить ответы</button>
+  </form>
+</section>
+
+<script>
+  const form = document.getElementById("client-test-form");
+  const questions = [...document.querySelectorAll("[data-question]")];
+  const fill = document.getElementById("progress-fill");
+  const text = document.getElementById("progress-text");
+
+  function questionFilled(block) {
+    const inputs = [...block.querySelectorAll("input, textarea, select")];
+    if (inputs.length === 0) return false;
+    if (inputs[0].type === "checkbox") {
+      return inputs.some((el) => el.checked);
+    }
+    if (inputs[0].type === "radio") {
+      return inputs.some((el) => el.checked);
+    }
+    return inputs.some((el) => `${el.value}`.trim() !== "");
+  }
+
+  function updateProgress() {
+    const total = questions.length || 1;
+    const completed = questions.filter(questionFilled).length;
+    const percent = Math.round((completed / total) * 100);
+    fill.style.width = `${percent}%`;
+    text.textContent = `${percent}%`;
+  }
+
+  form.addEventListener("input", updateProgress);
+  form.addEventListener("change", updateProgress);
+  updateProgress();
+</script>
+{% endblock %}
+

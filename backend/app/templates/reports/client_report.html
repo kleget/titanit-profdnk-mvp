@@ -1,0 +1,51 @@
+<!doctype html>
+<html lang="ru">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>{{ title }}</title>
+  <style>
+    body { font-family: "Segoe UI", Arial, sans-serif; margin: 24px; color: #16181d; }
+    h1, h2, h3 { margin: 0 0 12px; }
+    .muted { color: #5c6574; }
+    .panel { border: 1px solid #e3e7ee; border-radius: 12px; padding: 16px; margin: 12px 0; }
+    table { width: 100%; border-collapse: collapse; margin-top: 10px; }
+    th, td { border: 1px solid #e3e7ee; padding: 8px; text-align: left; vertical-align: top; }
+    th { background: #f6f8fb; }
+  </style>
+</head>
+<body>
+  <h1>{{ title }}</h1>
+  <p class="muted">Тест: {{ test_title }} · Клиент: {{ client_name }} · Дата: {{ submitted_at }}</p>
+
+  <div class="panel">
+    <h2>Ключевые показатели</h2>
+    <p>Итоговый балл: <strong>{{ metrics.total_score }}</strong> из {{ metrics.max_score }}</p>
+    <p>Процент от максимума: <strong>{{ metrics.score_percent }}%</strong></p>
+    <p>Заполнение теста: <strong>{{ metrics.completion_percent }}%</strong></p>
+  </div>
+
+  <div class="panel">
+    <h2>Ответы</h2>
+    <table>
+      <thead>
+        <tr>
+          <th>Раздел</th>
+          <th>Вопрос</th>
+          <th>Ответ</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for row in answers %}
+          <tr>
+            <td>{{ row.section_title }}</td>
+            <td>{{ row.question_text }}</td>
+            <td>{{ row.answer_value }}</td>
+          </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</body>
+</html>
+

@@ -1,0 +1,24 @@
+{% extends "base.html" %}
+{% block content %}
+<section class="center-wrap">
+  <div class="panel login-panel">
+    <h1>Вход в ПрофДНК</h1>
+    <p class="muted">Для хакатона доступны демо-аккаунты: <code>admin@profdnk.local / admin123</code> и <code>psychologist@demo.local / demo12345</code>.</p>
+    {% if error %}
+      <div class="alert">{{ error }}</div>
+    {% endif %}
+    <form method="post" action="/login" class="form-grid">
+      <label>
+        E-mail
+        <input type="email" name="email" required autocomplete="username">
+      </label>
+      <label>
+        Пароль
+        <input type="password" name="password" required autocomplete="current-password">
+      </label>
+      <button class="btn" type="submit">Войти</button>
+    </form>
+  </div>
+</section>
+{% endblock %}
+

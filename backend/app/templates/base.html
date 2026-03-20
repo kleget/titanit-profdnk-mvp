@@ -1,0 +1,38 @@
+<!doctype html>
+<html lang="ru">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>{{ title or "ПрофДНК MVP" }}</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;700;800&family=Space+Grotesk:wght@500;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/static/css/app.css">
+</head>
+<body>
+  <div class="orb orb-a"></div>
+  <div class="orb orb-b"></div>
+  <header class="topbar">
+    <a class="brand" href="/">TITANIT · ПрофДНК</a>
+    {% if user %}
+      <nav class="topnav">
+        {% if user.role.value == "admin" %}
+          <a href="/admin">Админ</a>
+        {% else %}
+          <a href="/dashboard">Кабинет</a>
+          <a href="/tests">Опросники</a>
+          <a href="/tests/new">Конструктор</a>
+        {% endif %}
+      </nav>
+      <form action="/logout" method="post">
+        <button class="btn ghost" type="submit">Выйти</button>
+      </form>
+    {% endif %}
+  </header>
+
+  <main class="container">
+    {% block content %}{% endblock %}
+  </main>
+</body>
+</html>
+
