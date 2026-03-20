@@ -114,3 +114,14 @@ docs/
 - Admin flow (создание психолога, блокировки и срок доступа)
 - Import/Export JSON
 - Кодовая структура как основа для развития продукта
+
+## Автодеплой на VPS (GitHub Actions)
+- Workflow: `.github/workflows/deploy.yml`
+- Триггер: каждый `push` в `main` + ручной запуск `workflow_dispatch`.
+- Целевой сервер: `recallio.tech` (HTTPS через существующий nginx-сертификат).
+- Деплой делает:
+  - `git fetch/reset` в `/srv/titanit-profdnk-mvp`
+  - обновление Python-зависимостей
+  - перезапись `.env.deploy`
+  - `systemctl restart titanit-profdnk.service`
+  - `nginx reload`

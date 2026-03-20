@@ -1,0 +1,55 @@
+name: Deploy To VPS
+
+on:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Deploy over SSH
+        uses: appleboy/ssh-action@v1.2.0
+        with:
+          host: ${{ secrets.VPS_HOST }}
+          username: ${{ secrets.VPS_USER }}
+          password: ${{ secrets.VPS_PASSWORD }}
+          port: ${{ secrets.VPS_PORT }}
+          script_stop: true
+          command_timeout: 30m
+          script: |
+            set -euo pipefail
+
+            APP_DIR=/srv/titanit-profdnk-mvp
+            REPO_URL="https://x-access-token:${{ secrets.DEPLOY_GH_TOKEN }}@github.com/kleget/titanit-profdnk-mvp.git"
+
+            if [ ! -d "$APP_DIR/.git" ]; then
+              GIT_TERMINAL_PROMPT=0 git clone "$REPO_URL" "$APP_DIR"
+            fi
+
+            cd "$APP_DIR"
+            git remote set-url origin "$REPO_URL"
+            GIT_TERMINAL_PROMPT=0 git fetch origin
+            git checkout main
+            git reset --hard origin/main
+            git remote set-url origin https://github.com/kleget/titanit-profdnk-mvp.git
+
+            python3 -m venv .venv
+            .venv/bin/pip install --upgrade pip
+            .venv/bin/pip install -r backend/requirements.txt
+
+            cat > "$APP_DIR/.env.deploy" <<EOF
+            APP_SECRET_KEY=${{ secrets.APP_SECRET_KEY }}
+            DATABASE_URL=sqlite+pysqlite:////srv/titanit-profdnk-mvp/profdnk.db
+            BASE_URL=https://recallio.tech
+            AUTO_SEED=true
+            EOF
+
+            systemctl daemon-reload
+            systemctl restart titanit-profdnk.service
+            nginx -t
+            systemctl reload nginx
+            curl -fsS http://127.0.0.1:8000/api/health
+
