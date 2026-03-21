@@ -20,12 +20,86 @@ from app.services.client_fields import (
     normalize_report_templates,
     pack_client_fields_config,
 )
+from app.services.formulas import FormulaError, evaluate_formula
 
 
 def normalize_key(source: str, fallback: str) -> str:
     prepared = re.sub(r"[^a-zA-Z0-9_]+", "_", source.strip().lower())
     prepared = re.sub(r"_+", "_", prepared).strip("_")
     return prepared or fallback
+
+
+FORMULA_BASE_KEYS = {
+    "total_score",
+    "max_score",
+    "score_percent",
+    "completion_percent",
+    "answered_count",
+    "total_questions",
+}
+FORMULA_ALLOWED_FUNCTIONS = {"min", "max", "abs", "round"}
+FORMULA_IDENTIFIER_RE = re.compile(r"[a-zA-Z_][a-zA-Z0-9_]*")
+
+
+def _formula_dependencies(expression: str) -> set[str]:
+    identifiers = set(FORMULA_IDENTIFIER_RE.findall(expression))
+    return {name for name in identifiers if name not in FORMULA_ALLOWED_FUNCTIONS}
+
+
+def validate_formula_logic(
+    formulas_payload: list[dict],
+    question_keys: set[str],
+) -> None:
+    if not formulas_payload:
+        return
+
+    ordered_formula_keys = [
+        normalize_key(str(formula.get("key") or ""), f"metric_{index}")
+        for index, formula in enumerate(formulas_payload, start=1)
+    ]
+    formula_key_position = {
+        key: index for index, key in enumerate(ordered_formula_keys, start=1)
+    }
+    available_variables = set(FORMULA_BASE_KEYS) | set(question_keys)
+
+    for index, formula in enumerate(formulas_payload, start=1):
+        key = ordered_formula_keys[index - 1]
+        label = str(formula.get("label") or key)
+        expression = str(formula.get("expression") or "").strip()
+        dependencies = _formula_dependencies(expression)
+
+        for dependency in sorted(dependencies):
+            if dependency in available_variables:
+                continue
+            dependency_position = formula_key_position.get(dependency)
+            if dependency_position is None:
+                raise HTTPException(
+                    status_code=400,
+                    detail=(
+                        f"Формула '{label}' использует неизвестную переменную '{dependency}'. "
+                        "Проверьте ключи вопросов и порядок формул."
+                    ),
+                )
+            if dependency_position >= index:
+                raise HTTPException(
+                    status_code=400,
+                    detail=(
+                        f"Формула '{label}' ссылается на '{dependency}', которая объявлена ниже. "
+                        "Переставьте формулы или измените выражение."
+                    ),
+                )
+
+        # Проверяем синтаксис и поддерживаемые операции на валидном контексте.
+        probe_context = {name: 1.0 for name in available_variables | dependencies}
+        try:
+            evaluate_formula(expression, probe_context)
+        except FormulaError as exc:
+            raise HTTPException(
+                status_code=400,
+                detail=f"Ошибка в формуле '{label}': {exc}",
+            ) from exc
+
+        available_variables.add(key)
 
 
 def parse_options(raw: str) -> list[dict] | None:
@@ -141,6 +215,14 @@ def create_test_from_payload(
                 position=question_pos,
             )
             db.add(question)
+
+    question_keys = {
+        str(question.get("key") or "").strip()
+        for section in sections_payload
+        for question in (section.get("questions") or [])
+        if str(question.get("key") or "").strip()
+    }
+    validate_formula_logic(formulas_payload, question_keys)
 
     used_formula_keys: set[str] = set()
     for formula_pos, formula in enumerate(formulas_payload or [], start=1):

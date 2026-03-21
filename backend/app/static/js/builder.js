@@ -1907,6 +1907,32 @@
     });
 
     const formulaItems = [...(formulaNode?.querySelectorAll(".question-item") || [])];
+    const formulaResolvedKeys = [];
+    const seenFormulaKeys = new Set();
+    formulaItems.forEach((item, index) => {
+      const keyInput = item.querySelector("input[name='metric_key[]']");
+      const labelInput = item.querySelector("input[name='metric_label[]']");
+      const resolvedKey = normalizeBuilderKey(
+        (keyInput?.value || "").trim() || (labelInput?.value || "").trim(),
+        `metric_${index + 1}`
+      );
+      formulaResolvedKeys.push(resolvedKey);
+      if (seenFormulaKeys.has(resolvedKey)) {
+        if (keyInput || labelInput) {
+          setValidationError(keyInput || labelInput, "Ключ формулы должен быть уникальным.");
+        }
+        issues.push(`Формула #${index + 1}: дублирующийся ключ ${resolvedKey}.`);
+      }
+      seenFormulaKeys.add(resolvedKey);
+    });
+
+    const formulaKeyPosition = new Map(
+      formulaResolvedKeys.map((key, index) => [key, index])
+    );
+    const availableFormulaVariables = new Set([
+      ...FORMULA_PREVIEW_BASE_KEYS,
+      ...collectFormulaPreviewQuestionKeys(),
+    ]);
     formulaItems.forEach((item, index) => {
       const expressionInput = item.querySelector("input[name='metric_expression[]']");
       const keyInput = item.querySelector("input[name='metric_key[]']");
@@ -1920,6 +1946,40 @@
         setValidationError(expressionInput, "Для заполненной строки нужна формула.");
         issues.push(`Формула #${index + 1}: добавь выражение.`);
       }
+
+      if (!expression) {
+        return;
+      }
+
+      const dependencies = parseFormulaIdentifiers(expression).filter(
+        (identifier) => !FORMULA_PREVIEW_ALLOWED_FUNCTIONS.has(identifier)
+      );
+      dependencies.forEach((dependency) => {
+        if (availableFormulaVariables.has(dependency)) {
+          return;
+        }
+        const dependencyPosition = formulaKeyPosition.get(dependency);
+        if (dependencyPosition === undefined) {
+          setValidationError(
+            expressionInput,
+            `Неизвестная переменная '${dependency}'.`
+          );
+          issues.push(
+            `Формула #${index + 1}: неизвестная переменная '${dependency}'.`
+          );
+          return;
+        }
+        if (dependencyPosition >= index) {
+          setValidationError(
+            expressionInput,
+            `Ссылка на '${dependency}' ниже по списку.`
+          );
+          issues.push(
+            `Формула #${index + 1}: ссылка на '${dependency}', объявленную ниже.`
+          );
+        }
+      });
+      availableFormulaVariables.add(formulaResolvedKeys[index]);
     });
 
     validateReportBlocks(clientReportBlockNode, "rt_client[]", "Клиентский отчёт", issues);
