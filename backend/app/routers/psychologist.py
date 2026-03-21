@@ -17,7 +17,6 @@ from app.models import Answer, InviteLink, Submission, Test, TestSection, User, 
 from app.services.access_reminders import build_psychologist_access_reminder
 from app.services.content import render_safe_markdown
 from app.services.reports import build_docx_report, build_report_context, render_html_report
-from app.services.scoring import calculate_metrics
 from app.services.tests import (
     custom_client_fields_from_flat_form,
     create_test_from_payload,
