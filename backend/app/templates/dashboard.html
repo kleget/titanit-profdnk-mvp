@@ -1,8 +1,51 @@
 {% extends "base.html" %}
 {% block content %}
-<section class="grid two-col">
-  <article class="panel">
+{% set avg_submissions = (submissions_count / tests_count) if tests_count else 0 %}
+<section class="hero-surface" data-reveal>
+  <div class="hero-copy">
+    <p class="hero-eyebrow">Платформа профориентационной диагностики</p>
     <h1>Личный кабинет психолога</h1>
+    <p class="muted">
+      Здесь собраны создание методик, кампании по ссылкам, результаты прохождений и отчеты.
+      Показывай на защите полный рабочий цикл без переключения между разными сервисами.
+    </p>
+    <div class="actions">
+      <a class="btn" href="/tests/new">Создать методику</a>
+      <a class="btn ghost" href="/tests">Открыть опросники</a>
+      <a class="btn ghost" href="/features">Story-mode возможностей</a>
+    </div>
+  </div>
+  <div class="hero-kpi-grid">
+    <article class="kpi-card" data-reveal>
+      <p class="kpi-label">Всего тестов</p>
+      <strong class="kpi-value">{{ tests_count }}</strong>
+      <p class="kpi-meta">Готовых методик в рабочем контуре</p>
+      <div class="kpi-progress" style="--kpi-progress: {{ 100 if tests_count > 0 else 12 }}%"></div>
+    </article>
+    <article class="kpi-card" data-reveal>
+      <p class="kpi-label">Всего прохождений</p>
+      <strong class="kpi-value">{{ submissions_count }}</strong>
+      <p class="kpi-meta">Сохранённых анкет клиентов</p>
+      <div class="kpi-progress" style="--kpi-progress: {{ 100 if submissions_count > 0 else 10 }}%"></div>
+    </article>
+    <article class="kpi-card" data-reveal>
+      <p class="kpi-label">Среднее на тест</p>
+      <strong class="kpi-value">{{ "%.1f"|format(avg_submissions) }}</strong>
+      <p class="kpi-meta">Прохождений на одну методику</p>
+      <div class="kpi-progress" style="--kpi-progress: {{ 100 if avg_submissions >= 1 else 32 }}%"></div>
+    </article>
+    <article class="kpi-card" data-reveal>
+      <p class="kpi-label">Доступ до</p>
+      <strong class="kpi-value">{{ user.access_until.strftime("%Y-%m-%d") if user.access_until else "без срока" }}</strong>
+      <p class="kpi-meta">Срок действия кабинета</p>
+      <div class="kpi-progress" style="--kpi-progress: 72%"></div>
+    </article>
+  </div>
+</section>
+
+<section class="grid two-col dashboard-main-grid">
+  <article class="panel">
+    <h2>Рабочий контур психолога</h2>
     {% if access_reminder %}
       <div class="alert {{ access_reminder.level }}">{{ access_reminder.message }}</div>
     {% endif %}

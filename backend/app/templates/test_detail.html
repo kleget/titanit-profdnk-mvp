@@ -34,7 +34,7 @@
   </div>
 
   <div class="table-wrap">
-    <table class="responsive-table">
+    <table class="responsive-table responsive-cards-table">
       <thead>
         <tr>
           <th>Метка</th>
@@ -79,7 +79,7 @@
 <section class="panel">
   <h2>Группы по меткам ссылок</h2>
   <div class="table-wrap">
-    <table class="responsive-table">
+    <table class="responsive-table responsive-cards-table">
       <thead>
         <tr>
           <th>Метка</th>
@@ -111,8 +111,13 @@
 <section class="panel">
   <h2>Сравнение кампаний</h2>
   <p class="muted">Один тест, несколько ссылок: сравнение источников по среднему проценту балла и заполнения.</p>
+  <div class="campaign-chart-wrap">
+    <h3>Визуальное сравнение кампаний</h3>
+    <p class="muted">График помогает быстро показать разницу между источниками по качеству ответов и заполнению анкеты.</p>
+    <div id="campaign-chart" class="campaign-chart-grid"></div>
+  </div>
   <div class="table-wrap">
-    <table class="responsive-table">
+    <table class="responsive-table responsive-cards-table">
       <thead>
         <tr>
           <th>Метка</th>
@@ -163,7 +168,7 @@
     </form>
   </div>
   <div class="table-wrap">
-    <table class="responsive-table">
+    <table class="responsive-table responsive-cards-table">
       <thead>
         <tr>
           <th>Клиент</th>
@@ -208,6 +213,106 @@
 </section>
 
 <script>
+  function escapeHtml(value) {
+    return `${value ?? ""}`
+      .replaceAll("&", "&amp;")
+      .replaceAll("<", "&lt;")
+      .replaceAll(">", "&gt;")
+      .replaceAll('"', "&quot;")
+      .replaceAll("'", "&#39;");
+  }
+
+  function normalizePercent(value) {
+    const number = Number(value);
+    if (!Number.isFinite(number)) {
+      return 0;
+    }
+    return Math.max(0, Math.min(100, number));
+  }
+
+  const campaignChart = document.getElementById("campaign-chart");
+
+  function renderCampaignChart(items) {
+    if (!campaignChart) {
+      return;
+    }
+    if (!items.length) {
+      campaignChart.innerHTML = `
+        <div class="campaign-chart-empty">
+          Пока нет данных по кампаниям. После первых прохождений здесь появится визуальная аналитика.
+        </div>
+      `;
+      return;
+    }
+
+    campaignChart.innerHTML = items
+      .map((item) => {
+        const score = normalizePercent(item.avg_score_percent);
+        const completion = normalizePercent(item.avg_completion_percent);
+        return `
+          <article class="campaign-chart-item">
+            <div class="campaign-chart-head">
+              <strong>${escapeHtml(item.label || "Основная ссылка")}</strong>
+              <span class="status-badge status-${escapeHtml(item.link_state || "unknown")}">
+                ${escapeHtml(item.link_state_label || "Неизвестно")}
+              </span>
+            </div>
+            <p class="campaign-chart-meta">
+              ${escapeHtml(item.count ?? 0)} прохождений · ${escapeHtml(item.link_limit_text || "без лимита")}
+            </p>
+            <div class="campaign-bar-row">
+              <span class="campaign-bar-label">Ср. % балла</span>
+              <div class="campaign-bar-track"><span class="campaign-bar-fill score" style="width:${score}%"></span></div>
+              <strong>${score.toFixed(2)}%</strong>
+            </div>
+            <div class="campaign-bar-row">
+              <span class="campaign-bar-label">Ср. % заполнения</span>
+              <div class="campaign-bar-track"><span class="campaign-bar-fill completion" style="width:${completion}%"></span></div>
+              <strong>${completion.toFixed(2)}%</strong>
+            </div>
+          </article>
+        `;
+      })
+      .join("");
+  }
+
+  function parsePercent(text) {
+    if (!text) {
+      return 0;
+    }
+    const normalized = `${text}`.replace(",", ".").replace(/[^\d.-]/g, "");
+    const parsed = Number.parseFloat(normalized);
+    if (!Number.isFinite(parsed)) {
+      return 0;
+    }
+    return parsed;
+  }
+
+  function buildChartItemsFromCurrentTable() {
+    if (!campaignBody) {
+      return [];
+    }
+    return Array.from(campaignBody.querySelectorAll("tr"))
+      .map((row) => {
+        const cells = row.querySelectorAll("td");
+        if (cells.length < 7) {
+          return null;
+        }
+        const badge = cells[4].querySelector(".status-badge");
+        const badgeStateClass = Array.from(badge?.classList || []).find((cls) => cls.startsWith("status-"));
+        return {
+          label: cells[0].textContent?.trim() || "Основная ссылка",
+          count: Number.parseInt(cells[1].textContent || "0", 10) || 0,
+          avg_score_percent: parsePercent(cells[2].textContent),
+          avg_completion_percent: parsePercent(cells[3].textContent),
+          link_state: badgeStateClass ? badgeStateClass.replace("status-", "") : "unknown",
+          link_state_label: badge?.textContent?.trim() || "Неизвестно",
+          link_limit_text: cells[5].textContent?.trim() || "-",
+        };
+      })
+      .filter((item) => item !== null);
+  }
+
   function wireCopyButtons() {
     document.querySelectorAll(".copy-link-btn").forEach((button) => {
       if (button.dataset.bound === "1") {
@@ -319,6 +424,7 @@
 
     if (list.length === 0) {
       campaignBody.innerHTML = '<tr><td colspan="7" class="muted">Пока нет прохождений</td></tr>';
+      renderCampaignChart([]);
       return;
     }
 
@@ -339,6 +445,22 @@
         `;
       })
       .join("");
+
+    renderCampaignChart(
+      list.map((row) => {
+        const avgScore = row.scoreCount > 0 ? row.scoreSum / row.scoreCount : null;
+        const avgCompletion = row.completionCount > 0 ? row.completionSum / row.completionCount : null;
+        return {
+          label: row.label,
+          count: row.count,
+          link_state: row.invite_state,
+          link_state_label: row.invite_state_label,
+          link_limit_text: row.invite_limit_text,
+          avg_score_percent: avgScore,
+          avg_completion_percent: avgCompletion,
+        };
+      })
+    );
   }
 
   function renderGroups(items) {
@@ -440,7 +562,9 @@
   if (statusFilter) {
     statusFilter.addEventListener("change", applyStatusFilter);
   }
+  renderCampaignChart(buildChartItemsFromCurrentTable());
   applyStatusFilter();
   wireCopyButtons();
 </script>
 {% endblock %}
+

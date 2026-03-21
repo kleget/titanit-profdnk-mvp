@@ -19,7 +19,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;700;800&family=Space+Grotesk:wght@500;700&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="/static/css/app.css?v=20260321b">
+  <link rel="stylesheet" href="/static/css/app.css?v=20260321f">
 </head>
 <body>
   <div class="orb orb-a"></div>
@@ -133,6 +133,41 @@
           window.location.pathname + (nextQuery ? `?${nextQuery}` : "") + window.location.hash;
         window.history.replaceState({}, "", nextUrl);
       }
+    })();
+
+    (function () {
+      const revealNodes = Array.from(
+        document.querySelectorAll("[data-reveal], .panel, .hero-surface, .kpi-card")
+      );
+      if (!revealNodes.length) {
+        return;
+      }
+
+      const uniqueNodes = Array.from(new Set(revealNodes));
+      uniqueNodes.forEach((node, index) => {
+        node.classList.add("reveal-item");
+        node.style.setProperty("--reveal-delay", `${Math.min(index * 28, 220)}ms`);
+      });
+
+      if (!("IntersectionObserver" in window)) {
+        uniqueNodes.forEach((node) => node.classList.add("is-visible"));
+        return;
+      }
+
+      const observer = new IntersectionObserver(
+        (entries) => {
+          entries.forEach((entry) => {
+            if (!entry.isIntersecting) {
+              return;
+            }
+            entry.target.classList.add("is-visible");
+            observer.unobserve(entry.target);
+          });
+        },
+        { threshold: 0.12, rootMargin: "0px 0px -8% 0px" }
+      );
+
+      uniqueNodes.forEach((node) => observer.observe(node));
     })();
   </script>
 </body>

@@ -1,51 +1,156 @@
 {% extends "base.html" %}
 {% block content %}
-<section class="panel">
-  <h1>Возможности платформы ПрофДНК</h1>
-  <p class="muted">Короткий обзор функций, которые уже доступны в MVP для демонстрации на хакатоне.</p>
+<section class="panel feature-hero" data-reveal>
+  <p class="hero-eyebrow">Story-mode презентация</p>
+  <h1>ПрофДНК: демонстрация возможностей за 3 минуты</h1>
+  <p class="muted">
+    Ниже последовательный сценарий, который можно показывать жюри без лишних переключений.
+    Каждый шаг привязан к реальной функции продукта.
+  </p>
+  <div class="actions">
+    <a class="btn" href="/tests/new">Открыть конструктор</a>
+    <a class="btn ghost" href="/tests">Посмотреть опросники</a>
+    <a class="btn ghost" href="/dashboard">Вернуться в кабинет</a>
+  </div>
 </section>
 
-<section class="grid two-col">
-  <article class="panel">
-    <h2>Для администратора</h2>
-    <ul class="feature-list">
-      <li>Создание аккаунтов психологов (саморегистрация отключена).</li>
-      <li>Управление доступом: дата окончания доступа и блокировка.</li>
-      <li>Ручное продление доступа без автопродления.</li>
-      <li>Просмотр списка специалистов и оперативное изменение статуса.</li>
-    </ul>
-  </article>
+<section class="story-layout">
+  <aside class="panel story-nav" data-reveal>
+    <h2>Сюжет демонстрации</h2>
+    <p class="muted">Переходи по шагам и показывай продукт как законченный сервис.</p>
+    <nav class="story-nav-links" aria-label="Шаги презентации">
+      <a href="#story-step-1" class="story-nav-link is-active" data-story-link="story-step-1">01 · Контекст кейса</a>
+      <a href="#story-step-2" class="story-nav-link" data-story-link="story-step-2">02 · Роли и доступ</a>
+      <a href="#story-step-3" class="story-nav-link" data-story-link="story-step-3">03 · Сквозной сценарий</a>
+      <a href="#story-step-4" class="story-nav-link" data-story-link="story-step-4">04 · Killer-функции</a>
+      <a href="#story-step-5" class="story-nav-link" data-story-link="story-step-5">05 · Надёжность и прод</a>
+    </nav>
+  </aside>
 
-  <article class="panel">
-    <h2>Для психолога</h2>
-    <ul class="feature-list">
-      <li>Личный кабинет с профилем, фото и Markdown-блоком «О себе».</li>
-      <li>Публичная визитка и QR-код для клиентов.</li>
-      <li>Конструктор тестов: ручной сборщик + импорт/экспорт JSON.</li>
-      <li>Формулы метрик: настраиваемые вычисления производных показателей.</li>
-      <li>Именованные ссылки кампаний и группировка результатов по источникам.</li>
-    </ul>
-  </article>
+  <div class="story-content">
+    <article id="story-step-1" class="panel story-step" data-story-step>
+      <p class="story-step-index">Шаг 01</p>
+      <h2>Контекст и ценность решения</h2>
+      <p class="muted">
+        Платформа закрывает разрыв между бумажными методиками и современным онлайн-сервисом.
+        Психолог получает полный цикл: от сборки методики до выдачи отчётов.
+      </p>
+      <div class="story-kpi-grid">
+        <div class="story-kpi-card">
+          <strong>3 роли</strong>
+          <span>админ · психолог · клиент</span>
+        </div>
+        <div class="story-kpi-card">
+          <strong>2 формата отчётов</strong>
+          <span>HTML и DOCX по запросу</span>
+        </div>
+        <div class="story-kpi-card">
+          <strong>0 регистрации для клиента</strong>
+          <span>вход по персональной ссылке</span>
+        </div>
+      </div>
+    </article>
 
-  <article class="panel">
-    <h2>Для клиента</h2>
-    <ul class="feature-list">
-      <li>Прохождение теста по уникальной ссылке без регистрации.</li>
-      <li>Обязательные поля клиента по настройкам методики.</li>
-      <li>Онлайн-прогресс во время заполнения опросника.</li>
-      <li>Генерация клиентского отчета (HTML/DOCX), если включено психологом.</li>
-    </ul>
-  </article>
+    <article id="story-step-2" class="panel story-step" data-story-step>
+      <p class="story-step-index">Шаг 02</p>
+      <h2>Роли и правила доступа</h2>
+      <div class="grid two-col">
+        <div class="subpanel">
+          <h3>Администратор</h3>
+          <ul class="feature-list">
+            <li>Создаёт аккаунты психологов, саморегистрация отключена.</li>
+            <li>Управляет сроком доступа и блокировкой вручную.</li>
+            <li>Видит аудит-лог критичных действий.</li>
+          </ul>
+        </div>
+        <div class="subpanel">
+          <h3>Психолог</h3>
+          <ul class="feature-list">
+            <li>Создаёт и клонирует методики в конструкторе.</li>
+            <li>Запускает кампании через именованные ссылки.</li>
+            <li>Получает результаты и формирует 2 вида отчётов.</li>
+          </ul>
+        </div>
+      </div>
+    </article>
 
-  <article class="panel">
-    <h2>Технически</h2>
-    <ul class="feature-list">
-      <li>Backend: FastAPI + SQLAlchemy.</li>
-      <li>База: PostgreSQL (локально и на VPS), деплой через systemd/nginx.</li>
-      <li>Отчеты генерируются по запросу и не хранятся файлами на диске.</li>
-      <li>Автодеплой на VPS через GitHub Actions при push в main.</li>
-      <li>Интерфейс адаптирован под desktop и mobile режимы.</li>
-    </ul>
-  </article>
+    <article id="story-step-3" class="panel story-step" data-story-step>
+      <p class="story-step-index">Шаг 03</p>
+      <h2>Сквозной сценарий платформы</h2>
+      <ol class="story-flow-list">
+        <li>Психолог создаёт тест вручную или импортирует JSON-конфиг.</li>
+        <li>Запускает кампанию и отправляет клиенту ссылку без регистрации.</li>
+        <li>Клиент проходит анкету, прогресс и ответы сохраняются в БД.</li>
+        <li>Система считает базовые и производные метрики по формулам.</li>
+        <li>Готовые отчёты доступны сразу в HTML и DOCX.</li>
+      </ol>
+    </article>
+
+    <article id="story-step-4" class="panel story-step" data-story-step>
+      <p class="story-step-index">Шаг 04</p>
+      <h2>Killer-функции для демонстрации</h2>
+      <div class="grid two-col">
+        <div class="subpanel">
+          <h3>Скорость сборки методики</h3>
+          <ul class="feature-list">
+            <li>Пресеты методик и формул в один клик.</li>
+            <li>Дублирование секций, вопросов и формул.</li>
+            <li>Автосохранение черновика с восстановлением.</li>
+          </ul>
+        </div>
+        <div class="subpanel">
+          <h3>Аналитика и презентация</h3>
+          <ul class="feature-list">
+            <li>Сравнение кампаний по источникам на одном экране.</li>
+            <li>Визуальные графики по среднему баллу и заполнению.</li>
+            <li>Экспорт результатов в CSV для внешней аналитики.</li>
+          </ul>
+        </div>
+      </div>
+    </article>
+
+    <article id="story-step-5" class="panel story-step" data-story-step>
+      <p class="story-step-index">Шаг 05</p>
+      <h2>Надёжность и прод-готовность</h2>
+      <ul class="feature-list">
+        <li>Rate limit на вход и отправку клиентской анкеты.</li>
+        <li>CSRF-защита всех POST-форм.</li>
+        <li>Автодеплой на VPS через GitHub Actions + smoke-check после релиза.</li>
+        <li>SMTP-уведомления в ключевых сценариях (welcome и отчёт клиенту).</li>
+      </ul>
+    </article>
+  </div>
 </section>
+
+<script>
+  (function () {
+    const links = Array.from(document.querySelectorAll("[data-story-link]"));
+    const steps = Array.from(document.querySelectorAll("[data-story-step]"));
+    if (!links.length || !steps.length) {
+      return;
+    }
+
+    const activate = (id) => {
+      links.forEach((link) => {
+        link.classList.toggle("is-active", link.dataset.storyLink === id);
+      });
+    };
+
+    if (!("IntersectionObserver" in window)) {
+      return;
+    }
+
+    const observer = new IntersectionObserver(
+      (entries) => {
+        entries
+          .filter((entry) => entry.isIntersecting)
+          .sort((a, b) => b.intersectionRatio - a.intersectionRatio)
+          .forEach((entry) => activate(entry.target.id));
+      },
+      { threshold: [0.35, 0.6], rootMargin: "-20% 0px -35% 0px" }
+    );
+
+    steps.forEach((step) => observer.observe(step));
+  })();
+</script>
 {% endblock %}
