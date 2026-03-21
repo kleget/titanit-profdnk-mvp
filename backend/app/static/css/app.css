@@ -389,6 +389,62 @@ html[data-theme="light"] .brand {
   gap: var(--space-4);
 }
 
+.password-strength {
+  display: grid;
+  gap: var(--space-2);
+  margin-top: calc(var(--space-2) * -1);
+}
+
+.password-strength-track {
+  height: 8px;
+  border-radius: var(--radius-pill);
+  border: 1px solid rgba(169, 248, 255, 0.28);
+  background: rgba(11, 18, 30, 0.72);
+  overflow: hidden;
+}
+
+.password-strength-fill {
+  display: block;
+  height: 100%;
+  width: 0%;
+  border-radius: inherit;
+  background: rgba(255, 107, 122, 0.85);
+  transition:
+    width 0.18s ease,
+    background-color 0.18s ease;
+}
+
+.password-strength-text {
+  margin: 0;
+  color: var(--muted);
+  font-size: 13px;
+}
+
+.password-strength[data-level="1"] .password-strength-fill {
+  width: 20%;
+  background: rgba(255, 107, 122, 0.9);
+}
+
+.password-strength[data-level="2"] .password-strength-fill {
+  width: 40%;
+  background: rgba(255, 157, 73, 0.88);
+}
+
+.password-strength[data-level="3"] .password-strength-fill {
+  width: 60%;
+  background: rgba(255, 214, 87, 0.88);
+}
+
+.password-strength[data-level="4"] .password-strength-fill {
+  width: 80%;
+  background: rgba(132, 226, 92, 0.9);
+}
+
+.password-strength[data-level="5"] .password-strength-fill {
+  width: 100%;
+  background: rgba(61, 219, 128, 0.94);
+}
+
 label,
 fieldset {
   display: grid;

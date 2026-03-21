@@ -11,7 +11,7 @@ from app.config import settings
 from app.db import get_db
 from app.dependencies import get_optional_user, require_admin
 from app.models import User, UserRole
-from app.security import hash_password
+from app.security import hash_password, validate_password_policy
 from app.services.access_reminders import build_admin_access_expiry_reminders
 from app.services.email import send_psychologist_welcome_email
 from app.web import templates
@@ -19,12 +19,13 @@ from app.web import templates
 router = APIRouter(prefix="/admin", tags=["admin"])
 
 
-@router.get("")
-def admin_page(
+def _render_admin_page(
     request: Request,
-    _: User = Depends(require_admin),
-    current_user: User | None = Depends(get_optional_user),
-    db: Session = Depends(get_db),
+    db: Session,
+    *,
+    current_user: User | None,
+    error: str | None = None,
+    status_code: int = 200,
 ) -> object:
     psychologists = db.scalars(
         select(User).where(User.role == UserRole.PSYCHOLOGIST).order_by(User.created_at.desc())
@@ -38,8 +39,23 @@ def admin_page(
             "user": current_user,
             "psychologists": psychologists,
             "access_reminders": access_reminders,
-            "error": None,
+            "error": error,
         },
+        status_code=status_code,
+    )
+
+
+@router.get("")
+def admin_page(
+    request: Request,
+    _: User = Depends(require_admin),
+    current_user: User | None = Depends(get_optional_user),
+    db: Session = Depends(get_db),
+) -> object:
+    return _render_admin_page(
+        request,
+        db,
+        current_user=current_user,
     )
 
 
@@ -55,22 +71,24 @@ def create_psychologist(
     _: User = Depends(require_admin),
     db: Session = Depends(get_db),
 ) -> object:
+    current_user = db.get(User, request.session.get("user_id"))
     normalized_email = email.strip().lower()
-    if db.scalar(select(User).where(User.email == normalized_email)):
-        psychologists = db.scalars(
-            select(User).where(User.role == UserRole.PSYCHOLOGIST).order_by(User.created_at.desc())
-        ).all()
-        access_reminders = build_admin_access_expiry_reminders(psychologists)
-        return templates.TemplateResponse(
+    password_error = validate_password_policy(password)
+    if password_error:
+        return _render_admin_page(
             request,
-            "admin.html",
-            {
-                "title": "Админ",
-                "user": db.get(User, request.session.get("user_id")),
-                "psychologists": psychologists,
-                "access_reminders": access_reminders,
-                "error": "Пользователь с таким email уже существует",
-            },
+            db,
+            current_user=current_user,
+            error=password_error,
+            status_code=400,
+        )
+
+    if db.scalar(select(User).where(User.email == normalized_email)):
+        return _render_admin_page(
+            request,
+            db,
+            current_user=current_user,
+            error="Пользователь с таким email уже существует",
             status_code=400,
         )
 

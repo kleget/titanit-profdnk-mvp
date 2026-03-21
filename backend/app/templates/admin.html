@@ -37,8 +37,24 @@
       </label>
       <label>
         Пароль
-        <input type="text" name="password" required>
+        <input
+          type="password"
+          name="password"
+          required
+          minlength="8"
+          autocomplete="new-password"
+          data-password-input
+        >
+        <small class="muted">
+          Минимум 8 символов, обязательно: строчная, заглавная буква и цифра.
+        </small>
       </label>
+      <div class="password-strength" data-password-meter data-level="0">
+        <div class="password-strength-track">
+          <span class="password-strength-fill"></span>
+        </div>
+        <p class="password-strength-text">Надежность пароля: не задан</p>
+      </div>
       <label>
         Доступ до
         <input type="date" name="access_until">
@@ -93,4 +109,42 @@
     </div>
   </article>
 </section>
+
+<script>
+  const passwordInput = document.querySelector("[data-password-input]");
+  const passwordMeter = document.querySelector("[data-password-meter]");
+  const passwordMeterText = passwordMeter?.querySelector(".password-strength-text");
+
+  function passwordStrengthLevel(value) {
+    if (!value) return 0;
+    let score = 0;
+    if (value.length >= 8) score += 1;
+    if (/[a-zа-яё]/.test(value)) score += 1;
+    if (/[A-ZА-ЯЁ]/.test(value)) score += 1;
+    if (/\d/.test(value)) score += 1;
+    if (/[^A-Za-zА-Яа-яЁё0-9]/.test(value)) score += 1;
+    return Math.min(5, score);
+  }
+
+  function passwordStrengthLabel(level) {
+    if (level <= 1) return "Надежность пароля: очень слабый";
+    if (level === 2) return "Надежность пароля: слабый";
+    if (level === 3) return "Надежность пароля: средний";
+    if (level === 4) return "Надежность пароля: хороший";
+    return "Надежность пароля: сильный";
+  }
+
+  function updatePasswordMeter() {
+    if (!passwordInput || !passwordMeter || !passwordMeterText) return;
+    const level = passwordStrengthLevel(passwordInput.value);
+    passwordMeter.dataset.level = String(level);
+    passwordMeterText.textContent = passwordStrengthLabel(level);
+  }
+
+  if (passwordInput && passwordMeter) {
+    passwordInput.addEventListener("input", updatePasswordMeter);
+    passwordInput.addEventListener("change", updatePasswordMeter);
+    updatePasswordMeter();
+  }
+</script>
 {% endblock %}
