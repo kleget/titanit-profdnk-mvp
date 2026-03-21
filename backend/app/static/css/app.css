@@ -337,6 +337,49 @@ input[type="datetime-local"] {
   color-scheme: dark;
 }
 
+.file-input-hidden {
+  position: absolute !important;
+  width: 1px !important;
+  height: 1px !important;
+  padding: 0 !important;
+  margin: -1px !important;
+  overflow: hidden !important;
+  clip: rect(0 0 0 0) !important;
+  white-space: nowrap !important;
+  border: 0 !important;
+}
+
+.photo-upload-form {
+  display: flex;
+  gap: var(--space-3);
+  align-items: center;
+  flex-wrap: wrap;
+}
+
+.file-picker-btn {
+  min-width: 170px;
+}
+
+.file-name {
+  display: inline-flex;
+  align-items: center;
+  min-height: var(--control-height);
+  padding: 0 var(--space-4);
+  border: 1px solid rgba(169, 248, 255, 0.23);
+  border-radius: var(--radius-md);
+  background: var(--control-bg);
+  color: var(--text);
+  flex: 1 1 260px;
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.file-name.empty {
+  color: var(--muted);
+}
+
 fieldset {
   border: 1px dashed rgba(169, 248, 255, 0.28);
   border-radius: var(--radius-md);
@@ -874,6 +917,12 @@ code {
   .inline-form > textarea {
     flex-basis: auto;
     width: 100%;
+  }
+
+  .photo-upload-form .btn,
+  .photo-upload-form .file-name {
+    width: 100%;
+    flex-basis: auto;
   }
 
   .progress-wrap {

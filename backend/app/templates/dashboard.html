@@ -45,9 +45,18 @@
     {% else %}
       <div class="avatar placeholder">Фото</div>
     {% endif %}
-    <form method="post" action="/profile/photo" enctype="multipart/form-data" class="inline-form">
-      <input type="file" name="photo" accept=".png,.jpg,.jpeg,.webp" required>
-      <button class="btn ghost" type="submit">Загрузить фото</button>
+    <form method="post" action="/profile/photo" enctype="multipart/form-data" class="photo-upload-form">
+      <input
+        id="photo-file-input"
+        class="file-input-hidden"
+        type="file"
+        name="photo"
+        accept=".png,.jpg,.jpeg,.webp"
+        required
+      >
+      <label class="btn ghost file-picker-btn" for="photo-file-input">Выбрать фото</label>
+      <span id="photo-file-name" class="file-name empty">Файл не выбран</span>
+      <button id="photo-upload-submit" class="btn ghost" type="submit" disabled>Загрузить фото</button>
     </form>
     <form method="post" action="/profile" class="form-grid">
       <label>
@@ -62,4 +71,31 @@
     </div>
   </article>
 </section>
+
+<script>
+  const photoInput = document.getElementById("photo-file-input");
+  const photoName = document.getElementById("photo-file-name");
+  const photoSubmit = document.getElementById("photo-upload-submit");
+
+  function updatePhotoUploadState() {
+    if (!photoInput || !photoName || !photoSubmit) {
+      return;
+    }
+    const file = photoInput.files && photoInput.files[0];
+    if (file) {
+      photoName.textContent = file.name;
+      photoName.classList.remove("empty");
+      photoSubmit.disabled = false;
+      return;
+    }
+    photoName.textContent = "Файл не выбран";
+    photoName.classList.add("empty");
+    photoSubmit.disabled = true;
+  }
+
+  if (photoInput) {
+    photoInput.addEventListener("change", updatePhotoUploadState);
+    updatePhotoUploadState();
+  }
+</script>
 {% endblock %}
