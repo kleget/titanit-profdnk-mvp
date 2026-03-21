@@ -90,7 +90,7 @@ def create_psychologist(
     )
     db.add(user)
     db.commit()
-    return RedirectResponse("/admin", status_code=303)
+    return RedirectResponse("/admin?notice=psychologist_created&notice_type=success", status_code=303)
 
 
 @router.post("/psychologists/{psychologist_id}/toggle-block")
@@ -104,7 +104,10 @@ def toggle_block(
         raise HTTPException(status_code=404, detail="Psychologist not found")
     user.is_blocked = not user.is_blocked
     db.commit()
-    return RedirectResponse("/admin", status_code=303)
+    return RedirectResponse(
+        "/admin?notice=psychologist_block_toggled&notice_type=success",
+        status_code=303,
+    )
 
 
 @router.post("/psychologists/{psychologist_id}/access")
@@ -128,4 +131,7 @@ def update_access(
     else:
         user.access_until = None
     db.commit()
-    return RedirectResponse("/admin", status_code=303)
+    return RedirectResponse(
+        "/admin?notice=psychologist_access_updated&notice_type=success",
+        status_code=303,
+    )

@@ -7,6 +7,7 @@
       <label>
         Название теста
         <input name="title" required placeholder="Например: ПрофДНК v2">
+        <small class="field-hint">Минимум 5 символов, чтобы название было понятным на демо и в отчетах.</small>
       </label>
       <label>
         Описание
@@ -84,6 +85,7 @@
 
       <div class="subpanel">
         <h3>Секции</h3>
+        <p class="field-hint">Сначала задай логические разделы, потом привяжи к ним вопросы.</p>
         <div id="sections">
           <div class="inline-form">
             <input name="section_titles[]" value="Профиль клиента" required>
@@ -100,6 +102,7 @@
           <h3>Вопросы</h3>
           <button type="button" id="add-question" class="btn small">+ Вопрос</button>
         </div>
+        <p class="field-hint">Для вариантов выбора обязательно заполни опции в формате "Текст:балл".</p>
         <div id="question-list"></div>
       </div>
 

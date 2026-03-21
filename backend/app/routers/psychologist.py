@@ -142,7 +142,7 @@ def update_profile(
         raise HTTPException(status_code=400, detail="Admin profile is not editable here")
     current_user.about_md = about_md
     db.commit()
-    return RedirectResponse("/dashboard", status_code=303)
+    return RedirectResponse("/dashboard?notice=profile_saved&notice_type=success", status_code=303)
 
 
 @router.post("/profile/photo")
@@ -163,7 +163,7 @@ async def upload_photo(
     file_path.write_bytes(await photo.read())
     current_user.photo_filename = file_name
     db.commit()
-    return RedirectResponse("/dashboard", status_code=303)
+    return RedirectResponse("/dashboard?notice=photo_uploaded&notice_type=success", status_code=303)
 
 
 @router.get("/tests")
@@ -260,7 +260,10 @@ async def create_test_manual(
         sections_payload=sections,
         formulas_payload=formulas,
     )
-    return RedirectResponse(f"/tests/{test.id}", status_code=303)
+    return RedirectResponse(
+        f"/tests/{test.id}?notice=test_created&notice_type=success",
+        status_code=303,
+    )
 
 
 @router.post("/tests/new/import")
@@ -314,7 +317,10 @@ def create_test_import(
         sections_payload=sections,
         formulas_payload=formulas,
     )
-    return RedirectResponse(f"/tests/{test.id}", status_code=303)
+    return RedirectResponse(
+        f"/tests/{test.id}?notice=test_imported&notice_type=success",
+        status_code=303,
+    )
 
 
 @router.get("/tests/{test_id}")
@@ -387,7 +393,10 @@ def create_invite_link(
     )
     db.add(invite_link)
     db.commit()
-    return RedirectResponse(f"/tests/{test.id}", status_code=303)
+    return RedirectResponse(
+        f"/tests/{test.id}?notice=invite_link_added&notice_type=success",
+        status_code=303,
+    )
 
 
 @router.post("/tests/{test_id}/links/{link_id}/toggle")
@@ -410,7 +419,10 @@ def toggle_invite_link(
 
     link.is_active = not link.is_active
     db.commit()
-    return RedirectResponse(f"/tests/{test.id}", status_code=303)
+    return RedirectResponse(
+        f"/tests/{test.id}?notice=invite_link_toggled&notice_type=success",
+        status_code=303,
+    )
 
 
 @router.get("/tests/{test_id}/submissions.json")

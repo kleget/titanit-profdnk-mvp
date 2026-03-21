@@ -124,6 +124,12 @@
             <a class="btn small ghost" href="/reports/{{ submission.id }}/psychologist.docx">Проф. DOCX</a>
           </td>
         </tr>
+      {% else %}
+        <tr>
+          <td colspan="5" class="muted">
+            Пока нет прохождений. Отправь ссылку клиенту, чтобы появились первые результаты.
+          </td>
+        </tr>
       {% endfor %}
       </tbody>
     </table>
@@ -138,12 +144,21 @@
       }
       button.dataset.bound = "1";
       button.addEventListener("click", async () => {
-        await navigator.clipboard.writeText(button.dataset.link);
-        const oldText = button.textContent;
-        button.textContent = "Скопировано";
-        setTimeout(() => {
-          button.textContent = oldText;
-        }, 1200);
+        try {
+          await navigator.clipboard.writeText(button.dataset.link);
+          const oldText = button.textContent;
+          button.textContent = "Скопировано";
+          if (typeof window.uiNotify === "function") {
+            window.uiNotify("success", "Ссылка скопирована.");
+          }
+          setTimeout(() => {
+            button.textContent = oldText;
+          }, 1200);
+        } catch (error) {
+          if (typeof window.uiNotify === "function") {
+            window.uiNotify("error", "Не удалось скопировать ссылку.");
+          }
+        }
       });
     });
   }
@@ -167,6 +182,16 @@
           {% endif %}
           <a class="btn small ghost" href="/reports/${item.id}/psychologist.html" target="_blank">Проф. HTML</a>
           <a class="btn small ghost" href="/reports/${item.id}/psychologist.docx">Проф. DOCX</a>
+        </td>
+      </tr>
+    `;
+  }
+
+  function renderEmptySubmissions() {
+    return `
+      <tr>
+        <td colspan="5" class="muted">
+          Пока нет прохождений. Отправь ссылку клиенту, чтобы появились первые результаты.
         </td>
       </tr>
     `;
@@ -219,9 +244,19 @@
     refreshBtn.textContent = "Обновляю...";
     try {
       const response = await fetch(`/tests/${testId}/submissions.json`);
+      if (!response.ok) {
+        throw new Error("network");
+      }
       const data = await response.json();
-      body.innerHTML = data.map(renderRow).join("");
+      body.innerHTML = data.length ? data.map(renderRow).join("") : renderEmptySubmissions();
       renderGroups(data);
+      if (typeof window.uiNotify === "function") {
+        window.uiNotify("success", "Данные по прохождениям обновлены.");
+      }
+    } catch (error) {
+      if (typeof window.uiNotify === "function") {
+        window.uiNotify("error", "Не удалось обновить данные. Проверь соединение.");
+      }
     } finally {
       refreshBtn.disabled = false;
       refreshBtn.textContent = "Обновить (AJAX)";

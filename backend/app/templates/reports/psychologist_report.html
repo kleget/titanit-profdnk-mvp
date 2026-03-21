@@ -71,7 +71,45 @@
       margin-bottom: 8px;
     }
     @media print {
+      @page {
+        size: A4;
+        margin: 12mm;
+      }
+      html,
+      body {
+        background: #fff !important;
+        color: #111 !important;
+      }
+      body {
+        margin: 0;
+        -webkit-print-color-adjust: exact;
+        print-color-adjust: exact;
+      }
       .theme-switch { display: none; }
+      .panel,
+      .metric-card {
+        background: #fff !important;
+        border-color: #cfd8e3 !important;
+        box-shadow: none !important;
+        break-inside: avoid;
+        page-break-inside: avoid;
+      }
+      .panel {
+        margin: 10px 0;
+      }
+      table {
+        font-size: 11pt;
+      }
+      thead {
+        display: table-header-group;
+      }
+      tr {
+        break-inside: avoid;
+        page-break-inside: avoid;
+      }
+      .bar {
+        border: 1px solid #cfd8e3;
+      }
     }
   </style>
 </head>

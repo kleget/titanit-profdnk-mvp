@@ -42,6 +42,12 @@
             <a class="btn small ghost" href="/tests/{{ test.id }}/export.json">Экспорт JSON</a>
           </td>
         </tr>
+      {% else %}
+        <tr>
+          <td colspan="5" class="muted">
+            Опросников пока нет. Создай первый тест в конструкторе, чтобы начать сбор прохождений.
+          </td>
+        </tr>
       {% endfor %}
       </tbody>
     </table>
@@ -51,9 +57,18 @@
 <script>
   document.querySelectorAll(".copy-link").forEach((btn) => {
     btn.addEventListener("click", async () => {
-      await navigator.clipboard.writeText(btn.dataset.link);
-      btn.textContent = "Ссылка скопирована";
-      setTimeout(() => { btn.textContent = "Скопировать ссылку"; }, 1200);
+      try {
+        await navigator.clipboard.writeText(btn.dataset.link);
+        btn.textContent = "Ссылка скопирована";
+        if (typeof window.uiNotify === "function") {
+          window.uiNotify("success", "Ссылка на тест скопирована.");
+        }
+        setTimeout(() => { btn.textContent = "Скопировать ссылку"; }, 1200);
+      } catch (error) {
+        if (typeof window.uiNotify === "function") {
+          window.uiNotify("error", "Не удалось скопировать ссылку.");
+        }
+      }
     });
   });
 </script>

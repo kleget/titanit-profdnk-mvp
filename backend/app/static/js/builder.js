@@ -2,6 +2,7 @@
   const sectionsNode = document.getElementById("sections");
   const questionsNode = document.getElementById("question-list");
   const formulaNode = document.getElementById("metric-formula-list");
+  const manualForm = document.getElementById("manual-builder");
   const addSectionBtn = document.getElementById("add-section");
   const addQuestionBtn = document.getElementById("add-question");
   const addFormulaBtn = document.getElementById("add-metric-formula");
@@ -70,6 +71,62 @@
     return;
   }
 
+  function notify(type, message, timeoutMs) {
+    if (typeof window.uiNotify === "function") {
+      window.uiNotify(type, message, timeoutMs);
+      return;
+    }
+    // Резервный вариант, если общий слой уведомлений недоступен.
+    console.log(`[${type}] ${message}`);
+  }
+
+  function removeValidationError(input) {
+    input.classList.remove("is-invalid");
+    const parent = input.parentElement;
+    if (!parent) {
+      return;
+    }
+    const error = parent.querySelector(".field-error");
+    if (error) {
+      error.remove();
+    }
+  }
+
+  function setValidationError(input, message) {
+    input.classList.add("is-invalid");
+    const parent = input.parentElement;
+    if (!parent) {
+      return;
+    }
+    let error = parent.querySelector(".field-error");
+    if (!error) {
+      error = document.createElement("small");
+      error.className = "field-error";
+      parent.appendChild(error);
+    }
+    error.textContent = message;
+  }
+
+  function clearValidationErrors() {
+    document.querySelectorAll(".is-invalid").forEach((node) => node.classList.remove("is-invalid"));
+    document.querySelectorAll(".field-error").forEach((node) => node.remove());
+  }
+
+  function createEmptyState(message, actionText, onAction) {
+    const box = document.createElement("div");
+    box.className = "empty-state";
+    box.innerHTML = `<p>${message}</p>`;
+    if (actionText && typeof onAction === "function") {
+      const button = document.createElement("button");
+      button.type = "button";
+      button.className = "btn small ghost";
+      button.textContent = actionText;
+      button.addEventListener("click", onAction);
+      box.appendChild(button);
+    }
+    return box;
+  }
+
   function sectionOptions() {
     return [...sectionsNode.querySelectorAll("input[name='section_titles[]']")]
       .map((input) => input.value.trim())
@@ -92,6 +149,7 @@
     remove.addEventListener("click", () => {
       wrapper.remove();
       syncQuestionSections();
+      syncEmptyStates();
     });
     input.addEventListener("input", syncQuestionSections);
 
@@ -148,7 +206,10 @@
     `;
 
     const removeBtn = box.querySelector(".remove-question");
-    removeBtn.addEventListener("click", () => box.remove());
+    removeBtn.addEventListener("click", () => {
+      box.remove();
+      syncEmptyStates();
+    });
     return box;
   }
 
@@ -174,7 +235,10 @@
     `;
 
     const removeBtn = box.querySelector(".remove-formula");
-    removeBtn.addEventListener("click", () => box.remove());
+    removeBtn.addEventListener("click", () => {
+      box.remove();
+      syncEmptyStates();
+    });
     return box;
   }
 
@@ -213,7 +277,10 @@
     `;
     box.querySelector("select[name='cf_type[]']").value = payload.type || "text";
     box.querySelector("select[name='cf_required[]']").value = payload.required ? "true" : "false";
-    box.querySelector(".remove-client-field").addEventListener("click", () => box.remove());
+    box.querySelector(".remove-client-field").addEventListener("click", () => {
+      box.remove();
+      syncEmptyStates();
+    });
     return box;
   }
 
@@ -236,6 +303,8 @@
       }
       clientFieldNode.appendChild(createClientFieldItem(field));
     });
+    syncEmptyStates();
+    notify("info", "Добавлен шаблон полей клиента.");
   }
 
   function createReportBlockItem(fieldName, selectedKey = "summary_metrics") {
@@ -263,7 +332,10 @@
       select.value = selectedKey;
     }
 
-    box.querySelector(".remove-report-block").addEventListener("click", () => box.remove());
+    box.querySelector(".remove-report-block").addEventListener("click", () => {
+      box.remove();
+      syncEmptyStates();
+    });
     box.querySelector(".move-up").addEventListener("click", () => {
       const prev = box.previousElementSibling;
       if (prev) {
@@ -312,6 +384,78 @@
     }
     fillReportBlockList(clientReportBlockNode, "rt_client[]", preset.client);
     fillReportBlockList(psychReportBlockNode, "rt_psychologist[]", preset.psychologist);
+    syncEmptyStates();
+    notify("info", "Применён пресет шаблона отчётов.");
+  }
+
+  function syncEmptyState(node, message, actionText, actionHandler) {
+    if (!node) {
+      return;
+    }
+    [...node.querySelectorAll(":scope > .empty-state")].forEach((item) => item.remove());
+    const dataItems = [...node.children].filter((item) => !item.classList.contains("empty-state"));
+    if (dataItems.length === 0) {
+      node.appendChild(createEmptyState(message, actionText, actionHandler));
+    }
+  }
+
+  function syncEmptyStates() {
+    syncEmptyState(
+      sectionsNode,
+      "Пока нет секций. Добавь хотя бы одну, чтобы сгруппировать вопросы.",
+      "Добавить секцию",
+      () => {
+        sectionsNode.appendChild(createSectionInput());
+        syncQuestionSections();
+        syncEmptyStates();
+      }
+    );
+    syncEmptyState(
+      questionsNode,
+      "Пока нет вопросов. Добавь вопрос, чтобы создать рабочую методику.",
+      "Добавить вопрос",
+      () => {
+        questionsNode.appendChild(createQuestionItem());
+        syncQuestionSections();
+        syncEmptyStates();
+      }
+    );
+    syncEmptyState(
+      formulaNode,
+      "Формулы пока не добавлены. Можно оставить пусто или добавить свои метрики.",
+      "Добавить формулу",
+      () => {
+        formulaNode.appendChild(createFormulaItem());
+        syncEmptyStates();
+      }
+    );
+    syncEmptyState(
+      clientFieldNode,
+      "Дополнительных полей клиента пока нет.",
+      "Добавить поле",
+      () => {
+        clientFieldNode.appendChild(createClientFieldItem());
+        syncEmptyStates();
+      }
+    );
+    syncEmptyState(
+      clientReportBlockNode,
+      "Список блоков клиентского отчёта пуст.",
+      "Добавить блок",
+      () => {
+        clientReportBlockNode.appendChild(createReportBlockItem("rt_client[]"));
+        syncEmptyStates();
+      }
+    );
+    syncEmptyState(
+      psychReportBlockNode,
+      "Список блоков профессионального отчёта пуст.",
+      "Добавить блок",
+      () => {
+        psychReportBlockNode.appendChild(createReportBlockItem("rt_psychologist[]"));
+        syncEmptyStates();
+      }
+    );
   }
 
   function syncQuestionSections() {
@@ -334,22 +478,26 @@
   addSectionBtn.addEventListener("click", () => {
     sectionsNode.appendChild(createSectionInput());
     syncQuestionSections();
+    syncEmptyStates();
   });
 
   addQuestionBtn.addEventListener("click", () => {
     questionsNode.appendChild(createQuestionItem());
     syncQuestionSections();
+    syncEmptyStates();
   });
 
   if (addFormulaBtn && formulaNode) {
     addFormulaBtn.addEventListener("click", () => {
       formulaNode.appendChild(createFormulaItem());
+      syncEmptyStates();
     });
   }
 
   if (addClientFieldBtn && clientFieldNode) {
     addClientFieldBtn.addEventListener("click", () => {
       clientFieldNode.appendChild(createClientFieldItem());
+      syncEmptyStates();
     });
   }
   clientFieldTemplateBtns.forEach((button) => {
@@ -360,11 +508,13 @@
   if (addClientReportBlockBtn && clientReportBlockNode) {
     addClientReportBlockBtn.addEventListener("click", () => {
       clientReportBlockNode.appendChild(createReportBlockItem("rt_client[]"));
+      syncEmptyStates();
     });
   }
   if (addPsychReportBlockBtn && psychReportBlockNode) {
     addPsychReportBlockBtn.addEventListener("click", () => {
       psychReportBlockNode.appendChild(createReportBlockItem("rt_psychologist[]"));
+      syncEmptyStates();
     });
   }
   reportTemplatePresetBtns.forEach((button) => {
@@ -372,6 +522,152 @@
       applyReportTemplatePreset(button.dataset.template);
     });
   });
+
+  function parseChoiceOptions(value) {
+    return (value || "")
+      .split(",")
+      .map((item) => item.trim())
+      .filter(Boolean);
+  }
+
+  function validateReportBlocks(container, fieldName, labelPrefix, issues) {
+    const selects = [...(container?.querySelectorAll(`select[name='${fieldName}']`) || [])];
+    if (!selects.length) {
+      issues.push(`${labelPrefix}: добавь хотя бы один блок.`);
+      return;
+    }
+    const seen = new Set();
+    selects.forEach((select) => {
+      const value = select.value;
+      if (seen.has(value)) {
+        setValidationError(select, "Блок уже добавлен. Удалите дубликат.");
+        issues.push(`${labelPrefix}: есть дубликаты блоков.`);
+      }
+      seen.add(value);
+    });
+  }
+
+  function validateBuilderForm() {
+    clearValidationErrors();
+    const issues = [];
+
+    const titleInput = manualForm?.querySelector("input[name='title']");
+    if (titleInput && titleInput.value.trim().length < 5) {
+      setValidationError(titleInput, "Минимум 5 символов.");
+      issues.push("Укажи понятное название теста (не короче 5 символов).");
+    }
+
+    const sectionInputs = [...sectionsNode.querySelectorAll("input[name='section_titles[]']")];
+    if (!sectionInputs.length) {
+      issues.push("Добавь хотя бы одну секцию.");
+    }
+    sectionInputs.forEach((input, index) => {
+      if (!input.value.trim()) {
+        setValidationError(input, "Название секции обязательно.");
+        issues.push(`Секция #${index + 1}: пустое название.`);
+      }
+    });
+
+    const questionItems = [...questionsNode.querySelectorAll(".question-item")];
+    if (!questionItems.length) {
+      issues.push("Добавь минимум один вопрос.");
+    }
+    questionItems.forEach((item, index) => {
+      const qText = item.querySelector("input[name='q_text[]']");
+      const qType = item.querySelector("select[name='q_type[]']");
+      const qOptions = item.querySelector("input[name='q_options[]']");
+      const qMin = item.querySelector("input[name='q_min[]']");
+      const qMax = item.querySelector("input[name='q_max[]']");
+
+      if (!qText || !qText.value.trim()) {
+        if (qText) {
+          setValidationError(qText, "Текст вопроса обязателен.");
+        }
+        issues.push(`Вопрос #${index + 1}: заполни формулировку.`);
+      }
+
+      const typeValue = qType?.value || "text";
+      if (typeValue === "single_choice" || typeValue === "multiple_choice") {
+        const options = parseChoiceOptions(qOptions?.value || "");
+        if (options.length < 2) {
+          if (qOptions) {
+            setValidationError(qOptions, "Нужно минимум 2 опции через запятую.");
+          }
+          issues.push(`Вопрос #${index + 1}: для выбора нужно минимум 2 опции.`);
+        }
+      }
+
+      const minRaw = qMin?.value?.trim() || "";
+      const maxRaw = qMax?.value?.trim() || "";
+      if (minRaw && maxRaw && Number(minRaw) > Number(maxRaw)) {
+        if (qMax) {
+          setValidationError(qMax, "Максимум должен быть не меньше минимума.");
+        }
+        issues.push(`Вопрос #${index + 1}: проверь диапазон min/max.`);
+      }
+    });
+
+    const customKeyInputs = [...(clientFieldNode?.querySelectorAll("input[name='cf_key[]']") || [])];
+    const seenCustomKeys = new Set();
+    customKeyInputs.forEach((input) => {
+      const key = input.value.trim().toLowerCase();
+      if (!key) {
+        return;
+      }
+      if (seenCustomKeys.has(key)) {
+        setValidationError(input, "Ключ должен быть уникальным.");
+        issues.push("В дополнительных полях есть дублирующиеся ключи.");
+      }
+      seenCustomKeys.add(key);
+    });
+
+    const formulaItems = [...(formulaNode?.querySelectorAll(".question-item") || [])];
+    formulaItems.forEach((item, index) => {
+      const expressionInput = item.querySelector("input[name='metric_expression[]']");
+      const keyInput = item.querySelector("input[name='metric_key[]']");
+      const labelInput = item.querySelector("input[name='metric_label[]']");
+      const descriptionInput = item.querySelector("input[name='metric_description[]']");
+      const expression = expressionInput?.value?.trim() || "";
+      const touched = [keyInput, labelInput, descriptionInput].some(
+        (input) => (input?.value || "").trim() !== ""
+      );
+      if (touched && !expression && expressionInput) {
+        setValidationError(expressionInput, "Для заполненной строки нужна формула.");
+        issues.push(`Формула #${index + 1}: добавь выражение.`);
+      }
+    });
+
+    validateReportBlocks(clientReportBlockNode, "rt_client[]", "Клиентский отчёт", issues);
+    validateReportBlocks(psychReportBlockNode, "rt_psychologist[]", "Профессиональный отчёт", issues);
+
+    if (issues.length) {
+      notify("error", issues[0]);
+      return false;
+    }
+    return true;
+  }
+
+  if (manualForm) {
+    manualForm.addEventListener("input", (event) => {
+      const target = event.target;
+      if (target instanceof HTMLInputElement || target instanceof HTMLTextAreaElement || target instanceof HTMLSelectElement) {
+        removeValidationError(target);
+      }
+    });
+    manualForm.addEventListener("change", (event) => {
+      const target = event.target;
+      if (target instanceof HTMLInputElement || target instanceof HTMLTextAreaElement || target instanceof HTMLSelectElement) {
+        removeValidationError(target);
+      }
+    });
+    manualForm.addEventListener("submit", (event) => {
+      if (!validateBuilderForm()) {
+        event.preventDefault();
+        return;
+      }
+      notify("success", "Проверка пройдена, создаю тест...", 1600);
+    });
+  }
 
   if (!questionsNode.children.length) {
     questionsNode.appendChild(createQuestionItem());
@@ -388,6 +684,7 @@
     formulaNode.appendChild(sample);
   }
   ensureReportBlockDefaults();
+  syncEmptyStates();
 
   syncQuestionSections();
 })();
