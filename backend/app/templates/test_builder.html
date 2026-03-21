@@ -1,6 +1,6 @@
 {% extends "base.html" %}
 {% block content %}
-<section class="grid two-col">
+<section class="grid builder-layout builder-page">
   <article class="panel">
     <h1>Конструктор методик (ручной)</h1>
     <form method="post" action="/tests/new/manual" class="form-grid" id="manual-builder">
@@ -65,7 +65,7 @@
             Пресет: короткий клиент
           </button>
         </div>
-        <div class="grid two-col">
+        <div class="grid builder-report-grid">
           <div class="question-item">
             <div class="panel-head">
               <h4>Клиентский отчёт</h4>
@@ -216,5 +216,5 @@
   </article>
 </section>
 
-<script src="/static/js/builder.js"></script>
+<script src="/static/js/builder.js?v=20260321b"></script>
 {% endblock %}
