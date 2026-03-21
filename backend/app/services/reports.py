@@ -8,7 +8,7 @@ from typing import Literal
 from docx import Document
 
 from app.models import QuestionType, Submission, Test
-from app.services.client_fields import normalize_client_fields_config
+from app.services.client_fields import REPORT_BLOCK_LABELS, normalize_client_fields_config
 from app.web import templates
 
 ReportKind = Literal["client", "psychologist"]
@@ -110,6 +110,24 @@ def _build_client_profile_rows(test: Test, submission: Submission) -> list[dict[
     return rows
 
 
+def _resolve_report_blocks(test: Test, report_kind: ReportKind) -> list[dict[str, str]]:
+    config = normalize_client_fields_config(test.required_client_fields)
+    templates_config = config.get("report_templates")
+    if isinstance(templates_config, dict):
+        block_keys_raw = templates_config.get(report_kind)
+    else:
+        block_keys_raw = None
+    block_keys = block_keys_raw if isinstance(block_keys_raw, list) else []
+    result: list[dict[str, str]] = []
+    for key in block_keys:
+        block_key = str(key).strip()
+        label = REPORT_BLOCK_LABELS.get(block_key)
+        if not label:
+            continue
+        result.append({"key": block_key, "label": label})
+    return result
+
+
 def build_report_context(
     test: Test,
     submission: Submission,
@@ -139,6 +157,7 @@ def build_report_context(
     )
     submitted_local = submission.submitted_at.astimezone(timezone.utc).strftime("%Y-%m-%d %H:%M UTC")
     client_profile_rows = _build_client_profile_rows(test, submission)
+    report_blocks = _resolve_report_blocks(test, report_kind)
     return {
         "title": title,
         "report_kind": report_kind,
@@ -154,6 +173,8 @@ def build_report_context(
         "derived_metrics": derived_metrics,
         "chart_items": _build_chart_items(metrics, derived_metrics),
         "answers": rows,
+        "report_blocks": report_blocks,
+        "report_block_keys": [item["key"] for item in report_blocks],
     }
 
 
@@ -168,38 +189,36 @@ def render_html_report(context: dict, report_kind: ReportKind) -> str:
 
 
 def build_docx_report(context: dict, report_kind: ReportKind) -> BytesIO:
-    doc = Document()
-    doc.add_heading(context["title"], level=0)
-    doc.add_paragraph(f"Тест: {context['test_title']}")
-    doc.add_paragraph(f"Психолог: {context['psychologist_name']}")
-    doc.add_paragraph(f"Клиент: {context['client_name']}")
-    doc.add_paragraph(f"Дата прохождения: {context['submitted_at']}")
+    def append_profile_block() -> None:
+        heading = "Данные анкеты" if report_kind == "client" else "Данные клиента"
+        doc.add_heading(heading, level=1)
+        for row in context.get("client_profile_rows", []):
+            doc.add_paragraph(f"{row.get('label')}: {row.get('value')}")
 
-    if report_kind == "psychologist":
-        doc.add_heading("Контактные данные клиента", level=1)
-        doc.add_paragraph(f"Email: {context['client_email']}")
-        doc.add_paragraph(f"Телефон: {context['client_phone']}")
-        extra_profile_rows = [
-            row
-            for row in context.get("client_profile_rows", [])
-            if row.get("label") not in {"ФИО", "Email", "Телефон"}
-        ]
-        if extra_profile_rows:
-            doc.add_heading("Дополнительные данные клиента", level=1)
-            for row in extra_profile_rows:
-                doc.add_paragraph(f"{row.get('label')}: {row.get('value')}")
+    def append_summary_metrics_block() -> None:
+        metrics = context.get("metrics", {})
+        doc.add_heading("Метрики", level=1)
+        doc.add_paragraph(
+            f"Итоговый балл: {metrics.get('total_score', 0)} / {metrics.get('max_score', 0)}"
+        )
+        doc.add_paragraph(f"Заполнено: {metrics.get('completion_percent', 0)}%")
+        doc.add_paragraph(f"Процент от максимума: {metrics.get('score_percent', 0)}%")
 
-    metrics = context.get("metrics", {})
-    doc.add_heading("Метрики", level=1)
-    doc.add_paragraph(
-        f"Итоговый балл: {metrics.get('total_score', 0)} / {metrics.get('max_score', 0)}"
-    )
-    doc.add_paragraph(f"Заполнено: {metrics.get('completion_percent', 0)}%")
-    doc.add_paragraph(f"Процент от максимума: {metrics.get('score_percent', 0)}%")
+    def append_charts_block() -> None:
+        chart_items = context.get("chart_items", [])
+        doc.add_heading("Визуализация метрик", level=1)
+        if not chart_items:
+            doc.add_paragraph("Нет данных для визуализации.")
+            return
+        for item in chart_items:
+            doc.add_paragraph(f"{item.get('label')}: {item.get('value')}")
 
-    derived_metrics = context.get("derived_metrics", [])
-    if derived_metrics:
+    def append_derived_metrics_block() -> None:
+        derived_metrics = context.get("derived_metrics", [])
         doc.add_heading("Производные метрики", level=1)
+        if not derived_metrics:
+            doc.add_paragraph("Производные метрики не настроены.")
+            return
         for metric in derived_metrics:
             label = metric.get("label") or metric.get("key")
             value = metric.get("value")
@@ -208,10 +227,30 @@ def build_docx_report(context: dict, report_kind: ReportKind) -> BytesIO:
                 continue
             doc.add_paragraph(f"{label}: {value}")
 
-    doc.add_heading("Ответы", level=1)
-    for row in context["answers"]:
-        doc.add_paragraph(f"[{row.section_title}] {row.question_text}", style="List Bullet")
-        doc.add_paragraph(row.answer_value)
+    def append_answers_block() -> None:
+        doc.add_heading("Ответы", level=1)
+        for row in context["answers"]:
+            doc.add_paragraph(f"[{row.section_title}] {row.question_text}", style="List Bullet")
+            doc.add_paragraph(row.answer_value)
+
+    docx_block_renderers = {
+        "profile": append_profile_block,
+        "summary_metrics": append_summary_metrics_block,
+        "charts": append_charts_block,
+        "derived_metrics": append_derived_metrics_block,
+        "answers": append_answers_block,
+    }
+
+    doc = Document()
+    doc.add_heading(context["title"], level=0)
+    doc.add_paragraph(f"Тест: {context['test_title']}")
+    doc.add_paragraph(f"Психолог: {context['psychologist_name']}")
+    doc.add_paragraph(f"Клиент: {context['client_name']}")
+    doc.add_paragraph(f"Дата прохождения: {context['submitted_at']}")
+    for block_key in context.get("report_block_keys", []):
+        render = docx_block_renderers.get(str(block_key))
+        if render:
+            render()
 
     buffer = BytesIO()
     doc.save(buffer)

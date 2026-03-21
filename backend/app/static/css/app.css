@@ -762,9 +762,18 @@ th {
 
 #question-list,
 #metric-formula-list,
-#client-field-list {
+#client-field-list,
+#client-report-block-list,
+#psych-report-block-list {
   display: grid;
   gap: var(--space-3);
+}
+
+.report-block-item {
+  border: 1px solid rgba(169, 248, 255, 0.2);
+  border-radius: var(--radius-md);
+  padding: var(--space-3);
+  background: rgba(8, 13, 24, 0.35);
 }
 
 .question {

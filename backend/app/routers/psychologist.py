@@ -23,6 +23,7 @@ from app.services.tests import (
     create_test_from_payload,
     export_test_config,
     formulas_from_flat_form,
+    report_templates_from_flat_form,
     sections_from_flat_form,
 )
 from app.web import templates
@@ -225,6 +226,10 @@ async def create_test_manual(
         field_required=form.getlist("cf_required[]"),
         field_placeholders=form.getlist("cf_placeholder[]"),
     )
+    report_templates = report_templates_from_flat_form(
+        client_blocks=form.getlist("rt_client[]"),
+        psychologist_blocks=form.getlist("rt_psychologist[]"),
+    )
 
     sections = sections_from_flat_form(
         section_titles=form.getlist("section_titles[]"),
@@ -251,6 +256,7 @@ async def create_test_manual(
         allow_client_report=allow_client_report,
         required_client_fields=required_client_fields,
         custom_client_fields=custom_client_fields,
+        report_templates=report_templates,
         sections_payload=sections,
         formulas_payload=formulas,
     )
@@ -289,6 +295,10 @@ def create_test_import(
     )
     if not isinstance(custom_client_fields, list):
         raise HTTPException(status_code=400, detail="JSON custom_client_fields must be an array")
+    report_templates = parsed.get("report_templates")
+    if report_templates is not None and not isinstance(report_templates, dict):
+        raise HTTPException(status_code=400, detail="JSON report_templates must be an object")
+
     test = create_test_from_payload(
         db=db,
         psychologist_id=current_user.id,
@@ -300,6 +310,7 @@ def create_test_import(
         or parsed_client_fields.get("required_builtin_fields")
         or ["full_name"],
         custom_client_fields=custom_client_fields,
+        report_templates=report_templates,
         sections_payload=sections,
         formulas_payload=formulas,
     )

@@ -81,92 +81,100 @@
   <h1>{{ title }}</h1>
   <p class="muted">Тест: {{ test_title }} · Клиент: {{ client_name }} · Дата: {{ submitted_at }}</p>
 
-  <div class="panel">
-    <h2>Данные анкеты</h2>
-    <table>
-      <tbody>
-        {% for row in client_profile_rows %}
-          <tr>
-            <th>{{ row.label }}</th>
-            <td>{{ row.value }}</td>
-          </tr>
-        {% endfor %}
-      </tbody>
-    </table>
-  </div>
-
-  <div class="panel panel-soft">
-    <h2>Ключевые показатели</h2>
-    <div class="metric-grid">
-      <div class="metric-card">
-        <span class="muted">Итоговый балл</span>
-        <strong>{{ metrics.total_score }}</strong>
-        <span class="muted">из {{ metrics.max_score }}</span>
+  {% for block in report_blocks %}
+    {% if block.key == "profile" %}
+      <div class="panel">
+        <h2>{{ block.label }}</h2>
+        <table>
+          <tbody>
+            {% for row in client_profile_rows %}
+              <tr>
+                <th>{{ row.label }}</th>
+                <td>{{ row.value }}</td>
+              </tr>
+            {% endfor %}
+          </tbody>
+        </table>
       </div>
-      <div class="metric-card">
-        <span class="muted">Процент от максимума</span>
-        <strong>{{ metrics.score_percent }}%</strong>
-      </div>
-      <div class="metric-card">
-        <span class="muted">Заполнение теста</span>
-        <strong>{{ metrics.completion_percent }}%</strong>
-      </div>
-    </div>
-  </div>
-
-  <div class="panel">
-    <h2>Визуализация метрик</h2>
-    <div class="chart-grid">
-      {% for item in chart_items %}
-        <div class="chart-row">
-          <div class="chart-head">
-            <span>{{ item.label }}</span>
-            <strong>{{ item.value }}</strong>
+    {% elif block.key == "summary_metrics" %}
+      <div class="panel panel-soft">
+        <h2>{{ block.label }}</h2>
+        <div class="metric-grid">
+          <div class="metric-card">
+            <span class="muted">Итоговый балл</span>
+            <strong>{{ metrics.total_score }}</strong>
+            <span class="muted">из {{ metrics.max_score }}</span>
           </div>
-          <div class="bar">
-            <span style="width: {{ item.percent }}%;"></span>
+          <div class="metric-card">
+            <span class="muted">Процент от максимума</span>
+            <strong>{{ metrics.score_percent }}%</strong>
+          </div>
+          <div class="metric-card">
+            <span class="muted">Заполнение теста</span>
+            <strong>{{ metrics.completion_percent }}%</strong>
           </div>
         </div>
-      {% endfor %}
-    </div>
-  </div>
-
-  {% if derived_metrics %}
-    <div class="panel">
-      <h2>Производные метрики</h2>
-      <ul class="formula-list">
-        {% for metric in derived_metrics %}
-          {% if metric.status == "ok" %}
-            <li><strong>{{ metric.label }}</strong>: {{ metric.value }}</li>
+      </div>
+    {% elif block.key == "charts" %}
+      <div class="panel">
+        <h2>{{ block.label }}</h2>
+        <div class="chart-grid">
+          {% for item in chart_items %}
+            <div class="chart-row">
+              <div class="chart-head">
+                <span>{{ item.label }}</span>
+                <strong>{{ item.value }}</strong>
+              </div>
+              <div class="bar">
+                <span style="width: {{ item.percent }}%;"></span>
+              </div>
+            </div>
           {% else %}
-            <li><strong>{{ metric.label }}</strong>: ошибка расчёта</li>
-          {% endif %}
-        {% endfor %}
-      </ul>
-    </div>
-  {% endif %}
-
-  <div class="panel">
-    <h2>Ответы</h2>
-    <table>
-      <thead>
-        <tr>
-          <th>Раздел</th>
-          <th>Вопрос</th>
-          <th>Ответ</th>
-        </tr>
-      </thead>
-      <tbody>
-        {% for row in answers %}
-          <tr>
-            <td>{{ row.section_title }}</td>
-            <td>{{ row.question_text }}</td>
-            <td>{{ row.answer_value }}</td>
-          </tr>
-        {% endfor %}
-      </tbody>
-    </table>
-  </div>
+            <p class="muted">Нет данных для визуализации.</p>
+          {% endfor %}
+        </div>
+      </div>
+    {% elif block.key == "derived_metrics" %}
+      <div class="panel">
+        <h2>{{ block.label }}</h2>
+        {% if derived_metrics %}
+          <ul class="formula-list">
+            {% for metric in derived_metrics %}
+              {% if metric.status == "ok" %}
+                <li><strong>{{ metric.label }}</strong>: {{ metric.value }}</li>
+              {% else %}
+                <li><strong>{{ metric.label }}</strong>: ошибка расчёта</li>
+              {% endif %}
+            {% endfor %}
+          </ul>
+        {% else %}
+          <p class="muted">Производные метрики не настроены.</p>
+        {% endif %}
+      </div>
+    {% elif block.key == "answers" %}
+      <div class="panel">
+        <h2>{{ block.label }}</h2>
+        <table>
+          <thead>
+            <tr>
+              <th>Раздел</th>
+              <th>Вопрос</th>
+              <th>Ответ</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for row in answers %}
+              <tr>
+                <td>{{ row.section_title }}</td>
+                <td>{{ row.question_text }}</td>
+                <td>{{ row.answer_value }}</td>
+              </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    {% endif %}
+  {% endfor %}
   <script>
     (function () {
       const toggle = document.getElementById("report-theme-toggle");

@@ -12,6 +12,7 @@ from app.services.client_fields import (
     ALLOWED_CUSTOM_FIELD_TYPES,
     RESERVED_CUSTOM_KEYS,
     normalize_client_fields_config,
+    normalize_report_templates,
     pack_client_fields_config,
 )
 
@@ -54,6 +55,7 @@ def create_test_from_payload(
     allow_client_report: bool,
     required_client_fields: list[str],
     custom_client_fields: list[dict] | None,
+    report_templates: dict[str, list[str]] | None,
     sections_payload: list[dict],
     formulas_payload: list[dict] | None = None,
 ) -> Test:
@@ -67,6 +69,7 @@ def create_test_from_payload(
     client_fields_config = pack_client_fields_config(
         required_builtin_fields=required_fields,
         custom_fields=custom_client_fields or [],
+        report_templates=report_templates,
     )
 
     test = Test(
@@ -173,6 +176,7 @@ def export_test_config(test: Test) -> dict:
         "allow_client_report": test.allow_client_report,
         "required_client_fields": client_fields["required_builtin_fields"],
         "custom_client_fields": client_fields["custom_fields"],
+        "report_templates": client_fields["report_templates"],
         "client_fields": client_fields,
         "sections": sections,
         "formula_metrics": [
@@ -250,6 +254,18 @@ def custom_client_fields_from_flat_form(
         )
 
     return custom_fields
+
+
+def report_templates_from_flat_form(
+    client_blocks: list[str],
+    psychologist_blocks: list[str],
+) -> dict[str, list[str]]:
+    return normalize_report_templates(
+        {
+            "client": client_blocks,
+            "psychologist": psychologist_blocks,
+        }
+    )
 
 
 def formulas_from_flat_form(

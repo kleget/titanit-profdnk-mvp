@@ -49,6 +49,40 @@
       </div>
 
       <div class="subpanel">
+        <div class="panel-head">
+          <h3>Конструктор шаблонов отчётов</h3>
+        </div>
+        <p class="muted">
+          Настрой, какие блоки и в каком порядке попадут в клиентский и профессиональный отчёты.
+          Можно использовать готовые пресеты и донастроить вручную.
+        </p>
+        <div class="actions">
+          <button type="button" class="btn small ghost report-template-preset" data-template="base">
+            Пресет: базовый
+          </button>
+          <button type="button" class="btn small ghost report-template-preset" data-template="demo_focus">
+            Пресет: короткий клиент
+          </button>
+        </div>
+        <div class="grid two-col">
+          <div class="question-item">
+            <div class="panel-head">
+              <h4>Клиентский отчёт</h4>
+              <button type="button" id="add-client-report-block" class="btn small">+ Блок</button>
+            </div>
+            <div id="client-report-block-list"></div>
+          </div>
+          <div class="question-item">
+            <div class="panel-head">
+              <h4>Профессиональный отчёт</h4>
+              <button type="button" id="add-psych-report-block" class="btn small">+ Блок</button>
+            </div>
+            <div id="psych-report-block-list"></div>
+          </div>
+        </div>
+      </div>
+
+      <div class="subpanel">
         <h3>Секции</h3>
         <div id="sections">
           <div class="inline-form">
@@ -119,6 +153,10 @@
   "title": "Импортируемый тест",
   "description": "Пример структуры",
   "required_client_fields": ["full_name", "email"],
+  "report_templates": {
+    "client": ["profile", "summary_metrics", "derived_metrics", "answers"],
+    "psychologist": ["profile", "summary_metrics", "charts", "derived_metrics", "answers"]
+  },
   "custom_client_fields": [
     {
       "key": "city",

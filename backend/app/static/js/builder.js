@@ -8,6 +8,11 @@
   const clientFieldNode = document.getElementById("client-field-list");
   const addClientFieldBtn = document.getElementById("add-client-field");
   const clientFieldTemplateBtns = [...document.querySelectorAll(".client-field-template")];
+  const clientReportBlockNode = document.getElementById("client-report-block-list");
+  const psychReportBlockNode = document.getElementById("psych-report-block-list");
+  const addClientReportBlockBtn = document.getElementById("add-client-report-block");
+  const addPsychReportBlockBtn = document.getElementById("add-psych-report-block");
+  const reportTemplatePresetBtns = [...document.querySelectorAll(".report-template-preset")];
 
   const clientFieldTemplates = {
     school: [
@@ -42,6 +47,23 @@
         placeholder: "0",
       },
     ],
+  };
+  const reportBlockCatalog = [
+    { key: "profile", label: "Данные клиента" },
+    { key: "summary_metrics", label: "Ключевые показатели" },
+    { key: "charts", label: "Визуализация метрик" },
+    { key: "derived_metrics", label: "Производные метрики" },
+    { key: "answers", label: "Ответы по методике" },
+  ];
+  const reportTemplatePresets = {
+    base: {
+      client: ["profile", "summary_metrics", "charts", "derived_metrics", "answers"],
+      psychologist: ["profile", "summary_metrics", "charts", "derived_metrics", "answers"],
+    },
+    demo_focus: {
+      client: ["profile", "summary_metrics", "derived_metrics"],
+      psychologist: ["profile", "summary_metrics", "charts", "derived_metrics", "answers"],
+    },
   };
 
   if (!sectionsNode || !questionsNode || !addSectionBtn || !addQuestionBtn) {
@@ -216,6 +238,82 @@
     });
   }
 
+  function createReportBlockItem(fieldName, selectedKey = "summary_metrics") {
+    const box = document.createElement("div");
+    box.className = "inline-form report-block-item";
+    box.innerHTML = `
+      <label>
+        Блок
+        <select name="${fieldName}"></select>
+      </label>
+      <div class="actions-row">
+        <button type="button" class="btn small ghost move-up">Вверх</button>
+        <button type="button" class="btn small ghost move-down">Вниз</button>
+        <button type="button" class="btn small ghost remove-report-block">Удалить</button>
+      </div>
+    `;
+    const select = box.querySelector("select");
+    reportBlockCatalog.forEach((block) => {
+      const option = document.createElement("option");
+      option.value = block.key;
+      option.textContent = block.label;
+      select.appendChild(option);
+    });
+    if ([...select.options].some((option) => option.value === selectedKey)) {
+      select.value = selectedKey;
+    }
+
+    box.querySelector(".remove-report-block").addEventListener("click", () => box.remove());
+    box.querySelector(".move-up").addEventListener("click", () => {
+      const prev = box.previousElementSibling;
+      if (prev) {
+        box.parentNode.insertBefore(box, prev);
+      }
+    });
+    box.querySelector(".move-down").addEventListener("click", () => {
+      const next = box.nextElementSibling;
+      if (next) {
+        box.parentNode.insertBefore(next, box);
+      }
+    });
+    return box;
+  }
+
+  function fillReportBlockList(node, fieldName, keys) {
+    if (!node) {
+      return;
+    }
+    node.innerHTML = "";
+    keys.forEach((key) => {
+      node.appendChild(createReportBlockItem(fieldName, key));
+    });
+  }
+
+  function ensureReportBlockDefaults() {
+    if (!clientReportBlockNode || !psychReportBlockNode) {
+      return;
+    }
+    if (!clientReportBlockNode.children.length) {
+      fillReportBlockList(clientReportBlockNode, "rt_client[]", reportTemplatePresets.base.client);
+    }
+    if (!psychReportBlockNode.children.length) {
+      fillReportBlockList(
+        psychReportBlockNode,
+        "rt_psychologist[]",
+        reportTemplatePresets.base.psychologist
+      );
+    }
+  }
+
+  function applyReportTemplatePreset(key) {
+    const preset = reportTemplatePresets[key];
+    if (!preset) {
+      return;
+    }
+    fillReportBlockList(clientReportBlockNode, "rt_client[]", preset.client);
+    fillReportBlockList(psychReportBlockNode, "rt_psychologist[]", preset.psychologist);
+  }
+
   function syncQuestionSections() {
     const values = sectionOptions();
     questionsNode.querySelectorAll("select[name='q_section[]']").forEach((select) => {
@@ -259,6 +357,21 @@
       applyClientFieldTemplate(button.dataset.template);
     });
   });
+  if (addClientReportBlockBtn && clientReportBlockNode) {
+    addClientReportBlockBtn.addEventListener("click", () => {
+      clientReportBlockNode.appendChild(createReportBlockItem("rt_client[]"));
+    });
+  }
+  if (addPsychReportBlockBtn && psychReportBlockNode) {
+    addPsychReportBlockBtn.addEventListener("click", () => {
+      psychReportBlockNode.appendChild(createReportBlockItem("rt_psychologist[]"));
+    });
+  }
+  reportTemplatePresetBtns.forEach((button) => {
+    button.addEventListener("click", () => {
+      applyReportTemplatePreset(button.dataset.template);
+    });
+  });
 
   if (!questionsNode.children.length) {
     questionsNode.appendChild(createQuestionItem());
@@ -274,6 +387,7 @@
       "Средняя оценка цифровых навыков и устойчивости к нагрузке";
     formulaNode.appendChild(sample);
   }
+  ensureReportBlockDefaults();
 
   syncQuestionSections();
 })();

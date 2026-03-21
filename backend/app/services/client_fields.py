@@ -6,6 +6,28 @@ from collections.abc import Iterable
 BUILTIN_CLIENT_FIELDS = ("full_name", "email", "phone", "age")
 OPTIONAL_BUILTIN_FIELDS = ("email", "phone", "age")
 ALLOWED_CUSTOM_FIELD_TYPES = {"text", "textarea", "number", "date", "email", "phone"}
+DEFAULT_CLIENT_REPORT_BLOCKS = (
+    "profile",
+    "summary_metrics",
+    "charts",
+    "derived_metrics",
+    "answers",
+)
+DEFAULT_PSYCHOLOGIST_REPORT_BLOCKS = (
+    "profile",
+    "summary_metrics",
+    "charts",
+    "derived_metrics",
+    "answers",
+)
+REPORT_BLOCK_LABELS = {
+    "profile": "Данные клиента",
+    "summary_metrics": "Ключевые показатели",
+    "charts": "Визуализация метрик",
+    "derived_metrics": "Производные метрики",
+    "answers": "Ответы по методике",
+}
+ALLOWED_REPORT_BLOCKS = set(REPORT_BLOCK_LABELS)
 RESERVED_CUSTOM_KEYS = {
     "full_name",
     "email",
@@ -82,6 +104,34 @@ def _normalize_custom_fields(raw: object) -> list[dict]:
     return normalized[:20]
 
 
+def _normalize_report_block_list(raw: object, default: tuple[str, ...]) -> list[str]:
+    if not isinstance(raw, list):
+        return list(default)
+    prepared: list[str] = []
+    for item in raw:
+        key = str(item).strip()
+        if key not in ALLOWED_REPORT_BLOCKS or key in prepared:
+            continue
+        prepared.append(key)
+    return prepared or list(default)
+
+
+def normalize_report_templates(raw_templates: object) -> dict[str, list[str]]:
+    if not isinstance(raw_templates, dict):
+        return {
+            "client": list(DEFAULT_CLIENT_REPORT_BLOCKS),
+            "psychologist": list(DEFAULT_PSYCHOLOGIST_REPORT_BLOCKS),
+        }
+    return {
+        "client": _normalize_report_block_list(
+            raw_templates.get("client"), DEFAULT_CLIENT_REPORT_BLOCKS
+        ),
+        "psychologist": _normalize_report_block_list(
+            raw_templates.get("psychologist"), DEFAULT_PSYCHOLOGIST_REPORT_BLOCKS
+        ),
+    }
+
+
 def normalize_client_fields_config(raw_config: object) -> dict[str, object]:
     if isinstance(raw_config, dict):
         required_source = raw_config.get("required_builtin_fields")
@@ -94,27 +144,32 @@ def normalize_client_fields_config(raw_config: object) -> dict[str, object]:
             "custom_fields": _normalize_custom_fields(
                 raw_config.get("custom_fields") or raw_config.get("custom_client_fields")
             ),
+            "report_templates": normalize_report_templates(raw_config.get("report_templates")),
         }
 
     if isinstance(raw_config, list):
         return {
             "required_builtin_fields": _normalize_required_builtin_fields(raw_config),
             "custom_fields": [],
+            "report_templates": normalize_report_templates(None),
         }
 
     return {
         "required_builtin_fields": ["full_name"],
         "custom_fields": [],
+        "report_templates": normalize_report_templates(None),
     }
 
 
 def pack_client_fields_config(
     required_builtin_fields: list[str],
     custom_fields: list[dict] | None = None,
+    report_templates: dict[str, list[str]] | None = None,
 ) -> dict[str, object]:
     return {
         "required_builtin_fields": _normalize_required_builtin_fields(required_builtin_fields),
         "custom_fields": _normalize_custom_fields(custom_fields or []),
+        "report_templates": normalize_report_templates(report_templates),
     }
 
 
@@ -164,4 +219,3 @@ def build_client_form_fields(raw_config: object) -> list[dict]:
             }
         )
     return fields
-
