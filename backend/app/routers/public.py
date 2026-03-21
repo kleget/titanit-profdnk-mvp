@@ -3,7 +3,7 @@ from __future__ import annotations
 from io import BytesIO
 
 import qrcode
-from fastapi import APIRouter, Depends, HTTPException, Request
+from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Request
 from fastapi.responses import HTMLResponse, RedirectResponse, Response
 from sqlalchemy import select
 from sqlalchemy.orm import Session, selectinload
@@ -13,6 +13,7 @@ from app.db import get_db
 from app.models import Answer, InviteLink, QuestionType, Submission, Test, TestSection, User
 from app.services.client_fields import build_client_form_fields, normalize_client_fields_config
 from app.services.content import render_safe_markdown
+from app.services.email import send_client_report_email
 from app.services.reports import build_docx_report, build_report_context, render_html_report
 from app.services.scoring import calculate_metrics
 from app.web import templates
@@ -123,6 +124,7 @@ def client_test_page(
 async def submit_client_test(
     token: str,
     request: Request,
+    background_tasks: BackgroundTasks,
     db: Session = Depends(get_db),
 ) -> object:
     test, invite_link = _get_test_by_token(token, db)
@@ -215,6 +217,15 @@ async def submit_client_test(
             )
     db.add_all(answers_to_insert)
     db.commit()
+
+    if client_email and test.allow_client_report:
+        background_tasks.add_task(
+            send_client_report_email,
+            to_email=client_email,
+            client_name=client_full_name,
+            test_title=test.title,
+            report_url=f"{settings.base_url}/t/{token}/report/{submission.id}.html",
+        )
 
     return RedirectResponse(f"/t/{token}/done/{submission.id}", status_code=303)
 

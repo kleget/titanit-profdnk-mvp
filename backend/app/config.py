@@ -29,6 +29,18 @@ def _normalize_log_level(value: str | None, default: str = "INFO") -> str:
     return normalized
 
 
+def _to_int(value: str | None, default: int, *, min_value: int, max_value: int) -> int:
+    if value is None:
+        return default
+    try:
+        parsed = int(value.strip())
+    except (TypeError, ValueError):
+        return default
+    if parsed < min_value or parsed > max_value:
+        return default
+    return parsed
+
+
 @dataclass(frozen=True)
 class Settings:
     app_secret_key: str
@@ -40,6 +52,14 @@ class Settings:
     session_https_only: bool
     session_same_site: str
     log_level: str
+    smtp_host: str
+    smtp_port: int
+    smtp_user: str
+    smtp_password: str
+    smtp_from: str
+    smtp_tls: bool
+    smtp_timeout_seconds: int
+    smtp_enabled: bool
 
 
 _app_env = _normalize_env(os.getenv("APP_ENV"))
@@ -60,6 +80,11 @@ if not _database_url:
 
 _base_url = os.getenv("BASE_URL", "http://localhost:8000").rstrip("/")
 
+_smtp_user = os.getenv("SMTP_USER", "").strip()
+_smtp_password = os.getenv("SMTP_PASSWORD", "").strip()
+_smtp_from = os.getenv("SMTP_FROM", "").strip() or _smtp_user
+_smtp_enabled_default = bool(_smtp_user and _smtp_password and _smtp_from)
+
 settings = Settings(
     app_secret_key=_app_secret_key,
     database_url=_database_url,
@@ -76,4 +101,17 @@ settings = Settings(
     ),
     session_same_site=_to_same_site(os.getenv("SESSION_SAME_SITE"), default="lax"),
     log_level=_normalize_log_level(os.getenv("LOG_LEVEL"), default="INFO"),
+    smtp_host=os.getenv("SMTP_HOST", "smtp.gmail.com").strip() or "smtp.gmail.com",
+    smtp_port=_to_int(os.getenv("SMTP_PORT"), default=587, min_value=1, max_value=65535),
+    smtp_user=_smtp_user,
+    smtp_password=_smtp_password,
+    smtp_from=_smtp_from,
+    smtp_tls=_to_bool(os.getenv("SMTP_TLS"), default=True),
+    smtp_timeout_seconds=_to_int(
+        os.getenv("SMTP_TIMEOUT_SECONDS"),
+        default=15,
+        min_value=3,
+        max_value=120,
+    ),
+    smtp_enabled=_to_bool(os.getenv("SMTP_ENABLED"), default=_smtp_enabled_default),
 )

@@ -69,6 +69,14 @@ pip install -r backend/requirements.txt
   - `AUTO_CREATE_SCHEMA=true` в локальной разработке (быстрый старт).
 - для логирования:
   - `LOG_LEVEL=INFO` (или `DEBUG` для детальной диагностики).
+- для почты (опционально):
+  - `SMTP_ENABLED=true`
+  - `SMTP_HOST=smtp.gmail.com`
+  - `SMTP_PORT=587`
+  - `SMTP_USER=...`
+  - `SMTP_PASSWORD=...`
+  - `SMTP_FROM=...`
+  - `SMTP_TLS=true`
 - `AUTO_SEED` по умолчанию выключен (`false`) и включается явно для демо-стендов.
 
 3. Применить миграции:
@@ -170,6 +178,11 @@ pip install -r backend/requirements-dev.txt
 ruff check backend/app tests
 pytest -q
 ```
+
+## Почтовые уведомления (SMTP)
+- При создании психолога админом отправляется письмо с доступом к кабинету.
+- После прохождения теста клиентом (если указан email и разрешён клиентский отчёт) отправляется ссылка на HTML-отчёт.
+- SMTP настраивается только через переменные окружения / GitHub Secrets, в репозиторий секреты не коммитятся.
 
 ## Что добавили в последних итерациях
 

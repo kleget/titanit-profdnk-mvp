@@ -2,16 +2,18 @@ from __future__ import annotations
 
 from datetime import datetime, timezone
 
-from fastapi import APIRouter, Depends, Form, HTTPException, Request
+from fastapi import APIRouter, BackgroundTasks, Depends, Form, HTTPException, Request
 from fastapi.responses import RedirectResponse
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
+from app.config import settings
 from app.db import get_db
 from app.dependencies import get_optional_user, require_admin
 from app.models import User, UserRole
 from app.security import hash_password
 from app.services.access_reminders import build_admin_access_expiry_reminders
+from app.services.email import send_psychologist_welcome_email
 from app.web import templates
 
 router = APIRouter(prefix="/admin", tags=["admin"])
@@ -44,6 +46,7 @@ def admin_page(
 @router.post("/psychologists")
 def create_psychologist(
     request: Request,
+    background_tasks: BackgroundTasks,
     full_name: str = Form(...),
     email: str = Form(...),
     phone: str = Form(""),
@@ -90,6 +93,14 @@ def create_psychologist(
     )
     db.add(user)
     db.commit()
+    background_tasks.add_task(
+        send_psychologist_welcome_email,
+        to_email=normalized_email,
+        full_name=user.full_name,
+        password=password,
+        access_until=user.access_until,
+        login_url=f"{settings.base_url}/login",
+    )
     return RedirectResponse("/admin?notice=psychologist_created&notice_type=success", status_code=303)
 
 

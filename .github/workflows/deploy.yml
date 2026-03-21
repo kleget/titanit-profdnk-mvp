@@ -45,6 +45,13 @@ jobs:
             DATABASE_URL=sqlite+pysqlite:////srv/titanit-profdnk-mvp/profdnk.db
             BASE_URL=https://recallio.tech
             AUTO_SEED=true
+            SMTP_ENABLED=true
+            SMTP_HOST=${{ secrets.SMTP_HOST }}
+            SMTP_PORT=${{ secrets.SMTP_PORT }}
+            SMTP_USER=${{ secrets.SMTP_USER }}
+            SMTP_PASSWORD=${{ secrets.SMTP_PASSWORD }}
+            SMTP_FROM=${{ secrets.SMTP_FROM }}
+            SMTP_TLS=${{ secrets.SMTP_TLS }}
             EOF
 
             # Keep hackathon app as primary service on 8000.
@@ -68,4 +75,3 @@ jobs:
               sleep 1
             done
             curl -fsS http://127.0.0.1:8000/api/health
-
