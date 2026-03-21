@@ -49,15 +49,15 @@
         </label>
         <label>Тип
           <select name="q_type[]">
-            <option value="text">text</option>
-            <option value="textarea">textarea</option>
-            <option value="single_choice">single_choice</option>
-            <option value="multiple_choice">multiple_choice</option>
-            <option value="yes_no">yes_no</option>
-            <option value="number">number</option>
-            <option value="slider">slider</option>
-            <option value="datetime">datetime</option>
-            <option value="rating">rating</option>
+            <option value="text">Короткий текст</option>
+            <option value="textarea">Большой текст</option>
+            <option value="single_choice">Один вариант</option>
+            <option value="multiple_choice">Несколько вариантов</option>
+            <option value="yes_no">Да / Нет</option>
+            <option value="number">Число</option>
+            <option value="slider">Слайдер</option>
+            <option value="datetime">Дата и время</option>
+            <option value="rating">Оценка</option>
           </select>
         </label>
         <label>Обязательный
@@ -68,10 +68,10 @@
         </label>
       </div>
       <label>Текст вопроса
-        <input name="q_text[]" required>
+        <input name="q_text[]" required placeholder="Введите формулировку вопроса">
       </label>
       <label>Опции (для choice): формат "Текст:балл, Текст2:балл"
-        <input name="q_options[]" placeholder="Да:1, Нет:0">
+        <input name="q_options[]" placeholder="Например: Доход:2, Стабильность:1">
       </label>
       <div class="inline-form">
         <label>Минимум
@@ -123,7 +123,7 @@
     questionsNode.querySelectorAll("select[name='q_section[]']").forEach((select) => {
       const current = select.value;
       select.innerHTML = "";
-      (values.length ? values : ["General section"]).forEach((item) => {
+      (values.length ? values : ["Общая секция"]).forEach((item) => {
         const option = document.createElement("option");
         option.value = item;
         option.textContent = item;
@@ -168,4 +168,3 @@
 
   syncQuestionSections();
 })();
-

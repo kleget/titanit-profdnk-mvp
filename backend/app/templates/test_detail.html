@@ -108,7 +108,7 @@
       {% for submission in submissions %}
         <tr>
           <td data-label="Клиент">{{ submission.client_full_name }}</td>
-          <td data-label="Источник">{{ (submission.client_extra_json or {}).get("invite_label", "Default link") }}</td>
+          <td data-label="Источник">{{ (submission.client_extra_json or {}).get("invite_label", "Основная ссылка") }}</td>
           <td data-label="Дата">{{ submission.submitted_at.strftime("%Y-%m-%d %H:%M") }}</td>
           <td data-label="Метрики">
             Балл: {{ (submission.metrics_json or {}).get("total_score", 0) }} /
@@ -117,11 +117,11 @@
           </td>
           <td data-label="Действия" class="actions-row">
             {% if test.allow_client_report %}
-              <a class="btn small ghost" href="/reports/{{ submission.id }}/client.html" target="_blank">Client HTML</a>
-              <a class="btn small ghost" href="/reports/{{ submission.id }}/client.docx">Client DOCX</a>
+              <a class="btn small ghost" href="/reports/{{ submission.id }}/client.html" target="_blank">Клиент HTML</a>
+              <a class="btn small ghost" href="/reports/{{ submission.id }}/client.docx">Клиент DOCX</a>
             {% endif %}
-            <a class="btn small ghost" href="/reports/{{ submission.id }}/psychologist.html" target="_blank">Pro HTML</a>
-            <a class="btn small ghost" href="/reports/{{ submission.id }}/psychologist.docx">Pro DOCX</a>
+            <a class="btn small ghost" href="/reports/{{ submission.id }}/psychologist.html" target="_blank">Проф. HTML</a>
+            <a class="btn small ghost" href="/reports/{{ submission.id }}/psychologist.docx">Проф. DOCX</a>
           </td>
         </tr>
       {% endfor %}
@@ -157,16 +157,16 @@
     return `
       <tr>
         <td data-label="Клиент">${item.client_full_name}</td>
-        <td data-label="Источник">${item.invite_label ?? "Default link"}</td>
+        <td data-label="Источник">${item.invite_label ?? "Основная ссылка"}</td>
         <td data-label="Дата">${new Date(item.submitted_at).toLocaleString()}</td>
         <td data-label="Метрики">Балл: ${item.score ?? 0}, заполнение: ${item.completion_percent ?? 0}%</td>
         <td data-label="Действия" class="actions-row">
           {% if test.allow_client_report %}
-            <a class="btn small ghost" href="/reports/${item.id}/client.html" target="_blank">Client HTML</a>
-            <a class="btn small ghost" href="/reports/${item.id}/client.docx">Client DOCX</a>
+            <a class="btn small ghost" href="/reports/${item.id}/client.html" target="_blank">Клиент HTML</a>
+            <a class="btn small ghost" href="/reports/${item.id}/client.docx">Клиент DOCX</a>
           {% endif %}
-          <a class="btn small ghost" href="/reports/${item.id}/psychologist.html" target="_blank">Pro HTML</a>
-          <a class="btn small ghost" href="/reports/${item.id}/psychologist.docx">Pro DOCX</a>
+          <a class="btn small ghost" href="/reports/${item.id}/psychologist.html" target="_blank">Проф. HTML</a>
+          <a class="btn small ghost" href="/reports/${item.id}/psychologist.docx">Проф. DOCX</a>
         </td>
       </tr>
     `;
@@ -175,7 +175,7 @@
   function renderGroups(items) {
     const groups = {};
     for (const item of items) {
-      const label = item.invite_label || "Default link";
+      const label = item.invite_label || "Основная ссылка";
       if (!groups[label]) {
         groups[label] = {
           label,

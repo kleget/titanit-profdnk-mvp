@@ -10,7 +10,7 @@
 </section>
 
 <section class="panel">
-  <form method="post" action="/t/{{ token }}" id="client-test-form" class="form-grid">
+  <form method="post" action="/t/{{ token }}" id="client-test-form" class="form-grid client-test-form">
     <h2>Данные клиента</h2>
     <label>
       ФИО *
@@ -57,44 +57,87 @@
       <div class="section-title">{{ section.title }}</div>
       {% for q in section.questions %}
         <div class="question" data-question>
-          <label>
-            {{ q.text }} {% if q.required %}*{% endif %}
+          <div class="question-title">{{ q.text }} {% if q.required %}*{% endif %}</div>
 
-            {% if q.question_type.value == "text" %}
-              <input name="q_{{ q.id }}" {% if q.required %}required{% endif %}>
-            {% elif q.question_type.value == "textarea" %}
-              <textarea name="q_{{ q.id }}" rows="4" {% if q.required %}required{% endif %}></textarea>
-            {% elif q.question_type.value == "single_choice" %}
-              <select name="q_{{ q.id }}" {% if q.required %}required{% endif %}>
-                <option value="">Выберите</option>
-                {% for option in q.options_json or [] %}
-                  <option value="{{ option.value }}">{{ option.label }}</option>
-                {% endfor %}
-              </select>
-            {% elif q.question_type.value == "multiple_choice" %}
-              <div class="multi">
-                {% for option in q.options_json or [] %}
-                  <label>
-                    <input type="checkbox" name="q_{{ q.id }}" value="{{ option.value }}">
-                    {{ option.label }}
-                  </label>
-                {% endfor %}
+          {% if q.question_type.value == "text" %}
+            <input name="q_{{ q.id }}" {% if q.required %}required{% endif %}>
+          {% elif q.question_type.value == "textarea" %}
+            <textarea name="q_{{ q.id }}" rows="4" {% if q.required %}required{% endif %}></textarea>
+          {% elif q.question_type.value == "single_choice" %}
+            <select name="q_{{ q.id }}" {% if q.required %}required{% endif %}>
+              <option value="">Выберите вариант</option>
+              {% for option in q.options_json or [] %}
+                <option value="{{ option.value }}">{{ option.label }}</option>
+              {% endfor %}
+            </select>
+          {% elif q.question_type.value == "multiple_choice" %}
+            <div class="choice-group">
+              {% for option in q.options_json or [] %}
+                <label class="choice-option">
+                  <input type="checkbox" name="q_{{ q.id }}" value="{{ option.value }}">
+                  <span>{{ option.label }}</span>
+                </label>
+              {% endfor %}
+            </div>
+          {% elif q.question_type.value == "yes_no" %}
+            <div class="yesno-group">
+              <label class="choice-option">
+                <input type="radio" name="q_{{ q.id }}" value="true" {% if q.required %}required{% endif %}>
+                <span>Да</span>
+              </label>
+              <label class="choice-option">
+                <input type="radio" name="q_{{ q.id }}" value="false" {% if q.required %}required{% endif %}>
+                <span>Нет</span>
+              </label>
+            </div>
+          {% elif q.question_type.value == "number" %}
+            <input
+              type="number"
+              name="q_{{ q.id }}"
+              step="any"
+              min="{{ q.min_value if q.min_value is not none else '' }}"
+              max="{{ q.max_value if q.max_value is not none else '' }}"
+              placeholder="Введите число"
+              {% if q.required %}required{% endif %}
+            >
+          {% elif q.question_type.value == "slider" %}
+            {% set slider_min = (q.min_value if q.min_value is not none else 0) | int %}
+            {% set slider_max = (q.max_value if q.max_value is not none else 10) | int %}
+            {% set slider_start = slider_min %}
+            <div class="range-control">
+              <div class="range-control-top">
+                <span class="range-hint">Диапазон: {{ slider_min }}–{{ slider_max }}</span>
+                <output id="range-value-{{ q.id }}" class="range-value">{{ slider_start }}</output>
               </div>
-            {% elif q.question_type.value == "yes_no" %}
-              <div class="inline-form">
-                <label><input type="radio" name="q_{{ q.id }}" value="true" {% if q.required %}required{% endif %}> Да</label>
-                <label><input type="radio" name="q_{{ q.id }}" value="false" {% if q.required %}required{% endif %}> Нет</label>
-              </div>
-            {% elif q.question_type.value == "number" %}
-              <input type="number" name="q_{{ q.id }}" min="{{ q.min_value if q.min_value is not none else '' }}" max="{{ q.max_value if q.max_value is not none else '' }}" {% if q.required %}required{% endif %}>
-            {% elif q.question_type.value == "slider" %}
-              <input type="range" name="q_{{ q.id }}" min="{{ q.min_value if q.min_value is not none else 0 }}" max="{{ q.max_value if q.max_value is not none else 10 }}" value="{{ q.min_value if q.min_value is not none else 0 }}" {% if q.required %}required{% endif %}>
-            {% elif q.question_type.value == "datetime" %}
-              <input type="datetime-local" name="q_{{ q.id }}" {% if q.required %}required{% endif %}>
-            {% elif q.question_type.value == "rating" %}
-              <input type="number" name="q_{{ q.id }}" min="{{ q.min_value if q.min_value is not none else 1 }}" max="{{ q.max_value if q.max_value is not none else 5 }}" value="{{ q.min_value if q.min_value is not none else 1 }}" {% if q.required %}required{% endif %}>
-            {% endif %}
-          </label>
+              <input
+                type="range"
+                name="q_{{ q.id }}"
+                min="{{ slider_min }}"
+                max="{{ slider_max }}"
+                value="{{ slider_start }}"
+                data-range-output="range-value-{{ q.id }}"
+                {% if q.required %}required{% endif %}
+              >
+            </div>
+          {% elif q.question_type.value == "datetime" %}
+            <input type="datetime-local" name="q_{{ q.id }}" {% if q.required %}required{% endif %}>
+          {% elif q.question_type.value == "rating" %}
+            {% set rating_min = (q.min_value if q.min_value is not none else 1) | int %}
+            {% set rating_max = (q.max_value if q.max_value is not none else 5) | int %}
+            <div class="rating-group">
+              {% for value in range(rating_min, rating_max + 1) %}
+                <label class="choice-option rating-option">
+                  <input
+                    type="radio"
+                    name="q_{{ q.id }}"
+                    value="{{ value }}"
+                    {% if q.required and loop.first %}required{% endif %}
+                  >
+                  <span>{{ value }}</span>
+                </label>
+              {% endfor %}
+            </div>
+          {% endif %}
         </div>
       {% endfor %}
     {% endfor %}
@@ -107,6 +150,15 @@
   const questions = [...document.querySelectorAll("[data-question]")];
   const fill = document.getElementById("progress-fill");
   const text = document.getElementById("progress-text");
+  const rangeInputs = [...document.querySelectorAll("input[type='range'][data-range-output]")];
+
+  function updateRangeValue(input) {
+    const targetId = input.dataset.rangeOutput;
+    const output = targetId ? document.getElementById(targetId) : null;
+    if (output) {
+      output.textContent = input.value;
+    }
+  }
 
   function questionFilled(block) {
     const inputs = [...block.querySelectorAll("input, textarea, select")];
@@ -130,7 +182,11 @@
 
   form.addEventListener("input", updateProgress);
   form.addEventListener("change", updateProgress);
+  rangeInputs.forEach((input) => {
+    updateRangeValue(input);
+    input.addEventListener("input", () => updateRangeValue(input));
+    input.addEventListener("change", () => updateRangeValue(input));
+  });
   updateProgress();
 </script>
 {% endblock %}
-
