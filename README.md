@@ -27,6 +27,7 @@
 
 ## Технологии
 - Бэкенд: `Python 3.11`, `FastAPI`, `SQLAlchemy`.
+- Миграции: `Alembic`.
 - База данных: `PostgreSQL`.
 - Интерфейс: `Jinja2 + vanilla JS`.
 - Отчеты: `python-docx` + HTML-шаблоны.
@@ -63,12 +64,41 @@ pip install -r backend/requirements.txt
   - `APP_ENV=production` для прод-сервера;
   - `SESSION_HTTPS_ONLY=true` на HTTPS-домене;
   - `SESSION_SAME_SITE=lax` (или `strict` при необходимости).
+- для управления схемой БД:
+  - `AUTO_CREATE_SCHEMA=false` в production (схема только через Alembic);
+  - `AUTO_CREATE_SCHEMA=true` в локальной разработке (быстрый старт).
+- для логирования:
+  - `LOG_LEVEL=INFO` (или `DEBUG` для детальной диагностики).
 - `AUTO_SEED` по умолчанию выключен (`false`) и включается явно для демо-стендов.
 
-3. Запустить приложение:
+3. Применить миграции:
+```bash
+cd backend
+alembic upgrade head
+```
+
+4. Запустить приложение:
 ```bash
 cd backend
 uvicorn app.main:app --reload --host 0.0.0.0 --port 8000
+```
+
+### Миграции БД (Alembic)
+- Инициализация с нуля:
+```bash
+cd backend
+alembic upgrade head
+```
+- Создание новой миграции после изменений моделей:
+```bash
+cd backend
+alembic revision --autogenerate -m "описание изменений"
+alembic upgrade head
+```
+- Откат на одну миграцию:
+```bash
+cd backend
+alembic downgrade -1
 ```
 
 ## Демо-аккаунты
@@ -103,7 +133,9 @@ docs/
 
 ## Что проверено
 - `python -m compileall backend/app`
-- Интеграционные прогоны через `TestClient`:
+- `ruff check backend/app tests`
+- `pytest -q`
+- Ручные интеграционные прогоны полного сценария:
   - вход под ролями,
   - прохождение теста клиентом,
   - просмотр результатов,
@@ -126,6 +158,18 @@ docs/
   - перезапись `.env.deploy`,
   - `systemctl restart titanit-profdnk.service`,
   - `nginx reload`.
+
+## CI (проверки при push/PR)
+- Воркфлоу: `.github/workflows/ci.yml`
+- Что делает:
+  - запускает линтер `ruff`;
+  - запускает unit-тесты `pytest`.
+- Локальный запуск перед пушем:
+```bash
+pip install -r backend/requirements-dev.txt
+ruff check backend/app tests
+pytest -q
+```
 
 ## Что добавили в последних итерациях
 
