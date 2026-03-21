@@ -35,7 +35,7 @@ UPLOAD_DIR.mkdir(parents=True, exist_ok=True)
 
 
 def _slugify(value: str) -> str:
-    cleaned = re.sub(r"[^a-zA-Z0-9а-яА-ЯёЁ_-]+", "_", value)
+    cleaned = re.sub(r"[^a-zA-Z0-9_-]+", "_", value)
     return cleaned.strip("_")[:50] or "report"
 
 
