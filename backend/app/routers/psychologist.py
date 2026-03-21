@@ -16,9 +16,11 @@ from app.config import settings
 from app.db import get_db
 from app.dependencies import get_optional_user, require_csrf_token, require_psychologist_or_admin
 from app.models import Answer, InviteLink, Submission, Test, TestSection, User, UserRole
+from app.schemas.formula_preview import FormulaPreviewPayloadSchema
 from app.services.access_reminders import build_psychologist_access_reminder
 from app.services.client_fields import normalize_client_fields_config
 from app.services.content import render_safe_markdown
+from app.services.formulas import FormulaError, evaluate_formula
 from app.services.invite_links import (
     INVITE_LINK_STATE_ACTIVE,
     INVITE_LINK_STATE_UNKNOWN,
@@ -819,6 +821,53 @@ def toggle_invite_link(
     return RedirectResponse(
         f"/tests/{test.id}?notice=invite_link_toggled&notice_type=success",
         status_code=303,
+    )
+
+
+@router.post("/api/formulas/preview")
+def formula_preview(
+    payload: FormulaPreviewPayloadSchema,
+    _: None = Depends(require_csrf_token),
+    _current_user: User = Depends(require_psychologist_or_admin),
+) -> JSONResponse:
+    parsed = payload.to_service_payload()
+    formulas_payload = parsed["formulas"]
+    context: dict[str, float] = dict(parsed["context"])
+
+    results: list[dict[str, object]] = []
+    for formula in formulas_payload:
+        key = str(formula["key"])
+        label = str(formula["label"])
+        expression = str(formula["expression"])
+        try:
+            value = evaluate_formula(expression, context)
+            rounded = round(float(value), 4)
+            context[key] = rounded
+            results.append(
+                {
+                    "key": key,
+                    "label": label,
+                    "expression": expression,
+                    "status": "ok",
+                    "value": rounded,
+                }
+            )
+        except FormulaError as exc:
+            results.append(
+                {
+                    "key": key,
+                    "label": label,
+                    "expression": expression,
+                    "status": "error",
+                    "error": str(exc),
+                }
+            )
+
+    return JSONResponse(
+        {
+            "results": results,
+            "context": {name: round(number, 4) for name, number in context.items()},
+        }
     )
 
 

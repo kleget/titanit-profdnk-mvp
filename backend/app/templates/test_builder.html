@@ -173,6 +173,51 @@
           </button>
         </div>
         <div id="metric-formula-list"></div>
+        <div class="formula-preview-panel">
+          <div class="panel-head">
+            <h4>Проверка формул на тестовых данных</h4>
+            <button type="button" id="run-formula-preview" class="btn small ghost">
+              Проверить формулы
+            </button>
+          </div>
+          <p class="muted">
+            Укажи тестовые значения и проверь, как считаются метрики до публикации методики.
+          </p>
+          <div class="formula-preview-grid">
+            <label>
+              total_score
+              <input type="number" step="any" value="42" data-formula-base-key="total_score">
+            </label>
+            <label>
+              max_score
+              <input type="number" step="any" value="60" data-formula-base-key="max_score">
+            </label>
+            <label>
+              score_percent
+              <input type="number" step="any" value="70" data-formula-base-key="score_percent">
+            </label>
+            <label>
+              completion_percent
+              <input type="number" step="any" value="90" data-formula-base-key="completion_percent">
+            </label>
+            <label>
+              answered_count
+              <input type="number" step="any" value="9" data-formula-base-key="answered_count">
+            </label>
+            <label>
+              total_questions
+              <input type="number" step="any" value="10" data-formula-base-key="total_questions">
+            </label>
+          </div>
+          <div>
+            <h4>Переменные вопросов</h4>
+            <p class="muted">
+              Поля формируются автоматически по ключам вопросов и идентификаторам из формул.
+            </p>
+            <div id="formula-preview-question-context" class="formula-preview-grid"></div>
+          </div>
+          <div id="formula-preview-results" class="formula-preview-results"></div>
+        </div>
       </div>
 
       <div class="sticky-action-bar">
@@ -274,7 +319,7 @@
   </article>
 </section>
 
-<script src="/static/js/builder.js?v=20260321g"></script>
+<script src="/static/js/builder.js?v=20260321h"></script>
 <script>
   (function () {
     const scrollButtons = Array.from(document.querySelectorAll("[data-builder-scroll]"));

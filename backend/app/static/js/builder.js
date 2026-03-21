@@ -19,9 +19,22 @@
   const draftStatusNode = document.getElementById("builder-draft-status");
   const restoreDraftBtn = document.getElementById("restore-builder-draft");
   const clearDraftBtn = document.getElementById("clear-builder-draft");
+  const formulaPreviewRunBtn = document.getElementById("run-formula-preview");
+  const formulaPreviewQuestionContextNode = document.getElementById("formula-preview-question-context");
+  const formulaPreviewResultsNode = document.getElementById("formula-preview-results");
+  const formulaPreviewBaseInputs = [...document.querySelectorAll("[data-formula-base-key]")];
 
   const DRAFT_STORAGE_KEY = "profdnk_manual_builder_draft_v1";
   const DRAFT_AUTOSAVE_MS = 12000;
+  const FORMULA_PREVIEW_BASE_KEYS = new Set([
+    "total_score",
+    "max_score",
+    "score_percent",
+    "completion_percent",
+    "answered_count",
+    "total_questions",
+  ]);
+  const FORMULA_PREVIEW_ALLOWED_FUNCTIONS = new Set(["min", "max", "abs", "round"]);
 
   const clientFieldTemplates = {
     school: [
@@ -439,7 +452,9 @@
   function createEmptyState(message, actionText, onAction) {
     const box = document.createElement("div");
     box.className = "empty-state";
-    box.innerHTML = `<p>${message}</p>`;
+    const text = document.createElement("p");
+    text.textContent = message;
+    box.appendChild(text);
     if (actionText && typeof onAction === "function") {
       const button = document.createElement("button");
       button.type = "button";
@@ -486,6 +501,21 @@
     return candidate;
   }
 
+  function normalizeBuilderKey(source, fallback) {
+    const prepared = String(source || "")
+      .trim()
+      .toLowerCase()
+      .replace(/[^a-z0-9_]+/g, "_")
+      .replace(/_+/g, "_")
+      .replace(/^_+|_+$/g, "");
+    return prepared || fallback;
+  }
+
+  function parseFormulaIdentifiers(expression) {
+    const matches = String(expression || "").match(/[A-Za-z_][A-Za-z0-9_]*/g) || [];
+    return [...new Set(matches)];
+  }
+
   function readQuestionPayload(box) {
     const sectionSelect = box.querySelector("select[name='q_section[]']");
     const typeSelect = box.querySelector("select[name='q_type[]']");
@@ -515,6 +545,289 @@
       expression: box.querySelector("input[name='metric_expression[]']")?.value || "",
       description: box.querySelector("input[name='metric_description[]']")?.value || "",
     };
+  }
+
+  function escapeHtml(value) {
+    return String(value || "")
+      .replace(/&/g, "&amp;")
+      .replace(/</g, "&lt;")
+      .replace(/>/g, "&gt;")
+      .replace(/"/g, "&quot;")
+      .replace(/'/g, "&#39;");
+  }
+
+  function collectFormulaPreviewFormulas() {
+    return [...(formulaNode?.querySelectorAll(".question-item") || [])]
+      .map((item, index) => {
+        const payload = readFormulaPayload(item);
+        const expression = String(payload.expression || "").trim();
+        const key = normalizeBuilderKey(payload.key || payload.label || "", `metric_${index + 1}`);
+        const touched =
+          expression ||
+          String(payload.key || "").trim() ||
+          String(payload.label || "").trim() ||
+          String(payload.description || "").trim();
+        if (!touched) {
+          return null;
+        }
+        return {
+          key,
+          label: String(payload.label || key).trim(),
+          expression,
+        };
+      })
+      .filter(Boolean);
+  }
+
+  function collectFormulaPreviewQuestionKeys() {
+    const keys = [];
+    const seen = new Set();
+    [...questionsNode.querySelectorAll("input[name='q_text[]']")].forEach((input, index) => {
+      const key = normalizeBuilderKey(input.value, `question_${index + 1}`);
+      if (!seen.has(key)) {
+        seen.add(key);
+        keys.push(key);
+      }
+    });
+    return keys;
+  }
+
+  function syncFormulaPreviewContextInputs() {
+    if (!formulaPreviewQuestionContextNode) {
+      return;
+    }
+
+    const currentValues = new Map(
+      [...formulaPreviewQuestionContextNode.querySelectorAll("input[data-formula-context-key]")]
+        .map((input) => [input.dataset.formulaContextKey || "", input.value])
+        .filter(([key]) => Boolean(key))
+    );
+    const formulas = collectFormulaPreviewFormulas();
+    const questionKeys = collectFormulaPreviewQuestionKeys();
+    const formulaKeys = new Set(formulas.map((formula) => formula.key));
+    const requiredKeys = [];
+    const seenRequired = new Set();
+
+    function appendKey(rawKey) {
+      const key = String(rawKey || "").trim();
+      if (!key || seenRequired.has(key)) {
+        return;
+      }
+      seenRequired.add(key);
+      requiredKeys.push(key);
+    }
+
+    questionKeys.forEach(appendKey);
+    formulas.forEach((formula) => {
+      parseFormulaIdentifiers(formula.expression).forEach((identifier) => {
+        if (
+          FORMULA_PREVIEW_BASE_KEYS.has(identifier) ||
+          FORMULA_PREVIEW_ALLOWED_FUNCTIONS.has(identifier) ||
+          formulaKeys.has(identifier)
+        ) {
+          return;
+        }
+        appendKey(identifier);
+      });
+    });
+
+    formulaPreviewQuestionContextNode.innerHTML = "";
+    if (!requiredKeys.length) {
+      const muted = document.createElement("p");
+      muted.className = "muted";
+      muted.textContent = "Дополнительные переменные не требуются: используются только базовые метрики.";
+      formulaPreviewQuestionContextNode.appendChild(muted);
+      return;
+    }
+
+    requiredKeys.forEach((key) => {
+      const label = document.createElement("label");
+      label.textContent = key;
+      const input = document.createElement("input");
+      input.type = "number";
+      input.step = "any";
+      input.placeholder = "0";
+      input.dataset.formulaContextKey = key;
+      input.value = currentValues.get(key) || "";
+      label.appendChild(input);
+      formulaPreviewQuestionContextNode.appendChild(label);
+    });
+  }
+
+  function parsePreviewNumber(rawValue) {
+    const text = String(rawValue || "")
+      .trim()
+      .replace(",", ".");
+    if (!text) {
+      return 0;
+    }
+    const value = Number(text);
+    if (!Number.isFinite(value)) {
+      return null;
+    }
+    return value;
+  }
+
+  function collectFormulaPreviewContext() {
+    const context = {};
+    const issues = [];
+
+    formulaPreviewBaseInputs.forEach((input) => {
+      const key = input.dataset.formulaBaseKey;
+      if (!key) {
+        return;
+      }
+      const parsed = parsePreviewNumber(input.value);
+      if (parsed === null) {
+        issues.push(`Поле ${key} должно быть числом.`);
+        return;
+      }
+      context[key] = parsed;
+    });
+
+    if (formulaPreviewQuestionContextNode) {
+      formulaPreviewQuestionContextNode
+        .querySelectorAll("input[data-formula-context-key]")
+        .forEach((input) => {
+          const key = input.dataset.formulaContextKey;
+          if (!key) {
+            return;
+          }
+          const parsed = parsePreviewNumber(input.value);
+          if (parsed === null) {
+            issues.push(`Поле ${key} должно быть числом.`);
+            return;
+          }
+          context[key] = parsed;
+        });
+    }
+
+    return { context, issues };
+  }
+
+  function renderFormulaPreviewResults(results) {
+    if (!formulaPreviewResultsNode) {
+      return;
+    }
+    formulaPreviewResultsNode.innerHTML = "";
+
+    if (!Array.isArray(results) || !results.length) {
+      formulaPreviewResultsNode.appendChild(
+        createEmptyState("Нет результатов предпросмотра. Запусти проверку формул.", "", null)
+      );
+      return;
+    }
+
+    results.forEach((item, index) => {
+      const card = document.createElement("div");
+      const isOk = item?.status === "ok";
+      card.className = `formula-preview-result ${isOk ? "is-ok" : "is-error"}`;
+
+      const head = document.createElement("div");
+      head.className = "formula-preview-head";
+
+      const title = document.createElement("strong");
+      title.textContent = String(item?.label || item?.key || `Формула #${index + 1}`);
+      head.appendChild(title);
+
+      const badge = document.createElement("span");
+      badge.className = `status-badge ${isOk ? "status-active" : "status-exhausted"}`;
+      badge.textContent = isOk ? "OK" : "Ошибка";
+      head.appendChild(badge);
+      card.appendChild(head);
+
+      const expression = document.createElement("p");
+      expression.className = "formula-preview-expression";
+      expression.innerHTML = `<code>${escapeHtml(item?.expression || "")}</code>`;
+      card.appendChild(expression);
+
+      const valueLine = document.createElement("p");
+      valueLine.className = "formula-preview-value";
+      valueLine.textContent = isOk
+        ? `Результат: ${String(item?.value ?? "-")}`
+        : `Причина: ${String(item?.error || "Не удалось вычислить формулу.")}`;
+      card.appendChild(valueLine);
+
+      formulaPreviewResultsNode.appendChild(card);
+    });
+  }
+
+  async function runFormulaPreview() {
+    if (!formulaPreviewResultsNode) {
+      return;
+    }
+    syncFormulaPreviewContextInputs();
+
+    const formulas = collectFormulaPreviewFormulas();
+    if (!formulas.length) {
+      notify("info", "Добавь хотя бы одну формулу для проверки.");
+      renderFormulaPreviewResults([]);
+      return;
+    }
+    if (formulas.some((formula) => !formula.expression)) {
+      notify("error", "Для заполненных строк формул укажи выражение.");
+      return;
+    }
+
+    const { context, issues } = collectFormulaPreviewContext();
+    if (issues.length) {
+      notify("error", issues[0]);
+      return;
+    }
+
+    const csrfToken = manualForm?.querySelector("input[name='csrf_token']")?.value || "";
+    if (!csrfToken) {
+      notify("error", "Не найден CSRF-токен. Обнови страницу и повтори попытку.");
+      return;
+    }
+
+    if (formulaPreviewRunBtn) {
+      formulaPreviewRunBtn.disabled = true;
+    }
+    formulaPreviewResultsNode.innerHTML = "";
+    formulaPreviewResultsNode.appendChild(
+      createEmptyState("Вычисляю формулы на тестовых данных...", "", null)
+    );
+
+    try {
+      const response = await fetch("/api/formulas/preview", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "X-CSRF-Token": csrfToken,
+        },
+        body: JSON.stringify({ formulas, context }),
+      });
+      const payload = await response.json().catch(() => ({}));
+      if (!response.ok) {
+        const detail =
+          typeof payload?.detail === "string"
+            ? payload.detail
+            : "Не удалось выполнить предпросмотр формул.";
+        notify("error", detail);
+        formulaPreviewResultsNode.innerHTML = "";
+        formulaPreviewResultsNode.appendChild(createEmptyState(detail, "", null));
+        return;
+      }
+      const results = Array.isArray(payload?.results) ? payload.results : [];
+      renderFormulaPreviewResults(results);
+      const hasErrors = results.some((item) => item?.status !== "ok");
+      if (hasErrors) {
+        notify("info", "Проверка выполнена: в части формул есть ошибки.");
+      } else {
+        notify("success", "Проверка выполнена: формулы рассчитываются корректно.");
+      }
+    } catch (_error) {
+      notify("error", "Ошибка сети при проверке формул. Повтори попытку.");
+      formulaPreviewResultsNode.innerHTML = "";
+      formulaPreviewResultsNode.appendChild(
+        createEmptyState("Ошибка сети при проверке формул. Повтори попытку.", "", null)
+      );
+    } finally {
+      if (formulaPreviewRunBtn) {
+        formulaPreviewRunBtn.disabled = false;
+      }
+    }
   }
 
   function createSectionInput(value = "") {
@@ -663,6 +976,7 @@
       box.parentNode.insertBefore(duplicateItem, box.nextSibling);
       syncQuestionSections();
       syncEmptyStates();
+      syncFormulaPreviewContextInputs();
       markDraftDirty();
       notify("success", "Вопрос продублирован.");
     });
@@ -671,6 +985,7 @@
     removeBtn.addEventListener("click", () => {
       box.remove();
       syncEmptyStates();
+      syncFormulaPreviewContextInputs();
       markDraftDirty();
     });
     return box;
@@ -728,6 +1043,7 @@
       const duplicateItem = createFormulaItem(duplicatePayload);
       box.parentNode.insertBefore(duplicateItem, box.nextSibling);
       syncEmptyStates();
+      syncFormulaPreviewContextInputs();
       markDraftDirty();
       notify("success", "Формула продублирована.");
     });
@@ -736,6 +1052,7 @@
     removeBtn.addEventListener("click", () => {
       box.remove();
       syncEmptyStates();
+      syncFormulaPreviewContextInputs();
       markDraftDirty();
     });
     return box;
@@ -1058,6 +1375,7 @@
     clearValidationErrors();
     syncQuestionSections();
     syncEmptyStates();
+    syncFormulaPreviewContextInputs();
     markDraftDirty();
     notify("success", "Пресет применён. Проверьте детали и создайте тест.");
   }
@@ -1091,6 +1409,7 @@
     });
 
     syncEmptyStates();
+    syncFormulaPreviewContextInputs();
     markDraftDirty();
     notify("success", "Пресет формул добавлен в методику.");
   }
@@ -1258,6 +1577,7 @@
     clearValidationErrors();
     syncQuestionSections();
     syncEmptyStates();
+    syncFormulaPreviewContextInputs();
     return true;
   }
 
@@ -1401,6 +1721,7 @@
     sectionsNode.appendChild(createSectionInput());
     syncQuestionSections();
     syncEmptyStates();
+    syncFormulaPreviewContextInputs();
     markDraftDirty();
   });
 
@@ -1408,6 +1729,7 @@
     questionsNode.appendChild(createQuestionItem());
     syncQuestionSections();
     syncEmptyStates();
+    syncFormulaPreviewContextInputs();
     markDraftDirty();
   });
 
@@ -1415,6 +1737,7 @@
     addFormulaBtn.addEventListener("click", () => {
       formulaNode.appendChild(createFormulaItem());
       syncEmptyStates();
+      syncFormulaPreviewContextInputs();
       markDraftDirty();
     });
   }
@@ -1460,6 +1783,30 @@
       applyFormulaPreset(button.dataset.template || "");
     });
   });
+  if (formulaPreviewRunBtn) {
+    formulaPreviewRunBtn.addEventListener("click", () => {
+      runFormulaPreview();
+    });
+  }
+  if (questionsNode) {
+    questionsNode.addEventListener("input", (event) => {
+      const target = event.target;
+      if (target instanceof HTMLInputElement && target.name === "q_text[]") {
+        syncFormulaPreviewContextInputs();
+      }
+    });
+  }
+  if (formulaNode) {
+    formulaNode.addEventListener("input", (event) => {
+      const target = event.target;
+      if (
+        target instanceof HTMLInputElement &&
+        ["metric_key[]", "metric_label[]", "metric_expression[]"].includes(target.name)
+      ) {
+        syncFormulaPreviewContextInputs();
+      }
+    });
+  }
 
   function parseChoiceOptions(value) {
     return (value || "")
@@ -1639,5 +1986,6 @@
   syncEmptyStates();
 
   syncQuestionSections();
+  syncFormulaPreviewContextInputs();
   initDraftControls();
 })();
