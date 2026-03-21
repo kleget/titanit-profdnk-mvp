@@ -4,6 +4,18 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>{% if title %}{{ title }} · ПрофДНК{% else %}ПрофДНК{% endif %}</title>
+  <script>
+    (function () {
+      let savedTheme = null;
+      try {
+        savedTheme = localStorage.getItem("profdnk_theme");
+      } catch (error) {
+        savedTheme = null;
+      }
+      const theme = savedTheme === "light" || savedTheme === "dark" ? savedTheme : "dark";
+      document.documentElement.setAttribute("data-theme", theme);
+    })();
+  </script>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;700;800&family=Space+Grotesk:wght@500;700&display=swap" rel="stylesheet">
@@ -26,17 +38,48 @@
         {% endif %}
       {% endif %}
     </nav>
-    {% if user %}
-      <form action="/logout" method="post">
-        <button class="btn ghost" type="submit">Выйти</button>
-      </form>
-    {% else %}
-      <a class="btn ghost" href="/login">Войти</a>
-    {% endif %}
+    <div class="topbar-actions">
+      <button id="theme-toggle" class="btn ghost theme-toggle" type="button">Тема: тёмная</button>
+      {% if user %}
+        <form action="/logout" method="post">
+          <button class="btn ghost" type="submit">Выйти</button>
+        </form>
+      {% else %}
+        <a class="btn ghost" href="/login">Войти</a>
+      {% endif %}
+    </div>
   </header>
 
   <main class="container">
     {% block content %}{% endblock %}
   </main>
+  <script>
+    (function () {
+      const toggle = document.getElementById("theme-toggle");
+      if (!toggle) {
+        return;
+      }
+
+      function currentTheme() {
+        return document.documentElement.getAttribute("data-theme") === "light" ? "light" : "dark";
+      }
+
+      function setTheme(theme) {
+        document.documentElement.setAttribute("data-theme", theme);
+        try {
+          localStorage.setItem("profdnk_theme", theme);
+        } catch (error) {
+          // Ничего не делаем, если хранилище недоступно.
+        }
+        toggle.textContent = theme === "light" ? "Тема: светлая" : "Тема: тёмная";
+      }
+
+      setTheme(currentTheme());
+      toggle.addEventListener("click", function () {
+        const nextTheme = currentTheme() === "dark" ? "light" : "dark";
+        setTheme(nextTheme);
+      });
+    })();
+  </script>
 </body>
 </html>
