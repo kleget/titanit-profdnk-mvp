@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import csv
+import io
 import json
 import re
 import secrets
@@ -93,6 +95,28 @@ def _parse_usage_limit(raw_value: str) -> int | None:
     return parsed
 
 
+def _safe_float(value: object) -> float | None:
+    if isinstance(value, bool):
+        return None
+    if isinstance(value, (int, float)):
+        return float(value)
+    if isinstance(value, str):
+        text = value.strip().replace(",", ".")
+        if not text:
+            return None
+        try:
+            return float(text)
+        except ValueError:
+            return None
+    return None
+
+
+def _format_float(value: float | None, *, precision: int = 2) -> str:
+    if value is None:
+        return "-"
+    return f"{value:.{precision}f}"
+
+
 def _build_invite_link_maps(test: Test) -> tuple[dict[int, InviteLink], dict[str, InviteLink]]:
     by_id: dict[int, InviteLink] = {}
     by_label: dict[str, InviteLink] = {}
@@ -176,6 +200,155 @@ def _build_invite_groups(
         key=lambda item: (int(item["count"]), item["last_submitted_at"]),
         reverse=True,
     )
+
+
+def _build_campaign_comparison(
+    submissions: list[Submission],
+    invite_links_by_id: dict[int, InviteLink],
+    invite_links_by_label: dict[str, InviteLink],
+) -> list[dict[str, object]]:
+    grouped: dict[str, dict[str, object]] = {}
+    for submission in submissions:
+        label = _submission_invite_label(submission)
+        state = _submission_invite_state(submission, invite_links_by_id)
+        metrics = submission.metrics_json or {}
+        score_percent = _safe_float(metrics.get("score_percent"))
+        if score_percent is None:
+            total_score = _safe_float(metrics.get("total_score"))
+            max_score = _safe_float(metrics.get("max_score"))
+            if total_score is not None and max_score and max_score > 0:
+                score_percent = round((total_score / max_score) * 100, 2)
+        completion_percent = _safe_float(metrics.get("completion_percent"))
+
+        if label not in grouped:
+            limit_text = "без лимита"
+            if label != "Основная ссылка":
+                link = invite_links_by_label.get(label)
+                if link is not None:
+                    limit_text = invite_link_limit_text(link)
+                else:
+                    limit_text = "-"
+            grouped[label] = {
+                "label": label,
+                "count": 0,
+                "last_submitted_at": submission.submitted_at,
+                "link_state": state,
+                "link_state_label": invite_link_state_label(state),
+                "link_limit_text": limit_text,
+                "score_percent_sum": 0.0,
+                "score_percent_count": 0,
+                "completion_percent_sum": 0.0,
+                "completion_percent_count": 0,
+            }
+
+        row = grouped[label]
+        row["count"] = int(row["count"]) + 1
+        if submission.submitted_at > row["last_submitted_at"]:
+            row["last_submitted_at"] = submission.submitted_at
+
+        if score_percent is not None:
+            row["score_percent_sum"] = float(row["score_percent_sum"]) + score_percent
+            row["score_percent_count"] = int(row["score_percent_count"]) + 1
+        if completion_percent is not None:
+            row["completion_percent_sum"] = float(row["completion_percent_sum"]) + completion_percent
+            row["completion_percent_count"] = int(row["completion_percent_count"]) + 1
+
+    result: list[dict[str, object]] = []
+    for row in grouped.values():
+        score_count = int(row["score_percent_count"])
+        completion_count = int(row["completion_percent_count"])
+        avg_score_percent = (
+            round(float(row["score_percent_sum"]) / score_count, 2) if score_count > 0 else None
+        )
+        avg_completion_percent = (
+            round(float(row["completion_percent_sum"]) / completion_count, 2)
+            if completion_count > 0
+            else None
+        )
+        result.append(
+            {
+                "label": row["label"],
+                "count": row["count"],
+                "last_submitted_at": row["last_submitted_at"],
+                "link_state": row["link_state"],
+                "link_state_label": row["link_state_label"],
+                "link_limit_text": row["link_limit_text"],
+                "avg_score_percent": avg_score_percent,
+                "avg_score_percent_text": _format_float(avg_score_percent),
+                "avg_completion_percent": avg_completion_percent,
+                "avg_completion_percent_text": _format_float(avg_completion_percent),
+            }
+        )
+
+    return sorted(
+        result,
+        key=lambda item: (int(item["count"]), item["last_submitted_at"]),
+        reverse=True,
+    )
+
+
+def _submission_score_percent(submission: Submission) -> float | None:
+    metrics = submission.metrics_json or {}
+    score_percent = _safe_float(metrics.get("score_percent"))
+    if score_percent is not None:
+        return round(score_percent, 2)
+    total_score = _safe_float(metrics.get("total_score"))
+    max_score = _safe_float(metrics.get("max_score"))
+    if total_score is None or max_score is None or max_score <= 0:
+        return None
+    return round((total_score / max_score) * 100, 2)
+
+
+def _build_submission_csv(
+    test: Test,
+    submissions: list[Submission],
+    invite_links_by_id: dict[int, InviteLink],
+) -> bytes:
+    formula_keys: list[str] = []
+    for formula in sorted(test.formulas, key=lambda item: item.position):
+        key = formula.key.strip()
+        if key and key not in formula_keys:
+            formula_keys.append(key)
+
+    header = [
+        "submission_id",
+        "submitted_at",
+        "client_full_name",
+        "client_email",
+        "client_phone",
+        "source_label",
+        "source_state",
+        "total_score",
+        "max_score",
+        "score_percent",
+        "completion_percent",
+    ]
+    header.extend(formula_keys)
+
+    buffer = io.StringIO()
+    writer = csv.writer(buffer)
+    writer.writerow(header)
+
+    for submission in submissions:
+        metrics = submission.metrics_json or {}
+        row = [
+            submission.id,
+            submission.submitted_at.isoformat(),
+            submission.client_full_name,
+            submission.client_email or "",
+            submission.client_phone or "",
+            _submission_invite_label(submission),
+            _submission_invite_state(submission, invite_links_by_id),
+            _format_float(_safe_float(metrics.get("total_score"))),
+            _format_float(_safe_float(metrics.get("max_score"))),
+            _format_float(_submission_score_percent(submission)),
+            _format_float(_safe_float(metrics.get("completion_percent"))),
+        ]
+        for key in formula_keys:
+            row.append(_format_float(_safe_float(metrics.get(key))))
+        writer.writerow(row)
+
+    return buffer.getvalue().encode("utf-8-sig")
 
 
 def _generate_unique_invite_token(db: Session) -> str:
@@ -454,6 +627,11 @@ def test_detail(
     submissions = sorted(test.submissions, key=lambda item: item.submitted_at, reverse=True)
     invite_links_by_id, invite_links_by_label = _build_invite_link_maps(test)
     invite_groups = _build_invite_groups(submissions, invite_links_by_label)
+    campaign_comparison = _build_campaign_comparison(
+        submissions,
+        invite_links_by_id,
+        invite_links_by_label,
+    )
     submission_rows = _submission_rows_for_template(submissions, invite_links_by_id)
     allowed_filters = {"all", "active", "exhausted", "disabled", "unknown"}
     if source_status not in allowed_filters:
@@ -482,6 +660,7 @@ def test_detail(
             "test": test,
             "submission_rows": submission_rows,
             "invite_groups": invite_groups,
+            "campaign_comparison": campaign_comparison,
             "invite_link_rows": invite_link_rows,
             "source_status_filter": source_status,
             "base_url": settings.base_url,
@@ -591,8 +770,10 @@ def submissions_json(
                 "id": sub.id,
                 "client_full_name": sub.client_full_name,
                 "submitted_at": sub.submitted_at.isoformat(),
-                "score": (sub.metrics_json or {}).get("total_score"),
-                "completion_percent": (sub.metrics_json or {}).get("completion_percent"),
+                "total_score": _safe_float((sub.metrics_json or {}).get("total_score")),
+                "max_score": _safe_float((sub.metrics_json or {}).get("max_score")),
+                "score_percent": _submission_score_percent(sub),
+                "completion_percent": _safe_float((sub.metrics_json or {}).get("completion_percent")),
                 "invite_label": _submission_invite_label(sub),
                 "invite_state": state,
                 "invite_state_label": invite_link_state_label(state),
@@ -600,6 +781,37 @@ def submissions_json(
             }
         )
     return JSONResponse(payload)
+
+
+@router.get("/tests/{test_id}/submissions.csv")
+def submissions_csv(
+    test_id: int,
+    current_user: User = Depends(require_psychologist_or_admin),
+    db: Session = Depends(get_db),
+) -> StreamingResponse:
+    test = db.scalar(
+        select(Test)
+        .where(Test.id == test_id)
+        .options(
+            selectinload(Test.submissions),
+            selectinload(Test.invite_links),
+            selectinload(Test.formulas),
+        )
+    )
+    if not test:
+        raise HTTPException(status_code=404, detail="Test not found")
+    _ensure_test_access(test, current_user)
+
+    submissions = sorted(test.submissions, key=lambda item: item.submitted_at, reverse=True)
+    invite_links_by_id, _invite_links_by_label = _build_invite_link_maps(test)
+    csv_bytes = _build_submission_csv(test, submissions, invite_links_by_id)
+    filename = _slugify(f"{test.title}_submissions_{test.id}") + ".csv"
+    headers = {"Content-Disposition": f'attachment; filename="{filename}"'}
+    return StreamingResponse(
+        io.BytesIO(csv_bytes),
+        media_type="text/csv; charset=utf-8",
+        headers=headers,
+    )
 
 
 @router.get("/tests/{test_id}/export.json")

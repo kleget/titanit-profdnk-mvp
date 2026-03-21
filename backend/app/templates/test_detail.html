@@ -8,6 +8,7 @@
     </div>
     <div class="actions">
       <button class="btn ghost copy-link-btn" data-link="{{ base_url }}/t/{{ test.share_token }}">Скопировать основную ссылку</button>
+      <a class="btn ghost" href="/tests/{{ test.id }}/submissions.csv">Экспорт CSV</a>
       <button class="btn" id="refresh-submissions">Обновить (AJAX)</button>
     </div>
   </div>
@@ -94,6 +95,43 @@
       {% else %}
         <tr>
           <td colspan="5" class="muted">Пока нет прохождений</td>
+        </tr>
+      {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</section>
+
+<section class="panel">
+  <h2>Сравнение кампаний</h2>
+  <p class="muted">Один тест, несколько ссылок: сравнение источников по среднему проценту балла и заполнения.</p>
+  <div class="table-wrap">
+    <table class="responsive-table">
+      <thead>
+        <tr>
+          <th>Метка</th>
+          <th>Прохождений</th>
+          <th>Ср. % балла</th>
+          <th>Ср. % заполнения</th>
+          <th>Статус</th>
+          <th>Использовано / лимит</th>
+          <th>Последнее прохождение</th>
+        </tr>
+      </thead>
+      <tbody id="campaign-comparison-body">
+      {% for item in campaign_comparison %}
+        <tr>
+          <td data-label="Метка">{{ item.label }}</td>
+          <td data-label="Прохождений">{{ item.count }}</td>
+          <td data-label="Ср. % балла">{{ item.avg_score_percent_text }}</td>
+          <td data-label="Ср. % заполнения">{{ item.avg_completion_percent_text }}</td>
+          <td data-label="Статус"><span class="status-badge status-{{ item.link_state }}">{{ item.link_state_label }}</span></td>
+          <td data-label="Использовано / лимит">{{ item.link_limit_text }}</td>
+          <td data-label="Последнее прохождение">{{ item.last_submitted_at.strftime("%Y-%m-%d %H:%M") }}</td>
+        </tr>
+      {% else %}
+        <tr>
+          <td colspan="7" class="muted">Пока нет прохождений</td>
         </tr>
       {% endfor %}
       </tbody>
@@ -193,6 +231,7 @@
   const refreshBtn = document.getElementById("refresh-submissions");
   const body = document.getElementById("submissions-body");
   const groupsBody = document.getElementById("invite-groups-body");
+  const campaignBody = document.getElementById("campaign-comparison-body");
   const statusFilter = document.getElementById("source-status-filter");
   const testId = {{ test.id }};
 
@@ -203,7 +242,7 @@
         <td data-label="Источник">${item.invite_label ?? "Основная ссылка"}</td>
         <td data-label="Статус ссылки"><span class="status-badge status-${item.invite_state || "unknown"}">${item.invite_state_label ?? "Неизвестно"}</span></td>
         <td data-label="Дата">${new Date(item.submitted_at).toLocaleString()}</td>
-        <td data-label="Метрики">Балл: ${item.score ?? 0}, заполнение: ${item.completion_percent ?? 0}%</td>
+        <td data-label="Метрики">Балл: ${item.total_score ?? 0} / ${item.max_score ?? 0}, % балла: ${item.score_percent ?? 0}, заполнение: ${item.completion_percent ?? 0}%</td>
         <td data-label="Действия" class="actions-row">
           {% if test.allow_client_report %}
             <a class="btn small ghost" href="/reports/${item.id}/client.html" target="_blank">Клиент HTML</a>
@@ -224,6 +263,76 @@
         </td>
       </tr>
     `;
+  }
+
+  function formatNumber(value) {
+    if (typeof value !== "number" || Number.isNaN(value)) {
+      return "-";
+    }
+    return value.toFixed(2);
+  }
+
+  function renderCampaignComparison(items) {
+    const rows = {};
+    for (const item of items) {
+      const label = item.invite_label || "Основная ссылка";
+      if (!rows[label]) {
+        rows[label] = {
+          label,
+          count: 0,
+          scoreSum: 0,
+          scoreCount: 0,
+          completionSum: 0,
+          completionCount: 0,
+          invite_state: item.invite_state || "unknown",
+          invite_state_label: item.invite_state_label || "Неизвестно",
+          invite_limit_text: item.invite_limit_text || "-",
+          last_submitted_at: item.submitted_at,
+        };
+      }
+      rows[label].count += 1;
+      if (typeof item.score_percent === "number") {
+        rows[label].scoreSum += item.score_percent;
+        rows[label].scoreCount += 1;
+      }
+      if (typeof item.completion_percent === "number") {
+        rows[label].completionSum += item.completion_percent;
+        rows[label].completionCount += 1;
+      }
+      if (new Date(item.submitted_at) > new Date(rows[label].last_submitted_at)) {
+        rows[label].last_submitted_at = item.submitted_at;
+      }
+    }
+
+    const list = Object.values(rows).sort((a, b) => {
+      if (b.count !== a.count) {
+        return b.count - a.count;
+      }
+      return new Date(b.last_submitted_at) - new Date(a.last_submitted_at);
+    });
+
+    if (list.length === 0) {
+      campaignBody.innerHTML = '<tr><td colspan="7" class="muted">Пока нет прохождений</td></tr>';
+      return;
+    }
+
+    campaignBody.innerHTML = list
+      .map((row) => {
+        const avgScore = row.scoreCount > 0 ? row.scoreSum / row.scoreCount : null;
+        const avgCompletion = row.completionCount > 0 ? row.completionSum / row.completionCount : null;
+        return `
+          <tr>
+            <td data-label="Метка">${row.label}</td>
+            <td data-label="Прохождений">${row.count}</td>
+            <td data-label="Ср. % балла">${formatNumber(avgScore)}</td>
+            <td data-label="Ср. % заполнения">${formatNumber(avgCompletion)}</td>
+            <td data-label="Статус"><span class="status-badge status-${row.invite_state}">${row.invite_state_label}</span></td>
+            <td data-label="Использовано / лимит">${row.invite_limit_text}</td>
+            <td data-label="Последнее прохождение">${new Date(row.last_submitted_at).toLocaleString()}</td>
+          </tr>
+        `;
+      })
+      .join("");
   }
 
   function renderGroups(items) {
@@ -307,6 +416,7 @@
       const data = await response.json();
       body.innerHTML = data.length ? data.map(renderRow).join("") : renderEmptySubmissions();
       renderGroups(data);
+      renderCampaignComparison(data);
       applyStatusFilter();
       if (typeof window.uiNotify === "function") {
         window.uiNotify("success", "Данные по прохождениям обновлены.");
