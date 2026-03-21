@@ -761,7 +761,8 @@ th {
 }
 
 #question-list,
-#metric-formula-list {
+#metric-formula-list,
+#client-field-list {
   display: grid;
   gap: var(--space-3);
 }

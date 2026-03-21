@@ -17,41 +17,27 @@
       <input name="client_full_name" required>
     </label>
 
-    {% if "email" in test.required_client_fields %}
+    {% for field in client_profile_fields %}
       <label>
-        Email *
-        <input type="email" name="client_email" required>
+        {{ field.label }}{% if field.required %} *{% endif %}
+        {% if field.input_type == "textarea" %}
+          <textarea
+            name="{{ field.name }}"
+            rows="3"
+            placeholder="{{ field.placeholder }}"
+            {% if field.required %}required{% endif %}
+          ></textarea>
+        {% else %}
+          <input
+            type="{{ field.input_type }}"
+            name="{{ field.name }}"
+            placeholder="{{ field.placeholder }}"
+            {% if field.key == "age" %}min="0"{% endif %}
+            {% if field.required %}required{% endif %}
+          >
+        {% endif %}
       </label>
-    {% else %}
-      <label>
-        Email
-        <input type="email" name="client_email">
-      </label>
-    {% endif %}
-
-    {% if "phone" in test.required_client_fields %}
-      <label>
-        Телефон *
-        <input name="client_phone" required>
-      </label>
-    {% else %}
-      <label>
-        Телефон
-        <input name="client_phone">
-      </label>
-    {% endif %}
-
-    {% if "age" in test.required_client_fields %}
-      <label>
-        Возраст *
-        <input name="client_age" required>
-      </label>
-    {% else %}
-      <label>
-        Возраст
-        <input name="client_age">
-      </label>
-    {% endif %}
+    {% endfor %}
 
     {% for section in test.sections %}
       <div class="section-title">{{ section.title }}</div>

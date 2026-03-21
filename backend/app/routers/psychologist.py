@@ -19,6 +19,7 @@ from app.services.content import render_safe_markdown
 from app.services.reports import build_docx_report, build_report_context, render_html_report
 from app.services.scoring import calculate_metrics
 from app.services.tests import (
+    custom_client_fields_from_flat_form,
     create_test_from_payload,
     export_test_config,
     formulas_from_flat_form,
@@ -217,6 +218,13 @@ async def create_test_manual(
     description = str(form.get("description", ""))
     allow_client_report = str(form.get("allow_client_report", "false")).lower() == "true"
     required_client_fields = form.getlist("required_client_fields")
+    custom_client_fields = custom_client_fields_from_flat_form(
+        field_keys=form.getlist("cf_key[]"),
+        field_labels=form.getlist("cf_label[]"),
+        field_types=form.getlist("cf_type[]"),
+        field_required=form.getlist("cf_required[]"),
+        field_placeholders=form.getlist("cf_placeholder[]"),
+    )
 
     sections = sections_from_flat_form(
         section_titles=form.getlist("section_titles[]"),
@@ -242,6 +250,7 @@ async def create_test_manual(
         description=description,
         allow_client_report=allow_client_report,
         required_client_fields=required_client_fields,
+        custom_client_fields=custom_client_fields,
         sections_payload=sections,
         formulas_payload=formulas,
     )
@@ -270,6 +279,16 @@ def create_test_import(
     formulas = parsed.get("formula_metrics") or parsed.get("metric_formulas") or []
     if not isinstance(formulas, list):
         raise HTTPException(status_code=400, detail="JSON formula_metrics must be an array")
+    parsed_client_fields = parsed.get("client_fields")
+    if not isinstance(parsed_client_fields, dict):
+        parsed_client_fields = {}
+    custom_client_fields = (
+        parsed.get("custom_client_fields")
+        or parsed_client_fields.get("custom_fields")
+        or []
+    )
+    if not isinstance(custom_client_fields, list):
+        raise HTTPException(status_code=400, detail="JSON custom_client_fields must be an array")
     test = create_test_from_payload(
         db=db,
         psychologist_id=current_user.id,
@@ -278,7 +297,9 @@ def create_test_import(
         allow_client_report=allow_client_report.lower() == "true",
         required_client_fields=required_client_fields
         or parsed.get("required_client_fields")
+        or parsed_client_fields.get("required_builtin_fields")
         or ["full_name"],
+        custom_client_fields=custom_client_fields,
         sections_payload=sections,
         formulas_payload=formulas,
     )

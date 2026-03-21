@@ -11,6 +11,7 @@ from sqlalchemy.orm import Session, selectinload
 from app.config import settings
 from app.db import get_db
 from app.models import Answer, InviteLink, QuestionType, Submission, Test, TestSection, User
+from app.services.client_fields import build_client_form_fields, normalize_client_fields_config
 from app.services.content import render_safe_markdown
 from app.services.reports import build_docx_report, build_report_context, render_html_report
 from app.services.scoring import calculate_metrics
@@ -104,6 +105,7 @@ def client_test_page(
     db: Session = Depends(get_db),
 ) -> object:
     test, invite_link = _get_test_by_token(token, db)
+    client_profile_fields = build_client_form_fields(test.required_client_fields)
     return templates.TemplateResponse(
         "client_test.html",
         {
@@ -112,6 +114,7 @@ def client_test_page(
             "test": test,
             "token": token,
             "invite_link": invite_link,
+            "client_profile_fields": client_profile_fields,
         },
     )
 
@@ -133,13 +136,27 @@ async def submit_client_test(
     if not client_full_name:
         raise HTTPException(status_code=400, detail="ФИО обязательно")
 
-    required_fields = test.required_client_fields or ["full_name"]
+    client_fields_config = normalize_client_fields_config(test.required_client_fields)
+    required_fields = set(client_fields_config["required_builtin_fields"])
     if "email" in required_fields and not client_email:
         raise HTTPException(status_code=400, detail="Email обязателен")
     if "phone" in required_fields and not client_phone:
         raise HTTPException(status_code=400, detail="Телефон обязателен")
     if "age" in required_fields and not client_age:
         raise HTTPException(status_code=400, detail="Возраст обязателен")
+
+    custom_values: dict[str, str] = {}
+    custom_fields = client_fields_config["custom_fields"]
+    for field in custom_fields:
+        key = str(field.get("key", "")).strip()
+        label = str(field.get("label", "")).strip()
+        if not key or not label:
+            continue
+        raw_value = str(form.get(f"client_custom_{key}", "")).strip()
+        if field.get("required") and not raw_value:
+            raise HTTPException(status_code=400, detail=f"Поле '{label}' обязательно")
+        if raw_value:
+            custom_values[key] = raw_value
 
     answer_map: dict[int, object] = {}
     answers_to_insert: list[Answer] = []
@@ -168,6 +185,8 @@ async def submit_client_test(
     client_extra: dict[str, object] = {}
     if client_age:
         client_extra["age"] = client_age
+    if custom_values:
+        client_extra["custom_fields"] = custom_values
     if invite_link:
         client_extra["invite_label"] = invite_link.label
         client_extra["invite_token"] = invite_link.token

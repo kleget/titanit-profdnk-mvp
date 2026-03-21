@@ -82,9 +82,16 @@
 
   <div class="panel">
     <h2>Данные клиента</h2>
-    <p><strong>ФИО:</strong> {{ client_name }}</p>
-    <p><strong>Email:</strong> {{ client_email }}</p>
-    <p><strong>Телефон:</strong> {{ client_phone }}</p>
+    <table>
+      <tbody>
+        {% for row in client_profile_rows %}
+          <tr>
+            <th>{{ row.label }}</th>
+            <td>{{ row.value }}</td>
+          </tr>
+        {% endfor %}
+      </tbody>
+    </table>
   </div>
 
   <div class="panel panel-soft">

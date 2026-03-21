@@ -8,6 +8,7 @@ from typing import Literal
 from docx import Document
 
 from app.models import QuestionType, Submission, Test
+from app.services.client_fields import normalize_client_fields_config
 from app.web import templates
 
 ReportKind = Literal["client", "psychologist"]
@@ -80,6 +81,35 @@ def _build_chart_items(metrics: dict, derived_metrics: list[dict]) -> list[dict]
     return chart_items
 
 
+def _build_client_profile_rows(test: Test, submission: Submission) -> list[dict[str, str]]:
+    config = normalize_client_fields_config(test.required_client_fields)
+    required_builtin = set(config["required_builtin_fields"])
+
+    extra_raw = submission.client_extra_json if isinstance(submission.client_extra_json, dict) else {}
+    age_value = extra_raw.get("age")
+    custom_values_raw = extra_raw.get("custom_fields")
+    custom_values = custom_values_raw if isinstance(custom_values_raw, dict) else {}
+
+    rows: list[dict[str, str]] = [
+        {"label": "ФИО", "value": submission.client_full_name or "-"},
+        {"label": "Email", "value": submission.client_email or "-"},
+        {"label": "Телефон", "value": submission.client_phone or "-"},
+    ]
+    if age_value not in {None, ""} or "age" in required_builtin:
+        rows.append({"label": "Возраст", "value": str(age_value or "-")})
+
+    for field in config["custom_fields"]:
+        key = str(field.get("key", "")).strip()
+        label = str(field.get("label", "")).strip()
+        if not key or not label:
+            continue
+        value = custom_values.get(key)
+        if value in {None, ""} and not field.get("required"):
+            continue
+        rows.append({"label": label, "value": str(value or "-")})
+    return rows
+
+
 def build_report_context(
     test: Test,
     submission: Submission,
@@ -108,6 +138,7 @@ def build_report_context(
         else "Отчёт для профориентолога"
     )
     submitted_local = submission.submitted_at.astimezone(timezone.utc).strftime("%Y-%m-%d %H:%M UTC")
+    client_profile_rows = _build_client_profile_rows(test, submission)
     return {
         "title": title,
         "report_kind": report_kind,
@@ -117,6 +148,7 @@ def build_report_context(
         "client_name": submission.client_full_name,
         "client_email": submission.client_email or "-",
         "client_phone": submission.client_phone or "-",
+        "client_profile_rows": client_profile_rows,
         "submitted_at": submitted_local,
         "metrics": metrics,
         "derived_metrics": derived_metrics,
@@ -147,6 +179,15 @@ def build_docx_report(context: dict, report_kind: ReportKind) -> BytesIO:
         doc.add_heading("Контактные данные клиента", level=1)
         doc.add_paragraph(f"Email: {context['client_email']}")
         doc.add_paragraph(f"Телефон: {context['client_phone']}")
+        extra_profile_rows = [
+            row
+            for row in context.get("client_profile_rows", [])
+            if row.get("label") not in {"ФИО", "Email", "Телефон"}
+        ]
+        if extra_profile_rows:
+            doc.add_heading("Дополнительные данные клиента", level=1)
+            for row in extra_profile_rows:
+                doc.add_paragraph(f"{row.get('label')}: {row.get('value')}")
 
     metrics = context.get("metrics", {})
     doc.add_heading("Метрики", level=1)

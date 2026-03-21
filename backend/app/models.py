@@ -74,7 +74,7 @@ class Test(Base):
     title: Mapped[str] = mapped_column(String(255), nullable=False)
     description: Mapped[str] = mapped_column(Text, default="", nullable=False)
     share_token: Mapped[str] = mapped_column(String(120), unique=True, nullable=False, index=True)
-    required_client_fields: Mapped[list[str]] = mapped_column(
+    required_client_fields: Mapped[dict | list[str]] = mapped_column(
         JSON, default=lambda: ["full_name"], nullable=False
     )
     allow_client_report: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)

@@ -8,6 +8,12 @@ from fastapi import HTTPException, status
 from sqlalchemy.orm import Session
 
 from app.models import MetricFormula, Question, QuestionType, Test, TestSection
+from app.services.client_fields import (
+    ALLOWED_CUSTOM_FIELD_TYPES,
+    RESERVED_CUSTOM_KEYS,
+    normalize_client_fields_config,
+    pack_client_fields_config,
+)
 
 
 def normalize_key(source: str, fallback: str) -> str:
@@ -47,6 +53,7 @@ def create_test_from_payload(
     description: str,
     allow_client_report: bool,
     required_client_fields: list[str],
+    custom_client_fields: list[dict] | None,
     sections_payload: list[dict],
     formulas_payload: list[dict] | None = None,
 ) -> Test:
@@ -57,13 +64,17 @@ def create_test_from_payload(
 
     required_fields = ["full_name"]
     required_fields.extend([field for field in required_client_fields if field != "full_name"])
+    client_fields_config = pack_client_fields_config(
+        required_builtin_fields=required_fields,
+        custom_fields=custom_client_fields or [],
+    )
 
     test = Test(
         psychologist_id=psychologist_id,
         title=title.strip(),
         description=description.strip(),
         allow_client_report=allow_client_report,
-        required_client_fields=required_fields,
+        required_client_fields=client_fields_config,
         share_token=secrets.token_urlsafe(12),
     )
     db.add(test)
@@ -136,6 +147,7 @@ def create_test_from_payload(
 
 
 def export_test_config(test: Test) -> dict:
+    client_fields = normalize_client_fields_config(test.required_client_fields)
     sections: list[dict] = []
     for section in test.sections:
         questions: list[dict] = []
@@ -159,7 +171,9 @@ def export_test_config(test: Test) -> dict:
         "title": test.title,
         "description": test.description,
         "allow_client_report": test.allow_client_report,
-        "required_client_fields": test.required_client_fields,
+        "required_client_fields": client_fields["required_builtin_fields"],
+        "custom_client_fields": client_fields["custom_fields"],
+        "client_fields": client_fields,
         "sections": sections,
         "formula_metrics": [
             {
@@ -172,6 +186,70 @@ def export_test_config(test: Test) -> dict:
             for formula in test.formulas
         ],
     }
+
+
+def custom_client_fields_from_flat_form(
+    field_keys: list[str],
+    field_labels: list[str],
+    field_types: list[str],
+    field_required: list[str],
+    field_placeholders: list[str],
+) -> list[dict]:
+    lengths = {
+        len(field_keys),
+        len(field_labels),
+        len(field_types),
+        len(field_required),
+        len(field_placeholders),
+    }
+    if len(lengths) != 1:
+        raise HTTPException(status_code=400, detail="Invalid custom client fields payload")
+
+    custom_fields: list[dict] = []
+    used_keys: set[str] = set()
+    for idx, label_raw in enumerate(field_labels):
+        label = label_raw.strip()
+        key_input = field_keys[idx].strip()
+        field_type = field_types[idx].strip().lower() or "text"
+        required = field_required[idx].strip().lower() in {"true", "1", "yes"}
+        placeholder = field_placeholders[idx].strip()
+
+        if not label and not key_input and not placeholder:
+            continue
+        if not label:
+            raise HTTPException(
+                status_code=400,
+                detail=f"Custom field label is required in row {idx+1}",
+            )
+        if field_type not in ALLOWED_CUSTOM_FIELD_TYPES:
+            raise HTTPException(
+                status_code=400,
+                detail=f"Unsupported custom field type '{field_type}' in row {idx+1}",
+            )
+
+        key = normalize_key(key_input or label, f"client_field_{idx+1}")
+        if key in RESERVED_CUSTOM_KEYS:
+            raise HTTPException(
+                status_code=400,
+                detail=f"Reserved custom field key '{key}' in row {idx+1}",
+            )
+        if key in used_keys:
+            raise HTTPException(
+                status_code=400,
+                detail=f"Duplicate custom field key '{key}' in row {idx+1}",
+            )
+        used_keys.add(key)
+        custom_fields.append(
+            {
+                "key": key,
+                "label": label,
+                "type": field_type,
+                "required": required,
+                "placeholder": placeholder,
+            }
+        )
+
+    return custom_fields
 
 
 def formulas_from_flat_form(

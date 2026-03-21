@@ -81,6 +81,20 @@
   <h1>{{ title }}</h1>
   <p class="muted">Тест: {{ test_title }} · Клиент: {{ client_name }} · Дата: {{ submitted_at }}</p>
 
+  <div class="panel">
+    <h2>Данные анкеты</h2>
+    <table>
+      <tbody>
+        {% for row in client_profile_rows %}
+          <tr>
+            <th>{{ row.label }}</th>
+            <td>{{ row.value }}</td>
+          </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+
   <div class="panel panel-soft">
     <h2>Ключевые показатели</h2>
     <div class="metric-grid">

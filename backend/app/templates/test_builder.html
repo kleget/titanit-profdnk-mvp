@@ -29,6 +29,26 @@
       </fieldset>
 
       <div class="subpanel">
+        <div class="panel-head">
+          <h3>Дополнительные поля клиента</h3>
+          <button type="button" id="add-client-field" class="btn small">+ Поле</button>
+        </div>
+        <p class="muted">
+          Настрой собственные поля анкеты клиента для этого теста.
+          Можно быстро добавить шаблон и затем отредактировать.
+        </p>
+        <div class="actions">
+          <button type="button" class="btn small ghost client-field-template" data-template="school">
+            Шаблон: Школа/вуз
+          </button>
+          <button type="button" class="btn small ghost client-field-template" data-template="career">
+            Шаблон: Карьерная сессия
+          </button>
+        </div>
+        <div id="client-field-list"></div>
+      </div>
+
+      <div class="subpanel">
         <h3>Секции</h3>
         <div id="sections">
           <div class="inline-form">
@@ -99,6 +119,22 @@
   "title": "Импортируемый тест",
   "description": "Пример структуры",
   "required_client_fields": ["full_name", "email"],
+  "custom_client_fields": [
+    {
+      "key": "city",
+      "label": "Город проживания",
+      "type": "text",
+      "required": true,
+      "placeholder": "Например: Ростов-на-Дону"
+    },
+    {
+      "key": "education",
+      "label": "Текущее образование",
+      "type": "text",
+      "required": false,
+      "placeholder": "Школа, колледж, вуз"
+    }
+  ],
   "formula_metrics": [
     {
       "key": "adaptability_index",
@@ -141,4 +177,3 @@
 
 <script src="/static/js/builder.js"></script>
 {% endblock %}
-
