@@ -18,7 +18,14 @@ def create_app() -> FastAPI:
         description="Минимальная версия платформы ПрофДНК для хакатона ТИТАНИТ",
         version="0.1.0",
     )
-    app.add_middleware(SessionMiddleware, secret_key=settings.app_secret_key)
+    app.add_middleware(
+        SessionMiddleware,
+        secret_key=settings.app_secret_key,
+        session_cookie="profdnk_session",
+        same_site=settings.session_same_site,
+        https_only=settings.session_https_only,
+        max_age=60 * 60 * 24 * 7,
+    )
 
     static_dir = Path(__file__).resolve().parent / "static"
     app.mount("/static", StaticFiles(directory=str(static_dir)), name="static")

@@ -5,7 +5,6 @@ import re
 import secrets
 from pathlib import Path
 
-import markdown
 from fastapi import APIRouter, Depends, Form, HTTPException, Request, UploadFile
 from fastapi.responses import HTMLResponse, JSONResponse, RedirectResponse, StreamingResponse
 from sqlalchemy import func, select
@@ -16,6 +15,7 @@ from app.db import get_db
 from app.dependencies import get_optional_user, require_psychologist_or_admin
 from app.models import Answer, InviteLink, Submission, Test, TestSection, User, UserRole
 from app.services.access_reminders import build_psychologist_access_reminder
+from app.services.content import render_safe_markdown
 from app.services.reports import build_docx_report, build_report_context, render_html_report
 from app.services.scoring import calculate_metrics
 from app.services.tests import (
@@ -114,7 +114,7 @@ def dashboard(
         or 0
     )
     access_reminder = build_psychologist_access_reminder(current_user)
-    about_html = markdown.markdown(current_user.about_md or "")
+    about_html = render_safe_markdown(current_user.about_md or "")
     return templates.TemplateResponse(
         "dashboard.html",
         {

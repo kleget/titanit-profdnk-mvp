@@ -2,7 +2,6 @@ from __future__ import annotations
 
 from io import BytesIO
 
-import markdown
 import qrcode
 from fastapi import APIRouter, Depends, HTTPException, Request
 from fastapi.responses import HTMLResponse, RedirectResponse, Response
@@ -12,6 +11,7 @@ from sqlalchemy.orm import Session, selectinload
 from app.config import settings
 from app.db import get_db
 from app.models import Answer, InviteLink, QuestionType, Submission, Test, TestSection, User
+from app.services.content import render_safe_markdown
 from app.services.reports import build_docx_report, build_report_context, render_html_report
 from app.services.scoring import calculate_metrics
 from app.web import templates
@@ -70,7 +70,7 @@ def psychologist_business_card(
     psychologist = db.get(User, psychologist_id)
     if not psychologist:
         raise HTTPException(status_code=404, detail="Психолог не найден")
-    about_html = markdown.markdown(psychologist.about_md or "")
+    about_html = render_safe_markdown(psychologist.about_md or "")
     card_url = f"{settings.base_url}/public/psychologists/{psychologist.id}"
     return templates.TemplateResponse(
         "business_card.html",
@@ -149,7 +149,11 @@ async def submit_client_test(
             if question.question_type == QuestionType.MULTIPLE_CHOICE:
                 value: object = form.getlist(field_name)
             elif question.question_type == QuestionType.YES_NO:
-                value = str(form.get(field_name, "")).lower() in {"true", "1", "yes", "on"}
+                raw_value = form.get(field_name)
+                if raw_value in {None, ""}:
+                    value = None
+                else:
+                    value = str(raw_value).lower() in {"true", "1", "yes", "on"}
             else:
                 value = form.get(field_name)
             if question.required and _is_empty(value):

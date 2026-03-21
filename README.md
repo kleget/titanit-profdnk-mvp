@@ -59,6 +59,11 @@ pip install -r backend/requirements.txt
   - `APP_SECRET_KEY`
   - `DATABASE_URL`
   - `BASE_URL`
+- рекомендовано:
+  - `APP_ENV=production` для прод-сервера;
+  - `SESSION_HTTPS_ONLY=true` на HTTPS-домене;
+  - `SESSION_SAME_SITE=lax` (или `strict` при необходимости).
+- `AUTO_SEED` по умолчанию выключен (`false`) и включается явно для демо-стендов.
 
 3. Запустить приложение:
 ```bash
