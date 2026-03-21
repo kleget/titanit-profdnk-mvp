@@ -14,6 +14,7 @@ from app.models import Answer, InviteLink, QuestionType, Submission, Test, TestS
 from app.services.client_fields import build_client_form_fields, normalize_client_fields_config
 from app.services.content import render_safe_markdown
 from app.services.email import send_client_report_email
+from app.services.invite_links import is_invite_link_exhausted
 from app.services.reports import build_docx_report, build_report_context, render_html_report
 from app.services.scoring import calculate_metrics
 from app.web import templates
@@ -38,10 +39,15 @@ def _load_test_for_client(test_id: int, db: Session) -> Test | None:
 
 
 def _get_test_by_token(token: str, db: Session) -> tuple[Test, InviteLink | None]:
-    invite_link = db.scalar(
-        select(InviteLink).where(InviteLink.token == token, InviteLink.is_active.is_(True))
-    )
+    invite_link = db.scalar(select(InviteLink).where(InviteLink.token == token))
     if invite_link:
+        if is_invite_link_exhausted(invite_link):
+            if invite_link.is_active:
+                invite_link.is_active = False
+                db.commit()
+            raise HTTPException(status_code=404, detail="Ссылка для прохождения недоступна")
+        if not invite_link.is_active:
+            raise HTTPException(status_code=404, detail="Ссылка для прохождения недоступна")
         test = _load_test_for_client(invite_link.test_id, db)
     else:
         test_id = db.scalar(select(Test.id).where(Test.share_token == token))
@@ -216,18 +222,25 @@ async def submit_client_test(
                 )
             )
     db.add_all(answers_to_insert)
+
+    if invite_link:
+        invite_link.usage_count += 1
+        if is_invite_link_exhausted(invite_link):
+            invite_link.is_active = False
+
     db.commit()
 
+    public_token = test.share_token
     if client_email and test.allow_client_report:
         background_tasks.add_task(
             send_client_report_email,
             to_email=client_email,
             client_name=client_full_name,
             test_title=test.title,
-            report_url=f"{settings.base_url}/t/{token}/report/{submission.id}.html",
+            report_url=f"{settings.base_url}/t/{public_token}/report/{submission.id}.html",
         )
 
-    return RedirectResponse(f"/t/{token}/done/{submission.id}", status_code=303)
+    return RedirectResponse(f"/t/{public_token}/done/{submission.id}", status_code=303)
 
 
 @router.get("/t/{token}/done/{submission_id}")

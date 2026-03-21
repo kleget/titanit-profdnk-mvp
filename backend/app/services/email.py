@@ -53,6 +53,7 @@ def send_email_message(
                 smtp_client.ehlo()
             smtp_client.login(settings.smtp_user, settings.smtp_password)
             smtp_client.send_message(message)
+        logger.info("email sent recipient=%s subject=%s", to_email, subject)
         return True
     except Exception:
         logger.exception(

@@ -16,6 +16,14 @@ from app.dependencies import get_optional_user, require_psychologist_or_admin
 from app.models import Answer, InviteLink, Submission, Test, TestSection, User, UserRole
 from app.services.access_reminders import build_psychologist_access_reminder
 from app.services.content import render_safe_markdown
+from app.services.invite_links import (
+    INVITE_LINK_STATE_ACTIVE,
+    INVITE_LINK_STATE_UNKNOWN,
+    invite_link_limit_text,
+    invite_link_state,
+    invite_link_state_label,
+    is_invite_link_exhausted,
+)
 from app.services.reports import build_docx_report, build_report_context, render_html_report
 from app.services.tests import (
     custom_client_fields_from_flat_form,
@@ -57,18 +65,108 @@ def _submission_invite_label(submission: Submission) -> str:
         cleaned = _normalize_label(raw_value)
         if cleaned:
             return cleaned
-    return "Default link"
+    return "Основная ссылка"
 
 
-def _build_invite_groups(submissions: list[Submission]) -> list[dict[str, object]]:
+def _submission_invite_link_id(submission: Submission) -> int | None:
+    extra = submission.client_extra_json or {}
+    raw_value = extra.get("invite_link_id")
+    if isinstance(raw_value, int):
+        return raw_value
+    if isinstance(raw_value, str) and raw_value.isdigit():
+        return int(raw_value)
+    return None
+
+
+def _parse_usage_limit(raw_value: str) -> int | None:
+    cleaned = raw_value.strip()
+    if not cleaned:
+        return None
+    try:
+        parsed = int(cleaned)
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail="Лимит прохождений должен быть целым числом") from exc
+    if parsed <= 0:
+        raise HTTPException(status_code=400, detail="Лимит прохождений должен быть больше нуля")
+    if parsed > 1_000_000:
+        raise HTTPException(status_code=400, detail="Лимит прохождений слишком большой")
+    return parsed
+
+
+def _build_invite_link_maps(test: Test) -> tuple[dict[int, InviteLink], dict[str, InviteLink]]:
+    by_id: dict[int, InviteLink] = {}
+    by_label: dict[str, InviteLink] = {}
+    for link in test.invite_links:
+        by_id[link.id] = link
+        by_label[link.label] = link
+    return by_id, by_label
+
+
+def _submission_invite_state(submission: Submission, invite_links_by_id: dict[int, InviteLink]) -> str:
+    invite_link_id = _submission_invite_link_id(submission)
+    if invite_link_id is None:
+        return INVITE_LINK_STATE_ACTIVE
+    link = invite_links_by_id.get(invite_link_id)
+    if not link:
+        return INVITE_LINK_STATE_UNKNOWN
+    return invite_link_state(link)
+
+
+def _submission_invite_limit_text(
+    submission: Submission, invite_links_by_id: dict[int, InviteLink]
+) -> str:
+    invite_link_id = _submission_invite_link_id(submission)
+    if invite_link_id is None:
+        return "без лимита"
+    link = invite_links_by_id.get(invite_link_id)
+    if not link:
+        return "-"
+    return invite_link_limit_text(link)
+
+
+def _submission_rows_for_template(
+    submissions: list[Submission],
+    invite_links_by_id: dict[int, InviteLink],
+) -> list[dict[str, object]]:
+    rows: list[dict[str, object]] = []
+    for submission in submissions:
+        state = _submission_invite_state(submission, invite_links_by_id)
+        rows.append(
+            {
+                "submission": submission,
+                "invite_label": _submission_invite_label(submission),
+                "invite_state": state,
+                "invite_state_label": invite_link_state_label(state),
+            }
+        )
+    return rows
+
+
+def _build_invite_groups(
+    submissions: list[Submission],
+    invite_links_by_label: dict[str, InviteLink],
+) -> list[dict[str, object]]:
     grouped: dict[str, dict[str, object]] = {}
     for sub in submissions:
         label = _submission_invite_label(sub)
+        state = INVITE_LINK_STATE_ACTIVE
+        limit_text = "без лимита"
+        if label != "Основная ссылка":
+            link = invite_links_by_label.get(label)
+            if link:
+                state = invite_link_state(link)
+                limit_text = invite_link_limit_text(link)
+            else:
+                state = INVITE_LINK_STATE_UNKNOWN
+                limit_text = "-"
         if label not in grouped:
             grouped[label] = {
                 "label": label,
                 "count": 0,
                 "last_submitted_at": sub.submitted_at,
+                "link_state": state,
+                "link_state_label": invite_link_state_label(state),
+                "link_limit_text": limit_text,
             }
         grouped[label]["count"] = int(grouped[label]["count"]) + 1
         if sub.submitted_at > grouped[label]["last_submitted_at"]:
@@ -326,6 +424,7 @@ def create_test_import(
 def test_detail(
     test_id: int,
     request: Request,
+    source_status: str = "all",
     current_user: User = Depends(require_psychologist_or_admin),
     db: Session = Depends(get_db),
 ) -> object:
@@ -344,8 +443,36 @@ def test_detail(
         raise HTTPException(status_code=404, detail="Test not found")
     _ensure_test_access(test, current_user)
 
+    links_were_updated = False
+    for link in test.invite_links:
+        if link.is_active and is_invite_link_exhausted(link):
+            link.is_active = False
+            links_were_updated = True
+    if links_were_updated:
+        db.commit()
+
     submissions = sorted(test.submissions, key=lambda item: item.submitted_at, reverse=True)
-    invite_groups = _build_invite_groups(submissions)
+    invite_links_by_id, invite_links_by_label = _build_invite_link_maps(test)
+    invite_groups = _build_invite_groups(submissions, invite_links_by_label)
+    submission_rows = _submission_rows_for_template(submissions, invite_links_by_id)
+    allowed_filters = {"all", "active", "exhausted", "disabled", "unknown"}
+    if source_status not in allowed_filters:
+        source_status = "all"
+    if source_status != "all":
+        submission_rows = [row for row in submission_rows if row["invite_state"] == source_status]
+
+    invite_link_rows = []
+    for link in test.invite_links:
+        state = invite_link_state(link)
+        invite_link_rows.append(
+            {
+                "link": link,
+                "state": state,
+                "state_label": invite_link_state_label(state),
+                "limit_text": invite_link_limit_text(link),
+            }
+        )
+
     return templates.TemplateResponse(
         request,
         "test_detail.html",
@@ -353,8 +480,10 @@ def test_detail(
             "title": f"Тест: {test.title}",
             "user": current_user,
             "test": test,
-            "submissions": submissions,
+            "submission_rows": submission_rows,
             "invite_groups": invite_groups,
+            "invite_link_rows": invite_link_rows,
+            "source_status_filter": source_status,
             "base_url": settings.base_url,
         },
     )
@@ -364,6 +493,7 @@ def test_detail(
 def create_invite_link(
     test_id: int,
     label: str = Form(""),
+    usage_limit: str = Form(""),
     current_user: User = Depends(require_psychologist_or_admin),
     db: Session = Depends(get_db),
 ) -> object:
@@ -384,11 +514,13 @@ def create_invite_link(
     if duplicate:
         raise HTTPException(status_code=400, detail="Link label already exists")
 
+    parsed_usage_limit = _parse_usage_limit(usage_limit)
     invite_link = InviteLink(
         test_id=test.id,
         label=cleaned_label,
         token=_generate_unique_invite_token(db),
         is_active=True,
+        usage_limit=parsed_usage_limit,
     )
     db.add(invite_link)
     db.commit()
@@ -416,6 +548,9 @@ def toggle_invite_link(
     if not link:
         raise HTTPException(status_code=404, detail="Invite link not found")
 
+    if not link.is_active and is_invite_link_exhausted(link):
+        raise HTTPException(status_code=400, detail="Ссылка исчерпала лимит прохождений")
+
     link.is_active = not link.is_active
     db.commit()
     return RedirectResponse(
@@ -430,22 +565,40 @@ def submissions_json(
     current_user: User = Depends(require_psychologist_or_admin),
     db: Session = Depends(get_db),
 ) -> JSONResponse:
-    test = db.scalar(select(Test).where(Test.id == test_id).options(selectinload(Test.submissions)))
+    test = db.scalar(
+        select(Test)
+        .where(Test.id == test_id)
+        .options(selectinload(Test.submissions), selectinload(Test.invite_links))
+    )
     if not test:
         raise HTTPException(status_code=404, detail="Test not found")
     _ensure_test_access(test, current_user)
 
-    payload = [
-        {
-            "id": sub.id,
-            "client_full_name": sub.client_full_name,
-            "submitted_at": sub.submitted_at.isoformat(),
-            "score": (sub.metrics_json or {}).get("total_score"),
-            "completion_percent": (sub.metrics_json or {}).get("completion_percent"),
-            "invite_label": _submission_invite_label(sub),
-        }
-        for sub in sorted(test.submissions, key=lambda item: item.submitted_at, reverse=True)
-    ]
+    links_were_updated = False
+    for link in test.invite_links:
+        if link.is_active and is_invite_link_exhausted(link):
+            link.is_active = False
+            links_were_updated = True
+    if links_were_updated:
+        db.commit()
+
+    invite_links_by_id, _invite_links_by_label = _build_invite_link_maps(test)
+    payload = []
+    for sub in sorted(test.submissions, key=lambda item: item.submitted_at, reverse=True):
+        state = _submission_invite_state(sub, invite_links_by_id)
+        payload.append(
+            {
+                "id": sub.id,
+                "client_full_name": sub.client_full_name,
+                "submitted_at": sub.submitted_at.isoformat(),
+                "score": (sub.metrics_json or {}).get("total_score"),
+                "completion_percent": (sub.metrics_json or {}).get("completion_percent"),
+                "invite_label": _submission_invite_label(sub),
+                "invite_state": state,
+                "invite_state_label": invite_link_state_label(state),
+                "invite_limit_text": _submission_invite_limit_text(sub, invite_links_by_id),
+            }
+        )
     return JSONResponse(payload)
 
 

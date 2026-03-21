@@ -22,6 +22,7 @@
     </div>
     <form class="inline-form" method="post" action="/tests/{{ test.id }}/links">
       <input type="text" name="label" maxlength="120" placeholder="Название кампании" required>
+      <input type="number" name="usage_limit" min="1" step="1" placeholder="Лимит (опционально)">
       <button class="btn" type="submit">Добавить ссылку</button>
     </form>
   </div>
@@ -32,6 +33,7 @@
         <tr>
           <th>Метка</th>
           <th>Статус</th>
+          <th>Использовано / лимит</th>
           <th>Ссылка</th>
           <th>Действия</th>
         </tr>
@@ -39,21 +41,25 @@
       <tbody>
         <tr>
           <td data-label="Метка">Основная ссылка</td>
-          <td data-label="Статус">Активна</td>
+          <td data-label="Статус"><span class="status-badge status-active">Активна</span></td>
+          <td data-label="Использовано / лимит">без лимита</td>
           <td data-label="Ссылка"><code>{{ base_url }}/t/{{ test.share_token }}</code></td>
           <td data-label="Действия">
             <button class="btn small ghost copy-link-btn" type="button" data-link="{{ base_url }}/t/{{ test.share_token }}">Копировать</button>
           </td>
         </tr>
-        {% for link in test.invite_links %}
+        {% for link_row in invite_link_rows %}
           <tr>
-            <td data-label="Метка">{{ link.label }}</td>
-            <td data-label="Статус">{{ "Активна" if link.is_active else "Отключена" }}</td>
-            <td data-label="Ссылка"><code>{{ base_url }}/t/{{ link.token }}</code></td>
+            <td data-label="Метка">{{ link_row.link.label }}</td>
+            <td data-label="Статус">
+              <span class="status-badge status-{{ link_row.state }}">{{ link_row.state_label }}</span>
+            </td>
+            <td data-label="Использовано / лимит">{{ link_row.limit_text }}</td>
+            <td data-label="Ссылка"><code>{{ base_url }}/t/{{ link_row.link.token }}</code></td>
             <td data-label="Действия" class="actions-row">
-              <button class="btn small ghost copy-link-btn" type="button" data-link="{{ base_url }}/t/{{ link.token }}">Копировать</button>
-              <form method="post" action="/tests/{{ test.id }}/links/{{ link.id }}/toggle">
-                <button class="btn small ghost" type="submit">{{ "Отключить" if link.is_active else "Включить" }}</button>
+              <button class="btn small ghost copy-link-btn" type="button" data-link="{{ base_url }}/t/{{ link_row.link.token }}">Копировать</button>
+              <form method="post" action="/tests/{{ test.id }}/links/{{ link_row.link.id }}/toggle">
+                <button class="btn small ghost" type="submit">{{ "Отключить" if link_row.link.is_active else "Включить" }}</button>
               </form>
             </td>
           </tr>
@@ -72,6 +78,8 @@
           <th>Метка</th>
           <th>Прохождений</th>
           <th>Последнее прохождение</th>
+          <th>Статус</th>
+          <th>Использовано / лимит</th>
         </tr>
       </thead>
       <tbody id="invite-groups-body">
@@ -80,10 +88,12 @@
           <td data-label="Метка">{{ group.label }}</td>
           <td data-label="Прохождений">{{ group.count }}</td>
           <td data-label="Последнее прохождение">{{ group.last_submitted_at.strftime("%Y-%m-%d %H:%M") }}</td>
+          <td data-label="Статус"><span class="status-badge status-{{ group.link_state }}">{{ group.link_state_label }}</span></td>
+          <td data-label="Использовано / лимит">{{ group.link_limit_text }}</td>
         </tr>
       {% else %}
         <tr>
-          <td colspan="3" class="muted">Пока нет прохождений</td>
+          <td colspan="5" class="muted">Пока нет прохождений</td>
         </tr>
       {% endfor %}
       </tbody>
@@ -92,41 +102,58 @@
 </section>
 
 <section class="panel">
-  <h2>Результаты прохождений</h2>
+  <div class="panel-head">
+    <h2>Результаты прохождений</h2>
+    <form method="get" class="inline-form compact-filter">
+      <label>
+        Фильтр по статусу ссылки
+        <select name="source_status" id="source-status-filter">
+          <option value="all" {% if source_status_filter == "all" %}selected{% endif %}>Все</option>
+          <option value="active" {% if source_status_filter == "active" %}selected{% endif %}>Активна</option>
+          <option value="exhausted" {% if source_status_filter == "exhausted" %}selected{% endif %}>Лимит исчерпан</option>
+          <option value="disabled" {% if source_status_filter == "disabled" %}selected{% endif %}>Отключена</option>
+          <option value="unknown" {% if source_status_filter == "unknown" %}selected{% endif %}>Неизвестно</option>
+        </select>
+      </label>
+      <button class="btn small ghost" type="submit">Применить</button>
+    </form>
+  </div>
   <div class="table-wrap">
     <table class="responsive-table">
       <thead>
         <tr>
           <th>Клиент</th>
           <th>Источник</th>
+          <th>Статус ссылки</th>
           <th>Дата</th>
           <th>Метрики</th>
           <th>Действия</th>
         </tr>
       </thead>
       <tbody id="submissions-body">
-      {% for submission in submissions %}
-        <tr>
-          <td data-label="Клиент">{{ submission.client_full_name }}</td>
-          <td data-label="Источник">{{ (submission.client_extra_json or {}).get("invite_label", "Основная ссылка") }}</td>
-          <td data-label="Дата">{{ submission.submitted_at.strftime("%Y-%m-%d %H:%M") }}</td>
+      {% for row in submission_rows %}
+        <tr data-invite-state="{{ row.invite_state }}">
+          <td data-label="Клиент">{{ row.submission.client_full_name }}</td>
+          <td data-label="Источник">{{ row.invite_label }}</td>
+          <td data-label="Статус ссылки"><span class="status-badge status-{{ row.invite_state }}">{{ row.invite_state_label }}</span></td>
+          <td data-label="Дата">{{ row.submission.submitted_at.strftime("%Y-%m-%d %H:%M") }}</td>
           <td data-label="Метрики">
-            Балл: {{ (submission.metrics_json or {}).get("total_score", 0) }} /
-            {{ (submission.metrics_json or {}).get("max_score", 0) }},
-            заполнение: {{ (submission.metrics_json or {}).get("completion_percent", 0) }}%
+            Балл: {{ (row.submission.metrics_json or {}).get("total_score", 0) }} /
+            {{ (row.submission.metrics_json or {}).get("max_score", 0) }},
+            заполнение: {{ (row.submission.metrics_json or {}).get("completion_percent", 0) }}%
           </td>
           <td data-label="Действия" class="actions-row">
             {% if test.allow_client_report %}
-              <a class="btn small ghost" href="/reports/{{ submission.id }}/client.html" target="_blank">Клиент HTML</a>
-              <a class="btn small ghost" href="/reports/{{ submission.id }}/client.docx">Клиент DOCX</a>
+              <a class="btn small ghost" href="/reports/{{ row.submission.id }}/client.html" target="_blank">Клиент HTML</a>
+              <a class="btn small ghost" href="/reports/{{ row.submission.id }}/client.docx">Клиент DOCX</a>
             {% endif %}
-            <a class="btn small ghost" href="/reports/{{ submission.id }}/psychologist.html" target="_blank">Проф. HTML</a>
-            <a class="btn small ghost" href="/reports/{{ submission.id }}/psychologist.docx">Проф. DOCX</a>
+            <a class="btn small ghost" href="/reports/{{ row.submission.id }}/psychologist.html" target="_blank">Проф. HTML</a>
+            <a class="btn small ghost" href="/reports/{{ row.submission.id }}/psychologist.docx">Проф. DOCX</a>
           </td>
         </tr>
       {% else %}
         <tr>
-          <td colspan="5" class="muted">
+          <td colspan="6" class="muted">
             Пока нет прохождений. Отправь ссылку клиенту, чтобы появились первые результаты.
           </td>
         </tr>
@@ -166,13 +193,15 @@
   const refreshBtn = document.getElementById("refresh-submissions");
   const body = document.getElementById("submissions-body");
   const groupsBody = document.getElementById("invite-groups-body");
+  const statusFilter = document.getElementById("source-status-filter");
   const testId = {{ test.id }};
 
   function renderRow(item) {
     return `
-      <tr>
+      <tr data-invite-state="${item.invite_state || "unknown"}">
         <td data-label="Клиент">${item.client_full_name}</td>
         <td data-label="Источник">${item.invite_label ?? "Основная ссылка"}</td>
+        <td data-label="Статус ссылки"><span class="status-badge status-${item.invite_state || "unknown"}">${item.invite_state_label ?? "Неизвестно"}</span></td>
         <td data-label="Дата">${new Date(item.submitted_at).toLocaleString()}</td>
         <td data-label="Метрики">Балл: ${item.score ?? 0}, заполнение: ${item.completion_percent ?? 0}%</td>
         <td data-label="Действия" class="actions-row">
@@ -190,7 +219,7 @@
   function renderEmptySubmissions() {
     return `
       <tr>
-        <td colspan="5" class="muted">
+        <td colspan="6" class="muted">
           Пока нет прохождений. Отправь ссылку клиенту, чтобы появились первые результаты.
         </td>
       </tr>
@@ -199,6 +228,12 @@
 
   function renderGroups(items) {
     const groups = {};
+    const stateRank = {
+      active: 1,
+      disabled: 2,
+      exhausted: 3,
+      unknown: 4,
+    };
     for (const item of items) {
       const label = item.invite_label || "Основная ссылка";
       if (!groups[label]) {
@@ -206,11 +241,20 @@
           label,
           count: 0,
           last_submitted_at: item.submitted_at,
+          invite_state: item.invite_state || "unknown",
+          invite_state_label: item.invite_state_label || "Неизвестно",
+          link_limit_text: item.invite_limit_text || "-",
         };
       }
       groups[label].count += 1;
       if (new Date(item.submitted_at) > new Date(groups[label].last_submitted_at)) {
         groups[label].last_submitted_at = item.submitted_at;
+      }
+      const prevRank = stateRank[groups[label].invite_state] || 0;
+      const nextRank = stateRank[item.invite_state] || 0;
+      if (nextRank > prevRank) {
+        groups[label].invite_state = item.invite_state || "unknown";
+        groups[label].invite_state_label = item.invite_state_label || "Неизвестно";
       }
     }
 
@@ -222,7 +266,7 @@
     });
 
     if (list.length === 0) {
-      groupsBody.innerHTML = '<tr><td colspan="3" class="muted">Пока нет прохождений</td></tr>';
+      groupsBody.innerHTML = '<tr><td colspan="5" class="muted">Пока нет прохождений</td></tr>';
       return;
     }
 
@@ -233,10 +277,23 @@
             <td data-label="Метка">${group.label}</td>
             <td data-label="Прохождений">${group.count}</td>
             <td data-label="Последнее прохождение">${new Date(group.last_submitted_at).toLocaleString()}</td>
+            <td data-label="Статус"><span class="status-badge status-${group.invite_state}">${group.invite_state_label}</span></td>
+            <td data-label="Использовано / лимит">${group.link_limit_text}</td>
           </tr>
         `;
       })
       .join("");
+  }
+
+  function applyStatusFilter() {
+    if (!statusFilter) {
+      return;
+    }
+    const activeFilter = statusFilter.value || "all";
+    body.querySelectorAll("tr[data-invite-state]").forEach((row) => {
+      const rowState = row.dataset.inviteState || "unknown";
+      row.style.display = activeFilter === "all" || rowState === activeFilter ? "" : "none";
+    });
   }
 
   refreshBtn.addEventListener("click", async () => {
@@ -250,6 +307,7 @@
       const data = await response.json();
       body.innerHTML = data.length ? data.map(renderRow).join("") : renderEmptySubmissions();
       renderGroups(data);
+      applyStatusFilter();
       if (typeof window.uiNotify === "function") {
         window.uiNotify("success", "Данные по прохождениям обновлены.");
       }
@@ -263,6 +321,10 @@
     }
   });
 
+  if (statusFilter) {
+    statusFilter.addEventListener("change", applyStatusFilter);
+  }
+  applyStatusFilter();
   wireCopyButtons();
 </script>
 {% endblock %}
