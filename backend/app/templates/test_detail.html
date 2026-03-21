@@ -8,6 +8,9 @@
     </div>
     <div class="actions">
       <button class="btn ghost copy-link-btn" data-link="{{ base_url }}/t/{{ test.share_token }}">Скопировать основную ссылку</button>
+      <form method="post" action="/tests/{{ test.id }}/clone">
+        <button class="btn ghost" type="submit">Клонировать тест</button>
+      </form>
       <a class="btn ghost" href="/tests/{{ test.id }}/submissions.csv">Экспорт CSV</a>
       <button class="btn" id="refresh-submissions">Обновить (AJAX)</button>
     </div>

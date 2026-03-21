@@ -14,6 +14,7 @@
   const addClientReportBlockBtn = document.getElementById("add-client-report-block");
   const addPsychReportBlockBtn = document.getElementById("add-psych-report-block");
   const reportTemplatePresetBtns = [...document.querySelectorAll(".report-template-preset")];
+  const methodPresetBtns = [...document.querySelectorAll(".method-preset-btn")];
 
   const clientFieldTemplates = {
     school: [
@@ -64,6 +65,276 @@
     demo_focus: {
       client: ["profile", "summary_metrics", "derived_metrics"],
       psychologist: ["profile", "summary_metrics", "charts", "derived_metrics", "answers"],
+    },
+  };
+  const methodPresets = {
+    school_trajectory: {
+      title: "ПрофДНК: школьная траектория",
+      description:
+        "Стартовая методика для 8-11 классов: интересы, учебная мотивация и готовность к проектному формату.",
+      allow_client_report: true,
+      required_client_fields: ["full_name", "age"],
+      custom_client_fields: [
+        {
+          key: "institution",
+          label: "Школа",
+          type: "text",
+          required: true,
+          placeholder: "Например: Школа №34",
+        },
+        {
+          key: "class_group",
+          label: "Класс",
+          type: "text",
+          required: true,
+          placeholder: "Например: 10Б",
+        },
+      ],
+      report_templates: {
+        client: ["profile", "summary_metrics", "derived_metrics", "answers"],
+        psychologist: ["profile", "summary_metrics", "charts", "derived_metrics", "answers"],
+      },
+      sections: [
+        {
+          title: "Профиль ученика",
+          questions: [
+            {
+              text: "Какие предметы вам наиболее интересны и почему?",
+              question_type: "textarea",
+              required: true,
+              weight: 1,
+            },
+            {
+              text: "Оцените текущую учебную мотивацию (1-5)",
+              question_type: "rating",
+              required: true,
+              min_value: 1,
+              max_value: 5,
+              weight: 1.1,
+            },
+          ],
+        },
+        {
+          title: "Направления и среда",
+          questions: [
+            {
+              text: "Что для вас важнее при выборе будущего направления?",
+              question_type: "single_choice",
+              required: true,
+              options_json: [
+                { label: "Практика и реальные проекты", score: 3 },
+                { label: "Академическая база и теория", score: 2 },
+                { label: "Баланс теории и практики", score: 2.5 },
+              ],
+              weight: 1,
+            },
+            {
+              text: "Готовы ли вы посещать дополнительные курсы после школы?",
+              question_type: "yes_no",
+              required: true,
+              weight: 1,
+            },
+            {
+              text: "Комфорт в проектной работе (1-10)",
+              question_type: "slider",
+              required: true,
+              min_value: 1,
+              max_value: 10,
+              weight: 1.2,
+            },
+          ],
+        },
+      ],
+      formulas: [
+        {
+          key: "readiness_index",
+          label: "Индекс готовности",
+          expression: "round((score_percent + completion_percent) / 2, 2)",
+          description: "Сводный индекс вовлеченности в прохождение и общий результат.",
+        },
+      ],
+    },
+    college_focus: {
+      title: "ПрофДНК: выбор колледжа/вуза",
+      description:
+        "Методика для абитуриентов: предпочтения по формату обучения, нагрузке и карьерным ожиданиям.",
+      allow_client_report: true,
+      required_client_fields: ["full_name", "email", "age"],
+      custom_client_fields: [
+        {
+          key: "education_level",
+          label: "Текущий уровень образования",
+          type: "text",
+          required: true,
+          placeholder: "9 класс / 11 класс / колледж",
+        },
+        {
+          key: "preferred_city",
+          label: "Предпочитаемый город обучения",
+          type: "text",
+          required: false,
+          placeholder: "Например: Ростов-на-Дону",
+        },
+      ],
+      report_templates: {
+        client: ["profile", "summary_metrics", "charts", "derived_metrics", "answers"],
+        psychologist: ["profile", "summary_metrics", "charts", "derived_metrics", "answers"],
+      },
+      sections: [
+        {
+          title: "Образовательный профиль",
+          questions: [
+            {
+              text: "Какие направления обучения вы рассматриваете в первую очередь?",
+              question_type: "textarea",
+              required: true,
+              weight: 1,
+            },
+            {
+              text: "Насколько важна возможность стажировок во время обучения?",
+              question_type: "rating",
+              required: true,
+              min_value: 1,
+              max_value: 5,
+              weight: 1.1,
+            },
+          ],
+        },
+        {
+          title: "Формат и нагрузка",
+          questions: [
+            {
+              text: "Какой формат обучения предпочтительнее?",
+              question_type: "single_choice",
+              required: true,
+              options_json: [
+                { label: "Очный", score: 3 },
+                { label: "Смешанный", score: 2.5 },
+                { label: "Дистанционный", score: 2 },
+              ],
+              weight: 1,
+            },
+            {
+              text: "Какие критерии важны при выборе учебного заведения?",
+              question_type: "multiple_choice",
+              required: true,
+              options_json: [
+                { label: "Сильная программа", score: 3 },
+                { label: "Стоимость обучения", score: 2 },
+                { label: "Репутация и рейтинг", score: 2.5 },
+                { label: "Практика и работодатели", score: 3 },
+              ],
+              weight: 1.1,
+            },
+            {
+              text: "Сколько часов в неделю готовы выделять на самостоятельную учебу?",
+              question_type: "number",
+              required: true,
+              min_value: 1,
+              max_value: 60,
+              weight: 1,
+            },
+          ],
+        },
+      ],
+      formulas: [
+        {
+          key: "discipline_index",
+          label: "Индекс дисциплины",
+          expression: "round((score_percent * 0.7 + completion_percent * 0.3), 2)",
+          description: "Оценка стабильности прохождения и качества ответов.",
+        },
+      ],
+    },
+    career_restart: {
+      title: "ПрофДНК: карьерный перезапуск",
+      description:
+        "Методика для взрослых клиентов: оценка мотивации, условий перехода и гибкости к новому формату работы.",
+      allow_client_report: true,
+      required_client_fields: ["full_name", "email", "phone", "age"],
+      custom_client_fields: [
+        {
+          key: "current_role",
+          label: "Текущая роль/сфера",
+          type: "text",
+          required: true,
+          placeholder: "Например: менеджер продаж",
+        },
+        {
+          key: "income_target",
+          label: "Целевой доход (руб/мес)",
+          type: "number",
+          required: false,
+          placeholder: "120000",
+        },
+      ],
+      report_templates: {
+        client: ["profile", "summary_metrics", "derived_metrics", "answers"],
+        psychologist: ["profile", "summary_metrics", "charts", "derived_metrics", "answers"],
+      },
+      sections: [
+        {
+          title: "Карьерный контекст",
+          questions: [
+            {
+              text: "Почему вы рассматриваете смену карьерной траектории именно сейчас?",
+              question_type: "textarea",
+              required: true,
+              weight: 1,
+            },
+            {
+              text: "Как быстро готовы стартовать в новой роли?",
+              question_type: "single_choice",
+              required: true,
+              options_json: [
+                { label: "В течение 1 месяца", score: 3 },
+                { label: "1-3 месяца", score: 2.5 },
+                { label: "Позже 3 месяцев", score: 1.5 },
+              ],
+              weight: 1,
+            },
+          ],
+        },
+        {
+          title: "Условия перехода",
+          questions: [
+            {
+              text: "Готовы ли временно снизить доход ради смены профессии?",
+              question_type: "yes_no",
+              required: true,
+              weight: 1,
+            },
+            {
+              text: "Что для вас критично в новом месте работы?",
+              question_type: "multiple_choice",
+              required: true,
+              options_json: [
+                { label: "Удаленный формат", score: 2 },
+                { label: "Стабильная зарплата", score: 3 },
+                { label: "Рост и обучение", score: 3 },
+                { label: "Гибкий график", score: 2.5 },
+              ],
+              weight: 1.1,
+            },
+            {
+              text: "Комфорт при высокой неопределенности (1-10)",
+              question_type: "slider",
+              required: true,
+              min_value: 1,
+              max_value: 10,
+              weight: 1.2,
+            },
+          ],
+        },
+      ],
+      formulas: [
+        {
+          key: "transition_readiness",
+          label: "Готовность к переходу",
+          expression: "round((score_percent + completion_percent) / 2, 2)",
+          description: "Общая оценка готовности к смене профессионального трека.",
+        },
+      ],
     },
   };
 
@@ -388,6 +659,164 @@
     notify("info", "Применён пресет шаблона отчётов.");
   }
 
+  function optionsToFlatValue(options) {
+    if (!Array.isArray(options) || !options.length) {
+      return "";
+    }
+    return options
+      .map((item) => {
+        const label = String(item?.label || "").trim();
+        if (!label) {
+          return "";
+        }
+        const score = Number(item?.score);
+        if (Number.isFinite(score)) {
+          return `${label}:${score}`;
+        }
+        return label;
+      })
+      .filter(Boolean)
+      .join(", ");
+  }
+
+  function applyBuiltinRequiredFields(fields) {
+    if (!manualForm) {
+      return;
+    }
+    const required = new Set(
+      (Array.isArray(fields) ? fields : [])
+        .map((item) => String(item).trim().toLowerCase())
+        .filter(Boolean)
+    );
+    manualForm
+      .querySelectorAll("input[name='required_client_fields']")
+      .forEach((input) => {
+        input.checked = required.has(input.value);
+      });
+  }
+
+  function applyMethodPreset(key) {
+    const preset = methodPresets[key];
+    if (!preset || !manualForm) {
+      return;
+    }
+
+    const titleInput = manualForm.querySelector("input[name='title']");
+    const descriptionInput = manualForm.querySelector("textarea[name='description']");
+    const reportSelect = manualForm.querySelector("select[name='allow_client_report']");
+    if (titleInput) {
+      titleInput.value = preset.title || "";
+    }
+    if (descriptionInput) {
+      descriptionInput.value = preset.description || "";
+    }
+    if (reportSelect) {
+      reportSelect.value = preset.allow_client_report ? "true" : "false";
+    }
+    applyBuiltinRequiredFields(preset.required_client_fields || []);
+
+    if (clientFieldNode) {
+      clientFieldNode.innerHTML = "";
+      (preset.custom_client_fields || []).forEach((field) => {
+        clientFieldNode.appendChild(createClientFieldItem(field));
+      });
+    }
+
+    const reportTemplates = preset.report_templates || reportTemplatePresets.base;
+    fillReportBlockList(clientReportBlockNode, "rt_client[]", reportTemplates.client || []);
+    fillReportBlockList(
+      psychReportBlockNode,
+      "rt_psychologist[]",
+      reportTemplates.psychologist || []
+    );
+
+    sectionsNode.innerHTML = "";
+    (preset.sections || []).forEach((section) => {
+      sectionsNode.appendChild(createSectionInput(section.title || "Секция"));
+    });
+    syncQuestionSections();
+
+    questionsNode.innerHTML = "";
+    (preset.sections || []).forEach((section) => {
+      (section.questions || []).forEach((question) => {
+        const item = createQuestionItem();
+        const sectionSelect = item.querySelector("select[name='q_section[]']");
+        const typeSelect = item.querySelector("select[name='q_type[]']");
+        const requiredSelect = item.querySelector("select[name='q_required[]']");
+        const textInput = item.querySelector("input[name='q_text[]']");
+        const optionsInput = item.querySelector("input[name='q_options[]']");
+        const minInput = item.querySelector("input[name='q_min[]']");
+        const maxInput = item.querySelector("input[name='q_max[]']");
+        const weightInput = item.querySelector("input[name='q_weight[]']");
+
+        if (sectionSelect) {
+          sectionSelect.value = section.title || "Общая секция";
+        }
+        if (typeSelect) {
+          typeSelect.value = question.question_type || "text";
+        }
+        if (requiredSelect) {
+          requiredSelect.value = question.required ? "true" : "false";
+        }
+        if (textInput) {
+          textInput.value = question.text || "";
+        }
+        if (optionsInput) {
+          optionsInput.value = optionsToFlatValue(question.options_json);
+        }
+        if (minInput) {
+          minInput.value =
+            typeof question.min_value === "number" && Number.isFinite(question.min_value)
+              ? String(question.min_value)
+              : "";
+        }
+        if (maxInput) {
+          maxInput.value =
+            typeof question.max_value === "number" && Number.isFinite(question.max_value)
+              ? String(question.max_value)
+              : "";
+        }
+        if (weightInput) {
+          const weight =
+            typeof question.weight === "number" && Number.isFinite(question.weight)
+              ? question.weight
+              : 1;
+          weightInput.value = String(weight);
+        }
+        questionsNode.appendChild(item);
+      });
+    });
+
+    if (formulaNode) {
+      formulaNode.innerHTML = "";
+      (preset.formulas || []).forEach((formula) => {
+        const item = createFormulaItem();
+        const keyInput = item.querySelector("input[name='metric_key[]']");
+        const labelInput = item.querySelector("input[name='metric_label[]']");
+        const expressionInput = item.querySelector("input[name='metric_expression[]']");
+        const descriptionField = item.querySelector("input[name='metric_description[]']");
+        if (keyInput) {
+          keyInput.value = formula.key || "";
+        }
+        if (labelInput) {
+          labelInput.value = formula.label || "";
+        }
+        if (expressionInput) {
+          expressionInput.value = formula.expression || "";
+        }
+        if (descriptionField) {
+          descriptionField.value = formula.description || "";
+        }
+        formulaNode.appendChild(item);
+      });
+    }
+
+    clearValidationErrors();
+    syncQuestionSections();
+    syncEmptyStates();
+    notify("success", "Пресет применён. Проверьте детали и создайте тест.");
+  }
+
   function syncEmptyState(node, message, actionText, actionHandler) {
     if (!node) {
       return;
@@ -520,6 +949,11 @@
   reportTemplatePresetBtns.forEach((button) => {
     button.addEventListener("click", () => {
       applyReportTemplatePreset(button.dataset.template);
+    });
+  });
+  methodPresetBtns.forEach((button) => {
+    button.addEventListener("click", () => {
+      applyMethodPreset(button.dataset.template || "");
     });
   });
 

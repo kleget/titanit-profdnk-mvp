@@ -17,6 +17,7 @@ from app.db import get_db
 from app.dependencies import get_optional_user, require_psychologist_or_admin
 from app.models import Answer, InviteLink, Submission, Test, TestSection, User, UserRole
 from app.services.access_reminders import build_psychologist_access_reminder
+from app.services.client_fields import normalize_client_fields_config
 from app.services.content import render_safe_markdown
 from app.services.invite_links import (
     INVITE_LINK_STATE_ACTIVE,
@@ -200,6 +201,42 @@ def _build_invite_groups(
         key=lambda item: (int(item["count"]), item["last_submitted_at"]),
         reverse=True,
     )
+
+
+def _clone_sections_payload(test: Test) -> list[dict]:
+    payload: list[dict] = []
+    for section in sorted(test.sections, key=lambda item: item.position):
+        questions_payload: list[dict] = []
+        for question in sorted(section.questions, key=lambda item: item.position):
+            questions_payload.append(
+                {
+                    "key": question.key,
+                    "text": question.text,
+                    "question_type": question.question_type.value,
+                    "required": question.required,
+                    "options_json": question.options_json,
+                    "min_value": question.min_value,
+                    "max_value": question.max_value,
+                    "weight": question.weight,
+                }
+            )
+        if questions_payload:
+            payload.append({"title": section.title, "questions": questions_payload})
+    return payload
+
+
+def _clone_formulas_payload(test: Test) -> list[dict]:
+    payload: list[dict] = []
+    for formula in sorted(test.formulas, key=lambda item: item.position):
+        payload.append(
+            {
+                "key": formula.key,
+                "label": formula.label,
+                "expression": formula.expression,
+                "description": formula.description,
+            }
+        )
+    return payload
 
 
 def _build_campaign_comparison(
@@ -455,6 +492,46 @@ def tests_page(
             "tests": tests,
             "base_url": settings.base_url,
         },
+    )
+
+
+@router.post("/tests/{test_id}/clone")
+def clone_test(
+    test_id: int,
+    current_user: User = Depends(require_psychologist_or_admin),
+    db: Session = Depends(get_db),
+) -> object:
+    if current_user.role == UserRole.ADMIN:
+        raise HTTPException(status_code=403, detail="Admin cannot clone tests")
+
+    source_test = db.scalar(
+        select(Test)
+        .where(Test.id == test_id)
+        .options(
+            selectinload(Test.sections).selectinload(TestSection.questions),
+            selectinload(Test.formulas),
+        )
+    )
+    if not source_test:
+        raise HTTPException(status_code=404, detail="Test not found")
+    _ensure_test_access(source_test, current_user)
+
+    fields_config = normalize_client_fields_config(source_test.required_client_fields)
+    cloned_test = create_test_from_payload(
+        db=db,
+        psychologist_id=current_user.id,
+        title=f"{source_test.title} (копия)",
+        description=source_test.description,
+        allow_client_report=source_test.allow_client_report,
+        required_client_fields=list(fields_config["required_builtin_fields"]),
+        custom_client_fields=list(fields_config["custom_fields"]),
+        report_templates=dict(fields_config["report_templates"]),
+        sections_payload=_clone_sections_payload(source_test),
+        formulas_payload=_clone_formulas_payload(source_test),
+    )
+    return RedirectResponse(
+        f"/tests/{cloned_test.id}?notice=test_cloned&notice_type=success",
+        status_code=303,
     )
 
 

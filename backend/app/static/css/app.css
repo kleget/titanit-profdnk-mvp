@@ -733,6 +733,11 @@ html[data-theme="light"] .status-unknown {
   flex-wrap: wrap;
 }
 
+.actions form,
+.actions-row form {
+  margin: 0;
+}
+
 .actions .btn {
   white-space: nowrap;
 }
