@@ -3,6 +3,17 @@
 <section class="grid builder-layout builder-page">
   <article class="panel">
     <h1>Конструктор методик (ручной)</h1>
+    <div class="builder-draft-bar">
+      <span id="builder-draft-status" class="draft-status">Черновик: не сохранён</span>
+      <div class="actions-row">
+        <button type="button" id="restore-builder-draft" class="btn small ghost" disabled>
+          Восстановить черновик
+        </button>
+        <button type="button" id="clear-builder-draft" class="btn small ghost" disabled>
+          Очистить черновик
+        </button>
+      </div>
+    </div>
     <form method="post" action="/tests/new/manual" class="form-grid" id="manual-builder">
       {{ csrf_input(request) }}
       <label>
@@ -139,10 +150,23 @@
           <code>answered_count</code>, <code>total_questions</code>.
           Функции: <code>min</code>, <code>max</code>, <code>abs</code>, <code>round</code>.
         </p>
+        <div class="actions">
+          <button type="button" class="btn small ghost formula-preset-btn" data-template="engagement_base">
+            Пресет: вовлечённость
+          </button>
+          <button type="button" class="btn small ghost formula-preset-btn" data-template="career_readiness">
+            Пресет: карьерная готовность
+          </button>
+          <button type="button" class="btn small ghost formula-preset-btn" data-template="risk_profile">
+            Пресет: риск-профиль
+          </button>
+        </div>
         <div id="metric-formula-list"></div>
       </div>
 
-      <button class="btn" type="submit">Создать тест</button>
+      <div class="sticky-action-bar">
+        <button class="btn" type="submit">Создать тест</button>
+      </div>
     </form>
   </article>
 
@@ -239,5 +263,5 @@
   </article>
 </section>
 
-<script src="/static/js/builder.js?v=20260321d"></script>
+<script src="/static/js/builder.js?v=20260321e"></script>
 {% endblock %}

@@ -15,6 +15,13 @@
   const addPsychReportBlockBtn = document.getElementById("add-psych-report-block");
   const reportTemplatePresetBtns = [...document.querySelectorAll(".report-template-preset")];
   const methodPresetBtns = [...document.querySelectorAll(".method-preset-btn")];
+  const formulaPresetBtns = [...document.querySelectorAll(".formula-preset-btn")];
+  const draftStatusNode = document.getElementById("builder-draft-status");
+  const restoreDraftBtn = document.getElementById("restore-builder-draft");
+  const clearDraftBtn = document.getElementById("clear-builder-draft");
+
+  const DRAFT_STORAGE_KEY = "profdnk_manual_builder_draft_v1";
+  const DRAFT_AUTOSAVE_MS = 12000;
 
   const clientFieldTemplates = {
     school: [
@@ -337,10 +344,56 @@
       ],
     },
   };
+  const formulaPresetLibrary = {
+    engagement_base: [
+      {
+        key: "engagement_index",
+        label: "Индекс вовлечённости",
+        expression: "round((completion_percent * 0.6 + score_percent * 0.4), 2)",
+        description: "Показывает, насколько клиент вовлечён и качественно заполняет методику.",
+      },
+      {
+        key: "consistency_index",
+        label: "Индекс согласованности",
+        expression: "round(max(0, score_percent - (100 - completion_percent)), 2)",
+        description: "Оценивает стабильность результата относительно полноты заполнения.",
+      },
+    ],
+    career_readiness: [
+      {
+        key: "career_readiness",
+        label: "Готовность к карьерному шагу",
+        expression: "round((score_percent + completion_percent) / 2, 2)",
+        description: "Базовый сводный индекс готовности к следующему профессиональному шагу.",
+      },
+      {
+        key: "decision_speed",
+        label: "Скорость принятия решения",
+        expression: "round((answered_count / max(total_questions, 1)) * 100, 2)",
+        description: "Показывает, насколько уверенно клиент прошёл методику без пропусков.",
+      },
+    ],
+    risk_profile: [
+      {
+        key: "dropout_risk",
+        label: "Риск незавершения",
+        expression: "round(max(0, 100 - completion_percent), 2)",
+        description: "Чем выше значение, тем больше риск потери клиента в воронке прохождения.",
+      },
+      {
+        key: "result_volatility",
+        label: "Волатильность результата",
+        expression: "round(abs(score_percent - completion_percent), 2)",
+        description: "Показывает разброс между качеством ответов и полнотой прохождения.",
+      },
+    ],
+  };
 
   if (!sectionsNode || !questionsNode || !addSectionBtn || !addQuestionBtn) {
     return;
   }
+
+  let draftDirty = false;
 
   function notify(type, message, timeoutMs) {
     if (typeof window.uiNotify === "function") {
@@ -404,6 +457,66 @@
       .filter(Boolean);
   }
 
+  function buildCopyTitle(baseTitle, existingTitles) {
+    const cleanBase = String(baseTitle || "").trim() || "Секция";
+    const pool = new Set(existingTitles.map((item) => item.toLowerCase()));
+    let candidate = `${cleanBase} (копия)`;
+    let counter = 2;
+    while (pool.has(candidate.toLowerCase())) {
+      candidate = `${cleanBase} (копия ${counter})`;
+      counter += 1;
+    }
+    return candidate;
+  }
+
+  function buildFormulaCopyKey(baseKey, existingKeys) {
+    const cleanBase =
+      String(baseKey || "")
+        .trim()
+        .toLowerCase()
+        .replace(/[^a-z0-9_]+/g, "_")
+        .replace(/^_+|_+$/g, "") || "metric";
+    const pool = new Set(existingKeys.map((item) => item.toLowerCase()));
+    let candidate = `${cleanBase}_copy`;
+    let counter = 2;
+    while (pool.has(candidate)) {
+      candidate = `${cleanBase}_copy_${counter}`;
+      counter += 1;
+    }
+    return candidate;
+  }
+
+  function readQuestionPayload(box) {
+    const sectionSelect = box.querySelector("select[name='q_section[]']");
+    const typeSelect = box.querySelector("select[name='q_type[]']");
+    const requiredSelect = box.querySelector("select[name='q_required[]']");
+    const textInput = box.querySelector("input[name='q_text[]']");
+    const optionsInput = box.querySelector("input[name='q_options[]']");
+    const minInput = box.querySelector("input[name='q_min[]']");
+    const maxInput = box.querySelector("input[name='q_max[]']");
+    const weightInput = box.querySelector("input[name='q_weight[]']");
+
+    return {
+      section: sectionSelect?.value || "",
+      question_type: typeSelect?.value || "text",
+      required: (requiredSelect?.value || "true") === "true",
+      text: textInput?.value || "",
+      options_flat: optionsInput?.value || "",
+      min_value: minInput?.value || "",
+      max_value: maxInput?.value || "",
+      weight: weightInput?.value || "1",
+    };
+  }
+
+  function readFormulaPayload(box) {
+    return {
+      key: box.querySelector("input[name='metric_key[]']")?.value || "",
+      label: box.querySelector("input[name='metric_label[]']")?.value || "",
+      expression: box.querySelector("input[name='metric_expression[]']")?.value || "",
+      description: box.querySelector("input[name='metric_description[]']")?.value || "",
+    };
+  }
+
   function createSectionInput(value = "") {
     const wrapper = document.createElement("div");
     wrapper.className = "inline-form";
@@ -421,14 +534,43 @@
       wrapper.remove();
       syncQuestionSections();
       syncEmptyStates();
+      markDraftDirty();
     });
     input.addEventListener("input", syncQuestionSections);
 
-    wrapper.append(input, remove);
+    const duplicate = document.createElement("button");
+    duplicate.type = "button";
+    duplicate.className = "btn small ghost";
+    duplicate.textContent = "Дублировать";
+    duplicate.addEventListener("click", () => {
+      const sourceTitle = input.value.trim();
+      const copyTitle = buildCopyTitle(sourceTitle || "Секция", sectionOptions());
+      const duplicateSection = createSectionInput(copyTitle);
+      wrapper.parentNode.insertBefore(duplicateSection, wrapper.nextSibling);
+
+      const sourceQuestions = [...questionsNode.querySelectorAll(".question-item")]
+        .map((item) => readQuestionPayload(item))
+        .filter((payload) => payload.section === sourceTitle);
+
+      sourceQuestions.forEach((payload) => {
+        const duplicatedQuestion = createQuestionItem({
+          ...payload,
+          section: copyTitle,
+        });
+        questionsNode.appendChild(duplicatedQuestion);
+      });
+
+      syncQuestionSections();
+      syncEmptyStates();
+      markDraftDirty();
+      notify("success", "Секция и её вопросы продублированы.");
+    });
+
+    wrapper.append(input, duplicate, remove);
     return wrapper;
   }
 
-  function createQuestionItem() {
+  function createQuestionItem(payload = {}) {
     const box = document.createElement("div");
     box.className = "question-item";
     box.innerHTML = `
@@ -473,18 +615,68 @@
           <input type="number" step="0.1" name="q_weight[]" value="1">
         </label>
       </div>
-      <button type="button" class="btn small ghost remove-question">Удалить вопрос</button>
+      <div class="actions-row">
+        <button type="button" class="btn small ghost duplicate-question">Дублировать вопрос</button>
+        <button type="button" class="btn small ghost remove-question">Удалить вопрос</button>
+      </div>
     `;
+
+    const sectionSelect = box.querySelector("select[name='q_section[]']");
+    const typeSelect = box.querySelector("select[name='q_type[]']");
+    const requiredSelect = box.querySelector("select[name='q_required[]']");
+    const textInput = box.querySelector("input[name='q_text[]']");
+    const optionsInput = box.querySelector("input[name='q_options[]']");
+    const minInput = box.querySelector("input[name='q_min[]']");
+    const maxInput = box.querySelector("input[name='q_max[]']");
+    const weightInput = box.querySelector("input[name='q_weight[]']");
+
+    if (typeSelect && payload.question_type) {
+      typeSelect.value = payload.question_type;
+    }
+    if (requiredSelect) {
+      const requiredValue = typeof payload.required === "boolean" ? payload.required : true;
+      requiredSelect.value = requiredValue ? "true" : "false";
+    }
+    if (textInput && payload.text) {
+      textInput.value = payload.text;
+    }
+    if (optionsInput && payload.options_flat) {
+      optionsInput.value = payload.options_flat;
+    }
+    if (minInput) {
+      minInput.value = payload.min_value || "";
+    }
+    if (maxInput) {
+      maxInput.value = payload.max_value || "";
+    }
+    if (weightInput && payload.weight) {
+      weightInput.value = payload.weight;
+    }
+    if (sectionSelect && payload.section) {
+      sectionSelect.dataset.preferredSection = payload.section;
+    }
+
+    const duplicateBtn = box.querySelector(".duplicate-question");
+    duplicateBtn.addEventListener("click", () => {
+      const duplicatePayload = readQuestionPayload(box);
+      const duplicateItem = createQuestionItem(duplicatePayload);
+      box.parentNode.insertBefore(duplicateItem, box.nextSibling);
+      syncQuestionSections();
+      syncEmptyStates();
+      markDraftDirty();
+      notify("success", "Вопрос продублирован.");
+    });
 
     const removeBtn = box.querySelector(".remove-question");
     removeBtn.addEventListener("click", () => {
       box.remove();
       syncEmptyStates();
+      markDraftDirty();
     });
     return box;
   }
 
-  function createFormulaItem() {
+  function createFormulaItem(payload = {}) {
     const box = document.createElement("div");
     box.className = "question-item";
     box.innerHTML = `
@@ -502,13 +694,49 @@
       <label>Описание
         <input name="metric_description[]" placeholder="Что показывает метрика">
       </label>
-      <button type="button" class="btn small ghost remove-formula">Удалить формулу</button>
+      <div class="actions-row">
+        <button type="button" class="btn small ghost duplicate-formula">Дублировать формулу</button>
+        <button type="button" class="btn small ghost remove-formula">Удалить формулу</button>
+      </div>
     `;
+
+    const keyInput = box.querySelector("input[name='metric_key[]']");
+    const labelInput = box.querySelector("input[name='metric_label[]']");
+    const expressionInput = box.querySelector("input[name='metric_expression[]']");
+    const descriptionInput = box.querySelector("input[name='metric_description[]']");
+    if (keyInput && payload.key) {
+      keyInput.value = payload.key;
+    }
+    if (labelInput && payload.label) {
+      labelInput.value = payload.label;
+    }
+    if (expressionInput && payload.expression) {
+      expressionInput.value = payload.expression;
+    }
+    if (descriptionInput && payload.description) {
+      descriptionInput.value = payload.description;
+    }
+
+    box.querySelector(".duplicate-formula").addEventListener("click", () => {
+      const duplicatePayload = readFormulaPayload(box);
+      duplicatePayload.key = buildFormulaCopyKey(
+        duplicatePayload.key || "metric",
+        [...formulaNode.querySelectorAll("input[name='metric_key[]']")]
+          .map((input) => input.value.trim())
+          .filter(Boolean)
+      );
+      const duplicateItem = createFormulaItem(duplicatePayload);
+      box.parentNode.insertBefore(duplicateItem, box.nextSibling);
+      syncEmptyStates();
+      markDraftDirty();
+      notify("success", "Формула продублирована.");
+    });
 
     const removeBtn = box.querySelector(".remove-formula");
     removeBtn.addEventListener("click", () => {
       box.remove();
       syncEmptyStates();
+      markDraftDirty();
     });
     return box;
   }
@@ -551,8 +779,19 @@
     box.querySelector(".remove-client-field").addEventListener("click", () => {
       box.remove();
       syncEmptyStates();
+      markDraftDirty();
     });
     return box;
+  }
+
+  function readClientFieldPayload(box) {
+    return {
+      key: box.querySelector("input[name='cf_key[]']")?.value || "",
+      label: box.querySelector("input[name='cf_label[]']")?.value || "",
+      type: box.querySelector("select[name='cf_type[]']")?.value || "text",
+      required: (box.querySelector("select[name='cf_required[]']")?.value || "false") === "true",
+      placeholder: box.querySelector("input[name='cf_placeholder[]']")?.value || "",
+    };
   }
 
   function applyClientFieldTemplate(templateKey) {
@@ -575,6 +814,7 @@
       clientFieldNode.appendChild(createClientFieldItem(field));
     });
     syncEmptyStates();
+    markDraftDirty();
     notify("info", "Добавлен шаблон полей клиента.");
   }
 
@@ -606,17 +846,20 @@
     box.querySelector(".remove-report-block").addEventListener("click", () => {
       box.remove();
       syncEmptyStates();
+      markDraftDirty();
     });
     box.querySelector(".move-up").addEventListener("click", () => {
       const prev = box.previousElementSibling;
       if (prev) {
         box.parentNode.insertBefore(box, prev);
+        markDraftDirty();
       }
     });
     box.querySelector(".move-down").addEventListener("click", () => {
       const next = box.nextElementSibling;
       if (next) {
         box.parentNode.insertBefore(next, box);
+        markDraftDirty();
       }
     });
     return box;
@@ -656,6 +899,7 @@
     fillReportBlockList(clientReportBlockNode, "rt_client[]", preset.client);
     fillReportBlockList(psychReportBlockNode, "rt_psychologist[]", preset.psychologist);
     syncEmptyStates();
+    markDraftDirty();
     notify("info", "Применён пресет шаблона отчётов.");
   }
 
@@ -814,7 +1058,255 @@
     clearValidationErrors();
     syncQuestionSections();
     syncEmptyStates();
+    markDraftDirty();
     notify("success", "Пресет применён. Проверьте детали и создайте тест.");
+  }
+
+  function applyFormulaPreset(key) {
+    const preset = formulaPresetLibrary[key];
+    if (!preset || !formulaNode) {
+      return;
+    }
+    const existingKeys = new Set(
+      [...formulaNode.querySelectorAll("input[name='metric_key[]']")]
+        .map((input) => input.value.trim().toLowerCase())
+        .filter(Boolean)
+    );
+
+    preset.forEach((formula) => {
+      const baseKey = String(formula.key || "metric").trim().toLowerCase();
+      let nextKey = baseKey || "metric";
+      let suffix = 2;
+      while (existingKeys.has(nextKey)) {
+        nextKey = `${baseKey}_${suffix}`;
+        suffix += 1;
+      }
+      existingKeys.add(nextKey);
+      formulaNode.appendChild(
+        createFormulaItem({
+          ...formula,
+          key: nextKey,
+        })
+      );
+    });
+
+    syncEmptyStates();
+    markDraftDirty();
+    notify("success", "Пресет формул добавлен в методику.");
+  }
+
+  function draftStatus(text, tone = "muted") {
+    if (!draftStatusNode) {
+      return;
+    }
+    draftStatusNode.textContent = text;
+    draftStatusNode.dataset.tone = tone;
+  }
+
+  function formatDateTime(dateValue) {
+    const date = new Date(dateValue);
+    if (Number.isNaN(date.getTime())) {
+      return "неизвестно";
+    }
+    return date.toLocaleString();
+  }
+
+  function collectBuilderDraft() {
+    return {
+      version: 1,
+      saved_at: new Date().toISOString(),
+      title: manualForm?.querySelector("input[name='title']")?.value || "",
+      description: manualForm?.querySelector("textarea[name='description']")?.value || "",
+      allow_client_report:
+        manualForm?.querySelector("select[name='allow_client_report']")?.value || "true",
+      required_client_fields: [...(manualForm?.querySelectorAll("input[name='required_client_fields']") || [])]
+        .filter((input) => input.checked)
+        .map((input) => input.value),
+      sections: [...sectionsNode.querySelectorAll("input[name='section_titles[]']")].map((input) =>
+        input.value.trim()
+      ),
+      questions: [...questionsNode.querySelectorAll(".question-item")].map((item) =>
+        readQuestionPayload(item)
+      ),
+      formulas: [...(formulaNode?.querySelectorAll(".question-item") || [])].map((item) =>
+        readFormulaPayload(item)
+      ),
+      custom_client_fields: [...(clientFieldNode?.querySelectorAll(".question-item") || [])].map((item) =>
+        readClientFieldPayload(item)
+      ),
+      report_templates: {
+        client: [...(clientReportBlockNode?.querySelectorAll("select[name='rt_client[]']") || [])].map(
+          (select) => select.value
+        ),
+        psychologist: [
+          ...(psychReportBlockNode?.querySelectorAll("select[name='rt_psychologist[]']") || []),
+        ].map((select) => select.value),
+      },
+    };
+  }
+
+  function readStoredDraft() {
+    try {
+      const raw = localStorage.getItem(DRAFT_STORAGE_KEY);
+      if (!raw) {
+        return null;
+      }
+      const parsed = JSON.parse(raw);
+      if (!parsed || typeof parsed !== "object") {
+        return null;
+      }
+      return parsed;
+    } catch (_error) {
+      return null;
+    }
+  }
+
+  function refreshDraftButtons() {
+    const hasDraft = Boolean(readStoredDraft());
+    if (restoreDraftBtn) {
+      restoreDraftBtn.disabled = !hasDraft;
+    }
+    if (clearDraftBtn) {
+      clearDraftBtn.disabled = !hasDraft;
+    }
+  }
+
+  function saveDraftNow(silent = false) {
+    try {
+      const payload = collectBuilderDraft();
+      localStorage.setItem(DRAFT_STORAGE_KEY, JSON.stringify(payload));
+      draftDirty = false;
+      if (!silent) {
+        draftStatus(`Черновик сохранён: ${formatDateTime(payload.saved_at)}`, "success");
+      }
+      refreshDraftButtons();
+    } catch (_error) {
+      if (!silent) {
+        draftStatus("Не удалось сохранить черновик (ограничение браузера).", "error");
+      }
+    }
+  }
+
+  function clearStoredDraft(showNotice = true) {
+    try {
+      localStorage.removeItem(DRAFT_STORAGE_KEY);
+    } catch (_error) {
+      // storage may be unavailable; ignore
+    }
+    refreshDraftButtons();
+    if (showNotice) {
+      draftStatus("Черновик очищен.", "muted");
+      notify("info", "Сохранённый черновик удалён.");
+    }
+  }
+
+  function applyBuilderDraft(draft) {
+    if (!draft || typeof draft !== "object") {
+      return false;
+    }
+
+    const titleInput = manualForm?.querySelector("input[name='title']");
+    const descriptionInput = manualForm?.querySelector("textarea[name='description']");
+    const reportSelect = manualForm?.querySelector("select[name='allow_client_report']");
+    if (titleInput) {
+      titleInput.value = draft.title || "";
+    }
+    if (descriptionInput) {
+      descriptionInput.value = draft.description || "";
+    }
+    if (reportSelect) {
+      reportSelect.value = draft.allow_client_report || "true";
+    }
+    applyBuiltinRequiredFields(draft.required_client_fields || []);
+
+    const sectionTitles = Array.isArray(draft.sections) ? draft.sections : [];
+    sectionsNode.innerHTML = "";
+    sectionTitles.forEach((title) => {
+      sectionsNode.appendChild(createSectionInput(title || ""));
+    });
+
+    questionsNode.innerHTML = "";
+    (draft.questions || []).forEach((questionPayload) => {
+      questionsNode.appendChild(createQuestionItem(questionPayload));
+    });
+
+    if (formulaNode) {
+      formulaNode.innerHTML = "";
+      (draft.formulas || []).forEach((formulaPayload) => {
+        formulaNode.appendChild(createFormulaItem(formulaPayload));
+      });
+    }
+
+    if (clientFieldNode) {
+      clientFieldNode.innerHTML = "";
+      (draft.custom_client_fields || []).forEach((fieldPayload) => {
+        clientFieldNode.appendChild(createClientFieldItem(fieldPayload));
+      });
+    }
+
+    fillReportBlockList(
+      clientReportBlockNode,
+      "rt_client[]",
+      draft.report_templates?.client || reportTemplatePresets.base.client
+    );
+    fillReportBlockList(
+      psychReportBlockNode,
+      "rt_psychologist[]",
+      draft.report_templates?.psychologist || reportTemplatePresets.base.psychologist
+    );
+
+    clearValidationErrors();
+    syncQuestionSections();
+    syncEmptyStates();
+    return true;
+  }
+
+  function initDraftControls() {
+    const stored = readStoredDraft();
+    if (stored?.saved_at) {
+      draftStatus(`Найден черновик: ${formatDateTime(stored.saved_at)}`, "info");
+    } else {
+      draftStatus("Черновик: не сохранён", "muted");
+    }
+    refreshDraftButtons();
+
+    if (restoreDraftBtn) {
+      restoreDraftBtn.addEventListener("click", () => {
+        const draft = readStoredDraft();
+        if (!draft) {
+          notify("info", "Сохранённый черновик не найден.");
+          refreshDraftButtons();
+          return;
+        }
+        const restored = applyBuilderDraft(draft);
+        if (restored) {
+          draftDirty = false;
+          draftStatus(`Черновик восстановлен: ${formatDateTime(draft.saved_at)}`, "success");
+          notify("success", "Черновик конструктора восстановлен.");
+        }
+      });
+    }
+
+    if (clearDraftBtn) {
+      clearDraftBtn.addEventListener("click", () => {
+        clearStoredDraft(true);
+      });
+    }
+
+    setInterval(() => {
+      if (draftDirty) {
+        saveDraftNow(true);
+        const latest = readStoredDraft();
+        if (latest?.saved_at) {
+          draftStatus(`Черновик сохранён: ${formatDateTime(latest.saved_at)}`, "success");
+        }
+      }
+    }, DRAFT_AUTOSAVE_MS);
+  }
+
+  function markDraftDirty() {
+    draftDirty = true;
+    draftStatus("Есть несохранённые изменения. Автосохранение через 12 сек.", "warning");
   }
 
   function syncEmptyState(node, message, actionText, actionHandler) {
@@ -890,7 +1382,7 @@
   function syncQuestionSections() {
     const values = sectionOptions();
     questionsNode.querySelectorAll("select[name='q_section[]']").forEach((select) => {
-      const current = select.value;
+      const current = select.dataset.preferredSection || select.value;
       select.innerHTML = "";
       (values.length ? values : ["Общая секция"]).forEach((item) => {
         const option = document.createElement("option");
@@ -901,6 +1393,7 @@
       if ([...select.options].some((opt) => opt.value === current)) {
         select.value = current;
       }
+      delete select.dataset.preferredSection;
     });
   }
 
@@ -908,18 +1401,21 @@
     sectionsNode.appendChild(createSectionInput());
     syncQuestionSections();
     syncEmptyStates();
+    markDraftDirty();
   });
 
   addQuestionBtn.addEventListener("click", () => {
     questionsNode.appendChild(createQuestionItem());
     syncQuestionSections();
     syncEmptyStates();
+    markDraftDirty();
   });
 
   if (addFormulaBtn && formulaNode) {
     addFormulaBtn.addEventListener("click", () => {
       formulaNode.appendChild(createFormulaItem());
       syncEmptyStates();
+      markDraftDirty();
     });
   }
 
@@ -927,6 +1423,7 @@
     addClientFieldBtn.addEventListener("click", () => {
       clientFieldNode.appendChild(createClientFieldItem());
       syncEmptyStates();
+      markDraftDirty();
     });
   }
   clientFieldTemplateBtns.forEach((button) => {
@@ -938,12 +1435,14 @@
     addClientReportBlockBtn.addEventListener("click", () => {
       clientReportBlockNode.appendChild(createReportBlockItem("rt_client[]"));
       syncEmptyStates();
+      markDraftDirty();
     });
   }
   if (addPsychReportBlockBtn && psychReportBlockNode) {
     addPsychReportBlockBtn.addEventListener("click", () => {
       psychReportBlockNode.appendChild(createReportBlockItem("rt_psychologist[]"));
       syncEmptyStates();
+      markDraftDirty();
     });
   }
   reportTemplatePresetBtns.forEach((button) => {
@@ -954,6 +1453,11 @@
   methodPresetBtns.forEach((button) => {
     button.addEventListener("click", () => {
       applyMethodPreset(button.dataset.template || "");
+    });
+  });
+  formulaPresetBtns.forEach((button) => {
+    button.addEventListener("click", () => {
+      applyFormulaPreset(button.dataset.template || "");
     });
   });
 
@@ -1086,12 +1590,18 @@
       const target = event.target;
       if (target instanceof HTMLInputElement || target instanceof HTMLTextAreaElement || target instanceof HTMLSelectElement) {
         removeValidationError(target);
+        if (target.name !== "csrf_token") {
+          markDraftDirty();
+        }
       }
     });
     manualForm.addEventListener("change", (event) => {
       const target = event.target;
       if (target instanceof HTMLInputElement || target instanceof HTMLTextAreaElement || target instanceof HTMLSelectElement) {
         removeValidationError(target);
+        if (target.name !== "csrf_token") {
+          markDraftDirty();
+        }
       }
     });
     manualForm.addEventListener("submit", (event) => {
@@ -1099,26 +1609,35 @@
         event.preventDefault();
         return;
       }
+      saveDraftNow(true);
       notify("success", "Проверка пройдена, создаю тест...", 1600);
     });
   }
+
+  const initialSectionTitles = [...sectionsNode.querySelectorAll("input[name='section_titles[]']")].map(
+    (input) => input.value.trim()
+  );
+  sectionsNode.innerHTML = "";
+  (initialSectionTitles.length ? initialSectionTitles : ["Профиль клиента"]).forEach((title) => {
+    sectionsNode.appendChild(createSectionInput(title));
+  });
 
   if (!questionsNode.children.length) {
     questionsNode.appendChild(createQuestionItem());
   }
 
   if (formulaNode && !formulaNode.children.length) {
-    const sample = createFormulaItem();
-    sample.querySelector("input[name='metric_key[]']").value = "adaptability_index";
-    sample.querySelector("input[name='metric_label[]']").value = "Индекс адаптивности";
-    sample.querySelector("input[name='metric_expression[]']").value =
-      "round((digital_skill + stress_level) / 2, 2)";
-    sample.querySelector("input[name='metric_description[]']").value =
-      "Средняя оценка цифровых навыков и устойчивости к нагрузке";
+    const sample = createFormulaItem({
+      key: "adaptability_index",
+      label: "Индекс адаптивности",
+      expression: "round((digital_skill + stress_level) / 2, 2)",
+      description: "Средняя оценка цифровых навыков и устойчивости к нагрузке",
+    });
     formulaNode.appendChild(sample);
   }
   ensureReportBlockDefaults();
   syncEmptyStates();
 
   syncQuestionSections();
+  initDraftControls();
 })();
