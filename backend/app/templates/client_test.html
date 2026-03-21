@@ -1,11 +1,12 @@
 {% extends "base.html" %}
 {% block content %}
-<section class="panel">
+<section class="panel client-progress-panel">
   <h1>{{ test.title }}</h1>
   <p class="muted">{{ test.description }}</p>
-  <div class="progress-wrap">
+  <div class="progress-wrap progress-wrap-detailed">
     <div class="progress-bar"><span id="progress-fill"></span></div>
     <strong id="progress-text">0%</strong>
+    <span id="progress-detail" class="progress-detail">0 из 0 вопросов</span>
   </div>
 </section>
 
@@ -13,9 +14,10 @@
   <form method="post" action="/t/{{ token }}" id="client-test-form" class="form-grid client-test-form">
     {{ csrf_input(request) }}
     <h2>Данные клиента</h2>
+    <p class="field-hint">Заполните блок о себе, затем пройдите вопросы методики. Прогресс обновляется автоматически.</p>
     <label>
       ФИО *
-      <input name="client_full_name" required>
+      <input name="client_full_name" autocomplete="name" required>
     </label>
 
     {% for field in client_profile_fields %}
@@ -33,6 +35,8 @@
             type="{{ field.input_type }}"
             name="{{ field.name }}"
             placeholder="{{ field.placeholder }}"
+            autocomplete="{{ 'email' if field.name == 'client_email' else 'tel' if field.name == 'client_phone' else 'off' }}"
+            {% if field.key == "age" %}inputmode="numeric"{% endif %}
             {% if field.key == "age" %}min="0"{% endif %}
             {% if field.required %}required{% endif %}
           >
@@ -139,6 +143,7 @@
   const questions = [...document.querySelectorAll("[data-question]")];
   const fill = document.getElementById("progress-fill");
   const text = document.getElementById("progress-text");
+  const progressDetail = document.getElementById("progress-detail");
   const rangeInputs = [...document.querySelectorAll("input[type='range'][data-range-output]")];
 
   function updateRangeValue(input) {
@@ -167,10 +172,23 @@
     const percent = Math.round((completed / total) * 100);
     fill.style.width = `${percent}%`;
     text.textContent = `${percent}%`;
+    if (progressDetail) {
+      progressDetail.textContent = `${completed} из ${total} вопросов заполнено`;
+    }
   }
 
   form.addEventListener("input", updateProgress);
   form.addEventListener("change", updateProgress);
+  form.addEventListener(
+    "invalid",
+    (event) => {
+      const target = event.target;
+      if (target && typeof target.scrollIntoView === "function") {
+        target.scrollIntoView({ behavior: "smooth", block: "center" });
+      }
+    },
+    true
+  );
   rangeInputs.forEach((input) => {
     updateRangeValue(input);
     input.addEventListener("input", () => updateRangeValue(input));

@@ -157,6 +157,7 @@ docs/
 - Текущий список задач и прогресс: [docs/TODO.md](docs/TODO.md)
 - Журнал выполненных задач и бонусов: [docs/PROGRESS.md](docs/PROGRESS.md)
 - Архитектура решения: [docs/architecture.md](docs/architecture.md)
+- UX/UI гайд (сетка, отступы, состояния контролов): [docs/ux_guide.md](docs/ux_guide.md)
 - Дорожная карта развития: [docs/roadmap.md](docs/roadmap.md)
 
 ## Что проверено

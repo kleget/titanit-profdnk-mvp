@@ -14,32 +14,43 @@
         </button>
       </div>
     </div>
+    <nav class="builder-quick-nav" aria-label="Быстрые действия конструктора">
+      <button type="button" class="btn small ghost" data-builder-scroll="builder-block-core">Основное</button>
+      <button type="button" class="btn small ghost" data-builder-scroll="builder-block-client-fields">Поля клиента</button>
+      <button type="button" class="btn small ghost" data-builder-scroll="builder-block-questions">Вопросы</button>
+      <button type="button" class="btn small ghost" data-builder-scroll="builder-block-formulas">Формулы</button>
+      <button type="button" class="btn small ghost" data-builder-click="add-question">+ Вопрос</button>
+      <button type="button" class="btn small ghost" data-builder-click="add-section">+ Секция</button>
+    </nav>
     <form method="post" action="/tests/new/manual" class="form-grid" id="manual-builder">
       {{ csrf_input(request) }}
-      <label>
-        Название теста
-        <input name="title" required placeholder="Например: ПрофДНК v2">
-        <small class="field-hint">Минимум 5 символов, чтобы название было понятным на демо и в отчетах.</small>
-      </label>
-      <label>
-        Описание
-        <textarea name="description" rows="4" placeholder="Кратко о методике"></textarea>
-      </label>
-      <label>
-        Клиентский отчёт
-        <select name="allow_client_report">
-          <option value="true">Показывать клиенту</option>
-          <option value="false">Не показывать клиенту</option>
-        </select>
-      </label>
+      <div class="subpanel" id="builder-block-core">
+        <h3>Основные настройки методики</h3>
+        <label>
+          Название теста
+          <input name="title" required placeholder="Например: ПрофДНК v2">
+          <small class="field-hint">Минимум 5 символов, чтобы название было понятным на демо и в отчетах.</small>
+        </label>
+        <label>
+          Описание
+          <textarea name="description" rows="4" placeholder="Кратко о методике"></textarea>
+        </label>
+        <label>
+          Клиентский отчёт
+          <select name="allow_client_report">
+            <option value="true">Показывать клиенту</option>
+            <option value="false">Не показывать клиенту</option>
+          </select>
+        </label>
 
-      <fieldset>
-        <legend>Обязательные поля клиента</legend>
-        <label><input type="checkbox" checked disabled> full_name (всегда обязательно)</label>
-        <label><input type="checkbox" name="required_client_fields" value="email"> email</label>
-        <label><input type="checkbox" name="required_client_fields" value="phone"> phone</label>
-        <label><input type="checkbox" name="required_client_fields" value="age"> age</label>
-      </fieldset>
+        <fieldset>
+          <legend>Обязательные поля клиента</legend>
+          <label><input type="checkbox" checked disabled> full_name (всегда обязательно)</label>
+          <label><input type="checkbox" name="required_client_fields" value="email"> email</label>
+          <label><input type="checkbox" name="required_client_fields" value="phone"> phone</label>
+          <label><input type="checkbox" name="required_client_fields" value="age"> age</label>
+        </fieldset>
+      </div>
 
       <div class="subpanel">
         <div class="panel-head">
@@ -62,7 +73,7 @@
         </div>
       </div>
 
-      <div class="subpanel">
+      <div class="subpanel" id="builder-block-client-fields">
         <div class="panel-head">
           <h3>Дополнительные поля клиента</h3>
           <button type="button" id="add-client-field" class="btn small">+ Поле</button>
@@ -82,7 +93,7 @@
         <div id="client-field-list"></div>
       </div>
 
-      <div class="subpanel">
+      <div class="subpanel" id="builder-block-report-templates">
         <div class="panel-head">
           <h3>Конструктор шаблонов отчётов</h3>
         </div>
@@ -116,7 +127,7 @@
         </div>
       </div>
 
-      <div class="subpanel">
+      <div class="subpanel" id="builder-block-sections">
         <h3>Секции</h3>
         <p class="field-hint">Сначала задай логические разделы, потом привяжи к ним вопросы.</p>
         <div id="sections">
@@ -130,7 +141,7 @@
         <button type="button" id="add-section" class="btn small ghost">+ Секция</button>
       </div>
 
-      <div class="subpanel">
+      <div class="subpanel" id="builder-block-questions">
         <div class="panel-head">
           <h3>Вопросы</h3>
           <button type="button" id="add-question" class="btn small">+ Вопрос</button>
@@ -139,7 +150,7 @@
         <div id="question-list"></div>
       </div>
 
-      <div class="subpanel">
+      <div class="subpanel" id="builder-block-formulas">
         <div class="panel-head">
           <h3>Редактор формул метрик</h3>
           <button type="button" id="add-metric-formula" class="btn small">+ Формула</button>
@@ -263,5 +274,38 @@
   </article>
 </section>
 
-<script src="/static/js/builder.js?v=20260321e"></script>
+<script src="/static/js/builder.js?v=20260321g"></script>
+<script>
+  (function () {
+    const scrollButtons = Array.from(document.querySelectorAll("[data-builder-scroll]"));
+    const clickButtons = Array.from(document.querySelectorAll("[data-builder-click]"));
+
+    scrollButtons.forEach((button) => {
+      button.addEventListener("click", () => {
+        const targetId = button.dataset.builderScroll;
+        if (!targetId) {
+          return;
+        }
+        const target = document.getElementById(targetId);
+        if (!target) {
+          return;
+        }
+        target.scrollIntoView({ behavior: "smooth", block: "start" });
+      });
+    });
+
+    clickButtons.forEach((button) => {
+      button.addEventListener("click", () => {
+        const actionId = button.dataset.builderClick;
+        if (!actionId) {
+          return;
+        }
+        const target = document.getElementById(actionId);
+        if (target) {
+          target.click();
+        }
+      });
+    });
+  })();
+</script>
 {% endblock %}

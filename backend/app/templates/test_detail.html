@@ -74,6 +74,14 @@
       </tbody>
     </table>
   </div>
+  {% if not invite_groups %}
+    <div class="empty-state">
+      <p>По кампаниям пока нет данных. Отправь клиентам ссылку на тест, чтобы начать сбор прохождений по источникам.</p>
+      <button class="btn small ghost copy-link-btn" type="button" data-link="{{ base_url }}/t/{{ test.share_token }}">
+        Скопировать основную ссылку
+      </button>
+    </div>
+  {% endif %}
 </section>
 
 <section class="panel">
@@ -106,6 +114,11 @@
       </tbody>
     </table>
   </div>
+  {% if not campaign_comparison %}
+    <div class="empty-state">
+      <p>Сравнение кампаний появится после первых прохождений. Создай именованную ссылку для каждого источника и запусти сбор.</p>
+    </div>
+  {% endif %}
 </section>
 
 <section class="panel">
@@ -148,6 +161,17 @@
       </tbody>
     </table>
   </div>
+  {% if not submission_rows %}
+    <div class="empty-state">
+      <p>Пока нет прохождений. Следующий шаг: скопируй ссылку и отправь клиенту для запуска диагностики.</p>
+      <div class="actions">
+        <button class="btn small ghost copy-link-btn" type="button" data-link="{{ base_url }}/t/{{ test.share_token }}">
+          Скопировать основную ссылку
+        </button>
+        <button class="btn small ghost" type="button" id="refresh-submissions-empty">Обновить после прохождения</button>
+      </div>
+    </div>
+  {% endif %}
 </section>
 
 <section class="panel">
@@ -340,6 +364,7 @@
   }
 
   const refreshBtn = document.getElementById("refresh-submissions");
+  const refreshEmptyBtn = document.getElementById("refresh-submissions-empty");
   const body = document.getElementById("submissions-body");
   const groupsBody = document.getElementById("invite-groups-body");
   const campaignBody = document.getElementById("campaign-comparison-body");
@@ -533,8 +558,11 @@
     });
   }
 
-  refreshBtn.addEventListener("click", async () => {
+  async function refreshSubmissionsData() {
     refreshBtn.disabled = true;
+    if (refreshEmptyBtn) {
+      refreshEmptyBtn.disabled = true;
+    }
     refreshBtn.textContent = "Обновляю...";
     try {
       const response = await fetch(`/tests/${testId}/submissions.json`);
@@ -555,9 +583,17 @@
       }
     } finally {
       refreshBtn.disabled = false;
+      if (refreshEmptyBtn) {
+        refreshEmptyBtn.disabled = false;
+      }
       refreshBtn.textContent = "Обновить (AJAX)";
     }
-  });
+  }
+
+  refreshBtn.addEventListener("click", refreshSubmissionsData);
+  if (refreshEmptyBtn) {
+    refreshEmptyBtn.addEventListener("click", refreshSubmissionsData);
+  }
 
   if (statusFilter) {
     statusFilter.addEventListener("change", applyStatusFilter);
