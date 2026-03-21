@@ -46,6 +46,7 @@
       <div class="avatar placeholder">Фото</div>
     {% endif %}
     <form method="post" action="/profile/photo" enctype="multipart/form-data" class="photo-upload-form">
+      {{ csrf_input(request) }}
       <input
         id="photo-file-input"
         class="file-input-hidden"
@@ -59,6 +60,7 @@
       <button id="photo-upload-submit" class="btn ghost" type="submit" disabled>Загрузить фото</button>
     </form>
     <form method="post" action="/profile" class="form-grid">
+      {{ csrf_input(request) }}
       <label>
         О себе (Markdown)
         <textarea name="about_md" rows="8">{{ user.about_md }}</textarea>

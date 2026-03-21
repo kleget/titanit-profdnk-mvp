@@ -56,6 +56,10 @@ class User(Base):
     tests: Mapped[list[Test]] = relationship(
         back_populates="psychologist", cascade="all, delete-orphan"
     )
+    admin_audit_logs: Mapped[list[AdminAuditLog]] = relationship(
+        back_populates="admin_user",
+        foreign_keys="AdminAuditLog.admin_user_id",
+    )
 
     def has_access(self) -> bool:
         if self.is_blocked:
@@ -230,3 +234,22 @@ class InviteLink(Base):
     )
 
     test: Mapped[Test] = relationship(back_populates="invite_links")
+
+
+class AdminAuditLog(Base):
+    __tablename__ = "admin_audit_logs"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    admin_user_id: Mapped[int] = mapped_column(ForeignKey("users.id"), nullable=False, index=True)
+    target_user_id: Mapped[int | None] = mapped_column(ForeignKey("users.id"), index=True)
+    action: Mapped[str] = mapped_column(String(100), nullable=False, index=True)
+    target_email: Mapped[str | None] = mapped_column(String(255))
+    details_json: Mapped[dict | None] = mapped_column(JSON)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), default=utcnow, nullable=False, index=True
+    )
+
+    admin_user: Mapped[User] = relationship(
+        back_populates="admin_audit_logs",
+        foreign_keys=[admin_user_id],
+    )

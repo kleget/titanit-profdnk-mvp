@@ -42,6 +42,7 @@
       <button id="theme-toggle" class="btn ghost theme-toggle" type="button">Тема: тёмная</button>
       {% if user %}
         <form action="/logout" method="post">
+          {{ csrf_input(request) }}
           <button class="btn ghost" type="submit">Выйти</button>
         </form>
       {% else %}

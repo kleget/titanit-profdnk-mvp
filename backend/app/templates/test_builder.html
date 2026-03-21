@@ -4,6 +4,7 @@
   <article class="panel">
     <h1>Конструктор методик (ручной)</h1>
     <form method="post" action="/tests/new/manual" class="form-grid" id="manual-builder">
+      {{ csrf_input(request) }}
       <label>
         Название теста
         <input name="title" required placeholder="Например: ПрофДНК v2">
@@ -149,6 +150,7 @@
     <h2>Импорт JSON</h2>
     <p class="muted">Можно быстро импортировать методику вместе с формулами.</p>
     <form method="post" action="/tests/new/import" class="form-grid">
+      {{ csrf_input(request) }}
       <label>
         Название (опционально, если есть в JSON)
         <input name="title">

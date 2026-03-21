@@ -8,6 +8,7 @@
       <div class="alert">{{ error }}</div>
     {% endif %}
     <form method="post" action="/login" class="form-grid">
+      {{ csrf_input(request) }}
       <label>
         E-mail
         <input type="email" name="email" required autocomplete="username">
@@ -21,4 +22,3 @@
   </div>
 </section>
 {% endblock %}
-

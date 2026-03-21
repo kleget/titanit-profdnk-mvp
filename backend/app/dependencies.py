@@ -7,6 +7,7 @@ from sqlalchemy.orm import Session
 
 from app.db import get_db
 from app.models import User, UserRole, normalize_datetime
+from app.services.csrf import validate_csrf_request
 
 
 def now_utc() -> datetime:
@@ -49,3 +50,9 @@ def require_admin(user: User = Depends(require_user)) -> User:
     if user.role != UserRole.ADMIN:
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Admin only")
     return user
+
+
+async def require_csrf_token(request: Request) -> None:
+    csrf_error = await validate_csrf_request(request)
+    if csrf_error:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail=csrf_error)

@@ -8,9 +8,11 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.db import get_db
+from app.dependencies import require_csrf_token
 from app.models import User, UserRole, normalize_datetime
 from app.security import verify_password
 from app.config import settings
+from app.services.csrf import rotate_csrf_token
 from app.services.rate_limit import check_request_rate_limit
 from app.web import templates
 
@@ -37,6 +39,7 @@ def login(
     request: Request,
     email: str = Form(...),
     password: str = Form(...),
+    _: None = Depends(require_csrf_token),
     db: Session = Depends(get_db),
 ) -> object:
     rate_limit = check_request_rate_limit(
@@ -86,11 +89,15 @@ def login(
         )
 
     request.session["user_id"] = user.id
+    rotate_csrf_token(request)
     redirect_to = "/admin" if user.role == UserRole.ADMIN else "/dashboard"
     return RedirectResponse(redirect_to, status_code=303)
 
 
 @router.post("/logout")
-def logout(request: Request) -> object:
+def logout(
+    request: Request,
+    _: None = Depends(require_csrf_token),
+) -> object:
     request.session.clear()
     return RedirectResponse("/login", status_code=303)

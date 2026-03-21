@@ -7,6 +7,8 @@ from pathlib import Path
 from fastapi.testclient import TestClient
 from sqlalchemy import select
 
+from tests.helpers import post_form_with_csrf
+
 
 def _reload_app_with_temp_db(tmp_path: Path, monkeypatch):  # type: ignore[no-untyped-def]
     db_path = tmp_path / "admin_password_policy.sqlite3"
@@ -31,15 +33,18 @@ def test_admin_create_psychologist_password_policy(tmp_path: Path, monkeypatch):
     app = main_module.create_app()
 
     with TestClient(app) as client:
-        login_response = client.post(
+        login_response = post_form_with_csrf(
+            client,
             "/login",
             data={"email": "admin@profdnk.local", "password": "admin123"},
+            csrf_page_path="/login",
             follow_redirects=False,
         )
         assert login_response.status_code == 303
         assert login_response.headers["location"] == "/admin"
 
-        weak_password_response = client.post(
+        weak_password_response = post_form_with_csrf(
+            client,
             "/admin/psychologists",
             data={
                 "full_name": "Слабый Пароль",
@@ -48,12 +53,14 @@ def test_admin_create_psychologist_password_policy(tmp_path: Path, monkeypatch):
                 "password": "weakpass",
                 "access_until": "",
             },
+            csrf_page_path="/admin",
             follow_redirects=False,
         )
         assert weak_password_response.status_code == 400
         assert "Пароль должен содержать хотя бы одну заглавную букву." in weak_password_response.text
 
-        strong_password_response = client.post(
+        strong_password_response = post_form_with_csrf(
+            client,
             "/admin/psychologists",
             data={
                 "full_name": "Сильный Пароль",
@@ -62,6 +69,7 @@ def test_admin_create_psychologist_password_policy(tmp_path: Path, monkeypatch):
                 "password": "StrongPass1",
                 "access_until": "",
             },
+            csrf_page_path="/admin",
             follow_redirects=False,
         )
         assert strong_password_response.status_code == 303

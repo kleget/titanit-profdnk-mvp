@@ -9,10 +9,11 @@ from sqlalchemy.orm import Session
 
 from app.config import settings
 from app.db import get_db
-from app.dependencies import get_optional_user, require_admin
+from app.dependencies import get_optional_user, require_admin, require_csrf_token
 from app.models import User, UserRole
 from app.security import hash_password, validate_password_policy
 from app.services.access_reminders import build_admin_access_expiry_reminders
+from app.services.admin_audit import log_admin_action, recent_admin_audit_logs
 from app.services.email import send_psychologist_welcome_email
 from app.web import templates
 
@@ -31,6 +32,7 @@ def _render_admin_page(
         select(User).where(User.role == UserRole.PSYCHOLOGIST).order_by(User.created_at.desc())
     ).all()
     access_reminders = build_admin_access_expiry_reminders(psychologists)
+    audit_logs = recent_admin_audit_logs(db, limit=40)
     return templates.TemplateResponse(
         request,
         "admin.html",
@@ -39,6 +41,7 @@ def _render_admin_page(
             "user": current_user,
             "psychologists": psychologists,
             "access_reminders": access_reminders,
+            "audit_logs": audit_logs,
             "error": error,
         },
         status_code=status_code,
@@ -68,7 +71,8 @@ def create_psychologist(
     phone: str = Form(""),
     password: str = Form(...),
     access_until: str = Form(""),
-    _: User = Depends(require_admin),
+    __: None = Depends(require_csrf_token),
+    current_admin: User = Depends(require_admin),
     db: Session = Depends(get_db),
 ) -> object:
     current_user = db.get(User, request.session.get("user_id"))
@@ -110,6 +114,18 @@ def create_psychologist(
         access_until=access_until_dt,
     )
     db.add(user)
+    db.flush()
+    log_admin_action(
+        db,
+        admin_user_id=current_admin.id,
+        action="psychologist_created",
+        target_user_id=user.id,
+        target_email=user.email,
+        details={
+            "full_name": user.full_name,
+            "access_until": user.access_until.isoformat() if user.access_until else None,
+        },
+    )
     db.commit()
     background_tasks.add_task(
         send_psychologist_welcome_email,
@@ -125,13 +141,22 @@ def create_psychologist(
 @router.post("/psychologists/{psychologist_id}/toggle-block")
 def toggle_block(
     psychologist_id: int,
-    _: User = Depends(require_admin),
+    __: None = Depends(require_csrf_token),
+    current_admin: User = Depends(require_admin),
     db: Session = Depends(get_db),
 ) -> object:
     user = db.get(User, psychologist_id)
     if not user or user.role != UserRole.PSYCHOLOGIST:
         raise HTTPException(status_code=404, detail="Psychologist not found")
     user.is_blocked = not user.is_blocked
+    log_admin_action(
+        db,
+        admin_user_id=current_admin.id,
+        action="psychologist_blocked" if user.is_blocked else "psychologist_unblocked",
+        target_user_id=user.id,
+        target_email=user.email,
+        details={"is_blocked": user.is_blocked},
+    )
     db.commit()
     return RedirectResponse(
         "/admin?notice=psychologist_block_toggled&notice_type=success",
@@ -143,13 +168,15 @@ def toggle_block(
 def update_access(
     psychologist_id: int,
     access_until: str = Form(""),
-    _: User = Depends(require_admin),
+    __: None = Depends(require_csrf_token),
+    current_admin: User = Depends(require_admin),
     db: Session = Depends(get_db),
 ) -> object:
     user = db.get(User, psychologist_id)
     if not user or user.role != UserRole.PSYCHOLOGIST:
         raise HTTPException(status_code=404, detail="Psychologist not found")
 
+    previous_access_until = user.access_until.isoformat() if user.access_until else None
     if access_until.strip():
         try:
             user.access_until = datetime.strptime(access_until.strip(), "%Y-%m-%d").replace(
@@ -159,6 +186,17 @@ def update_access(
             raise HTTPException(status_code=400, detail="Неверный формат даты") from exc
     else:
         user.access_until = None
+    log_admin_action(
+        db,
+        admin_user_id=current_admin.id,
+        action="psychologist_access_updated",
+        target_user_id=user.id,
+        target_email=user.email,
+        details={
+            "before": previous_access_until,
+            "after": user.access_until.isoformat() if user.access_until else None,
+        },
+    )
     db.commit()
     return RedirectResponse(
         "/admin?notice=psychologist_access_updated&notice_type=success",

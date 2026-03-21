@@ -9,6 +9,7 @@
     <div class="actions">
       <button class="btn ghost copy-link-btn" data-link="{{ base_url }}/t/{{ test.share_token }}">Скопировать основную ссылку</button>
       <form method="post" action="/tests/{{ test.id }}/clone">
+        {{ csrf_input(request) }}
         <button class="btn ghost" type="submit">Клонировать тест</button>
       </form>
       <a class="btn ghost" href="/tests/{{ test.id }}/submissions.csv">Экспорт CSV</a>
@@ -25,6 +26,7 @@
       <p class="muted">Создавай отдельные URL для группировки прохождений, например: School-234, VK-Ads, Webinar.</p>
     </div>
     <form class="inline-form" method="post" action="/tests/{{ test.id }}/links">
+      {{ csrf_input(request) }}
       <input type="text" name="label" maxlength="120" placeholder="Название кампании" required>
       <input type="number" name="usage_limit" min="1" step="1" placeholder="Лимит (опционально)">
       <button class="btn" type="submit">Добавить ссылку</button>
@@ -63,6 +65,7 @@
             <td data-label="Действия" class="actions-row">
               <button class="btn small ghost copy-link-btn" type="button" data-link="{{ base_url }}/t/{{ link_row.link.token }}">Копировать</button>
               <form method="post" action="/tests/{{ test.id }}/links/{{ link_row.link.id }}/toggle">
+                {{ csrf_input(request) }}
                 <button class="btn small ghost" type="submit">{{ "Отключить" if link_row.link.is_active else "Включить" }}</button>
               </form>
             </td>

@@ -40,6 +40,7 @@
           <td data-label="Действия" class="actions-row">
             <button class="btn small ghost copy-link" data-link="{{ base_url }}/t/{{ test.share_token }}">Скопировать ссылку</button>
             <form method="post" action="/tests/{{ test.id }}/clone">
+              {{ csrf_input(request) }}
               <button class="btn small ghost" type="submit">Клонировать тест</button>
             </form>
             <a class="btn small ghost" href="/tests/{{ test.id }}/submissions.csv">Экспорт CSV</a>

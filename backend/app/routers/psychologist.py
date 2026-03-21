@@ -14,7 +14,7 @@ from sqlalchemy.orm import Session, selectinload
 
 from app.config import settings
 from app.db import get_db
-from app.dependencies import get_optional_user, require_psychologist_or_admin
+from app.dependencies import get_optional_user, require_csrf_token, require_psychologist_or_admin
 from app.models import Answer, InviteLink, Submission, Test, TestSection, User, UserRole
 from app.services.access_reminders import build_psychologist_access_reminder
 from app.services.client_fields import normalize_client_fields_config
@@ -442,6 +442,7 @@ def dashboard(
 @router.post("/profile")
 def update_profile(
     about_md: str = Form(""),
+    _: None = Depends(require_csrf_token),
     current_user: User = Depends(require_psychologist_or_admin),
     db: Session = Depends(get_db),
 ) -> object:
@@ -455,6 +456,7 @@ def update_profile(
 @router.post("/profile/photo")
 async def upload_photo(
     photo: UploadFile,
+    _: None = Depends(require_csrf_token),
     current_user: User = Depends(require_psychologist_or_admin),
     db: Session = Depends(get_db),
 ) -> object:
@@ -498,6 +500,7 @@ def tests_page(
 @router.post("/tests/{test_id}/clone")
 def clone_test(
     test_id: int,
+    _: None = Depends(require_csrf_token),
     current_user: User = Depends(require_psychologist_or_admin),
     db: Session = Depends(get_db),
 ) -> object:
@@ -555,6 +558,7 @@ def new_test_page(
 @router.post("/tests/new/manual")
 async def create_test_manual(
     request: Request,
+    _: None = Depends(require_csrf_token),
     current_user: User = Depends(require_psychologist_or_admin),
     db: Session = Depends(get_db),
 ) -> object:
@@ -620,6 +624,7 @@ def create_test_import(
     allow_client_report: str = Form("true"),
     required_client_fields: list[str] = Form(default=[]),
     config_json: str = Form(...),
+    _: None = Depends(require_csrf_token),
     current_user: User = Depends(require_psychologist_or_admin),
     db: Session = Depends(get_db),
 ) -> object:
@@ -750,6 +755,7 @@ def create_invite_link(
     test_id: int,
     label: str = Form(""),
     usage_limit: str = Form(""),
+    _: None = Depends(require_csrf_token),
     current_user: User = Depends(require_psychologist_or_admin),
     db: Session = Depends(get_db),
 ) -> object:
@@ -790,6 +796,7 @@ def create_invite_link(
 def toggle_invite_link(
     test_id: int,
     link_id: int,
+    _: None = Depends(require_csrf_token),
     current_user: User = Depends(require_psychologist_or_admin),
     db: Session = Depends(get_db),
 ) -> object:

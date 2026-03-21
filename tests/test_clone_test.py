@@ -9,6 +9,8 @@ from fastapi.testclient import TestClient
 from sqlalchemy import select
 from sqlalchemy.orm import selectinload
 
+from tests.helpers import post_form_with_csrf
+
 
 def _reload_app_with_temp_db(tmp_path: Path, monkeypatch):  # type: ignore[no-untyped-def]
     db_path = tmp_path / "clone_test.sqlite3"
@@ -33,14 +35,17 @@ def test_clone_test_creates_full_copy_without_invite_links(tmp_path: Path, monke
     app = main_module.create_app()
 
     with TestClient(app) as client:
-        login_response = client.post(
+        login_response = post_form_with_csrf(
+            client,
             "/login",
             data={"email": "psychologist@demo.local", "password": "demo12345"},
+            csrf_page_path="/login",
             follow_redirects=False,
         )
         assert login_response.status_code == 303
 
-        create_response = client.post(
+        create_response = post_form_with_csrf(
+            client,
             "/tests/new/manual",
             data={
                 "title": "Исходный тест для клонирования",
@@ -74,6 +79,7 @@ def test_clone_test_creates_full_copy_without_invite_links(tmp_path: Path, monke
                     "answers",
                 ],
             },
+            csrf_page_path="/tests/new",
             follow_redirects=False,
         )
         assert create_response.status_code == 303
@@ -81,14 +87,22 @@ def test_clone_test_creates_full_copy_without_invite_links(tmp_path: Path, monke
         assert source_match is not None
         source_test_id = int(source_match.group(1))
 
-        create_link_response = client.post(
+        create_link_response = post_form_with_csrf(
+            client,
             f"/tests/{source_test_id}/links",
             data={"label": "Campaign-Source", "usage_limit": ""},
+            csrf_page_path=f"/tests/{source_test_id}",
             follow_redirects=False,
         )
         assert create_link_response.status_code == 303
 
-        clone_response = client.post(f"/tests/{source_test_id}/clone", follow_redirects=False)
+        clone_response = post_form_with_csrf(
+            client,
+            f"/tests/{source_test_id}/clone",
+            data={},
+            csrf_page_path=f"/tests/{source_test_id}",
+            follow_redirects=False,
+        )
         assert clone_response.status_code == 303
         clone_match = re.search(r"/tests/(\d+)", clone_response.headers["location"])
         assert clone_match is not None

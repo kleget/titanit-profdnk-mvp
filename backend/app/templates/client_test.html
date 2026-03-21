@@ -11,6 +11,7 @@
 
 <section class="panel">
   <form method="post" action="/t/{{ token }}" id="client-test-form" class="form-grid client-test-form">
+    {{ csrf_input(request) }}
     <h2>Данные клиента</h2>
     <label>
       ФИО *

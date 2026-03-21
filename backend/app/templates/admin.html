@@ -16,6 +16,42 @@
   {% endif %}
 </section>
 
+<section class="panel">
+  <h2>Аудит действий администратора</h2>
+  <div class="table-wrap">
+    <table class="responsive-table">
+      <thead>
+        <tr>
+          <th>Дата</th>
+          <th>Действие</th>
+          <th>Цель</th>
+          <th>Детали</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for item in audit_logs %}
+          <tr>
+            <td data-label="Дата">{{ item.created_at.strftime("%Y-%m-%d %H:%M") }}</td>
+            <td data-label="Действие"><code>{{ item.action }}</code></td>
+            <td data-label="Цель">{{ item.target_email or "-" }}</td>
+            <td data-label="Детали">
+              {% if item.details_json %}
+                <code>{{ item.details_json | tojson }}</code>
+              {% else %}
+                -
+              {% endif %}
+            </td>
+          </tr>
+        {% else %}
+          <tr>
+            <td colspan="4" class="muted">Пока нет записей аудита.</td>
+          </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</section>
+
 <section class="grid two-col">
   <article class="panel">
     <h1>Администрирование психологов</h1>
@@ -23,6 +59,7 @@
       <div class="alert">{{ error }}</div>
     {% endif %}
     <form method="post" action="/admin/psychologists" class="form-grid">
+      {{ csrf_input(request) }}
       <label>
         ФИО
         <input name="full_name" required>
@@ -87,11 +124,13 @@
               <td data-label="Статус">{{ "Заблокирован" if p.is_blocked else "Активен" }}</td>
               <td data-label="Действия">
                 <form method="post" action="/admin/psychologists/{{ p.id }}/toggle-block" class="inline-form">
+                  {{ csrf_input(request) }}
                   <button class="btn small ghost" type="submit">
                     {{ "Разблокировать" if p.is_blocked else "Блокировать" }}
                   </button>
                 </form>
                 <form method="post" action="/admin/psychologists/{{ p.id }}/access" class="inline-form">
+                  {{ csrf_input(request) }}
                   <input type="date" name="access_until" value="{{ p.access_until.strftime('%Y-%m-%d') if p.access_until else '' }}">
                   <button class="btn small" type="submit">Обновить</button>
                 </form>

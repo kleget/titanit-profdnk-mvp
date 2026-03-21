@@ -9,6 +9,8 @@ from fastapi.testclient import TestClient
 from sqlalchemy import func, select
 from sqlalchemy.orm import selectinload
 
+from tests.helpers import post_form_with_csrf
+
 
 def _reload_app_with_temp_db(
     tmp_path: Path,
@@ -49,12 +51,30 @@ def test_login_rate_limit_blocks_after_threshold(tmp_path: Path, monkeypatch):  
             "email": "psychologist@demo.local",
             "password": "wrong-password",
         }
-        first_attempt = client.post("/login", data=payload, follow_redirects=False)
-        second_attempt = client.post("/login", data=payload, follow_redirects=False)
+        first_attempt = post_form_with_csrf(
+            client,
+            "/login",
+            data=payload,
+            csrf_page_path="/login",
+            follow_redirects=False,
+        )
+        second_attempt = post_form_with_csrf(
+            client,
+            "/login",
+            data=payload,
+            csrf_page_path="/login",
+            follow_redirects=False,
+        )
         assert first_attempt.status_code == 400
         assert second_attempt.status_code == 400
 
-        blocked_attempt = client.post("/login", data=payload, follow_redirects=False)
+        blocked_attempt = post_form_with_csrf(
+            client,
+            "/login",
+            data=payload,
+            csrf_page_path="/login",
+            follow_redirects=False,
+        )
         assert blocked_attempt.status_code == 429
         assert "Слишком много попыток входа" in blocked_attempt.text
         assert blocked_attempt.headers.get("x-ratelimit-limit") == "2"
@@ -68,17 +88,20 @@ def test_submit_rate_limit_blocks_after_threshold(tmp_path: Path, monkeypatch): 
     app = main_module.create_app()
 
     with TestClient(app) as client:
-        login_response = client.post(
+        login_response = post_form_with_csrf(
+            client,
             "/login",
             data={
                 "email": "psychologist@demo.local",
                 "password": "demo12345",
             },
+            csrf_page_path="/login",
             follow_redirects=False,
         )
         assert login_response.status_code == 303
 
-        create_response = client.post(
+        create_response = post_form_with_csrf(
+            client,
             "/tests/new/manual",
             data={
                 "title": "Тест с лимитом отправки",
@@ -97,6 +120,7 @@ def test_submit_rate_limit_blocks_after_threshold(tmp_path: Path, monkeypatch): 
                 "rt_client[]": ["profile", "summary_metrics", "answers"],
                 "rt_psychologist[]": ["profile", "summary_metrics", "answers"],
             },
+            csrf_page_path="/tests/new",
             follow_redirects=False,
         )
         assert create_response.status_code == 303
@@ -118,16 +142,20 @@ def test_submit_rate_limit_blocks_after_threshold(tmp_path: Path, monkeypatch): 
             token = created_test.share_token
             question = created_test.sections[0].questions[0]
 
-        first_submit = client.post(
+        first_submit = post_form_with_csrf(
+            client,
             f"/t/{token}",
             data={"client_full_name": "Клиент 1", f"q_{question.id}": "true"},
+            csrf_page_path=f"/t/{token}",
             follow_redirects=False,
         )
         assert first_submit.status_code == 303
 
-        blocked_submit = client.post(
+        blocked_submit = post_form_with_csrf(
+            client,
             f"/t/{token}",
             data={"client_full_name": "Клиент 2", f"q_{question.id}": "true"},
+            csrf_page_path=f"/t/{token}",
             follow_redirects=False,
         )
         assert blocked_submit.status_code == 429

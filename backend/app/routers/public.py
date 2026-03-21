@@ -10,6 +10,7 @@ from sqlalchemy.orm import Session, selectinload
 
 from app.config import settings
 from app.db import get_db
+from app.dependencies import require_csrf_token
 from app.models import Answer, InviteLink, QuestionType, Submission, Test, TestSection, User
 from app.services.client_fields import build_client_form_fields, normalize_client_fields_config
 from app.services.content import render_safe_markdown
@@ -132,6 +133,7 @@ async def submit_client_test(
     token: str,
     request: Request,
     background_tasks: BackgroundTasks,
+    _: None = Depends(require_csrf_token),
     db: Session = Depends(get_db),
 ) -> object:
     submit_rate_limit = check_request_rate_limit(

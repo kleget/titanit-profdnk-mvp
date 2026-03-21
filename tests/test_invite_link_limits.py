@@ -9,6 +9,8 @@ from fastapi.testclient import TestClient
 from sqlalchemy import func, select
 from sqlalchemy.orm import selectinload
 
+from tests.helpers import post_form_with_csrf
+
 
 def _reload_app_with_temp_db(tmp_path: Path, monkeypatch):  # type: ignore[no-untyped-def]
     db_path = tmp_path / "invite_limit.sqlite3"
@@ -33,14 +35,17 @@ def test_named_invite_link_limit_deactivates_after_reaching_limit(tmp_path: Path
     app = main_module.create_app()
 
     with TestClient(app) as client:
-        login_response = client.post(
+        login_response = post_form_with_csrf(
+            client,
             "/login",
             data={"email": "psychologist@demo.local", "password": "demo12345"},
+            csrf_page_path="/login",
             follow_redirects=False,
         )
         assert login_response.status_code == 303
 
-        create_response = client.post(
+        create_response = post_form_with_csrf(
+            client,
             "/tests/new/manual",
             data={
                 "title": "Тест с лимитом ссылки",
@@ -59,6 +64,7 @@ def test_named_invite_link_limit_deactivates_after_reaching_limit(tmp_path: Path
                 "rt_client[]": ["profile", "summary_metrics", "answers"],
                 "rt_psychologist[]": ["profile", "summary_metrics", "answers"],
             },
+            csrf_page_path="/tests/new",
             follow_redirects=False,
         )
         assert create_response.status_code == 303
@@ -79,9 +85,11 @@ def test_named_invite_link_limit_deactivates_after_reaching_limit(tmp_path: Path
             assert created_test is not None
             question = created_test.sections[0].questions[0]
 
-        create_link_response = client.post(
+        create_link_response = post_form_with_csrf(
+            client,
             f"/tests/{test_id}/links",
             data={"label": "Campaign-1", "usage_limit": "1"},
+            csrf_page_path=f"/tests/{test_id}",
             follow_redirects=False,
         )
         assert create_link_response.status_code == 303
@@ -98,12 +106,14 @@ def test_named_invite_link_limit_deactivates_after_reaching_limit(tmp_path: Path
             invite_token = invite_link.token
             share_token = session.scalar(select(Test.share_token).where(Test.id == test_id))
 
-        first_submit = client.post(
+        first_submit = post_form_with_csrf(
+            client,
             f"/t/{invite_token}",
             data={
                 "client_full_name": "Клиент 1",
                 f"q_{question.id}": "true",
             },
+            csrf_page_path=f"/t/{invite_token}",
             follow_redirects=False,
         )
         assert first_submit.status_code == 303
@@ -122,12 +132,14 @@ def test_named_invite_link_limit_deactivates_after_reaching_limit(tmp_path: Path
         closed_page = client.get(f"/t/{invite_token}")
         assert closed_page.status_code == 404
 
-        second_submit = client.post(
+        second_submit = post_form_with_csrf(
+            client,
             f"/t/{invite_token}",
             data={
                 "client_full_name": "Клиент 2",
                 f"q_{question.id}": "true",
             },
+            csrf_page_path=f"/tests/{test_id}",
             follow_redirects=False,
         )
         assert second_submit.status_code == 404
