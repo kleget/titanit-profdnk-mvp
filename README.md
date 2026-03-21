@@ -177,6 +177,9 @@ docs/
   - применение миграций `alembic upgrade head`,
   - `systemctl restart titanit-profdnk.service`,
   - `nginx reload`.
+- После деплоя workflow делает smoke-check внешнего домена:
+  - `GET /api/health` должен вернуть JSON со `status=ok`,
+  - `GET /login` должен вернуть HTTP `200`.
 
 ## CI (проверки при push/PR)
 - Воркфлоу: `.github/workflows/ci.yml`

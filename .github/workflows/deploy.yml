@@ -9,6 +9,8 @@ on:
 jobs:
   deploy:
     runs-on: ubuntu-latest
+    env:
+      SMOKE_BASE_URL: https://recallio.tech
     steps:
       - name: Deploy over SSH
         uses: appleboy/ssh-action@v1.2.0
@@ -80,3 +82,26 @@ jobs:
               sleep 1
             done
             curl -fsS http://127.0.0.1:8000/api/health
+
+      - name: Smoke test after deploy (public URL)
+        run: |
+          set -euo pipefail
+
+          HEALTH_PAYLOAD="$(curl -fsS "$SMOKE_BASE_URL/api/health")"
+          echo "Health payload: $HEALTH_PAYLOAD"
+
+          HEALTH_PAYLOAD="$HEALTH_PAYLOAD" python - <<'PY'
+          import json
+          import os
+
+          payload = json.loads(os.environ["HEALTH_PAYLOAD"])
+          status = payload.get("status")
+          if status != "ok":
+              raise SystemExit(f"Smoke failed: unexpected status={status!r}")
+          PY
+
+          LOGIN_STATUS="$(curl -sS -o /dev/null -w "%{http_code}" "$SMOKE_BASE_URL/login")"
+          if [ "$LOGIN_STATUS" -ne 200 ]; then
+            echo "Smoke failed: expected /login HTTP 200, got $LOGIN_STATUS"
+            exit 1
+          fi
