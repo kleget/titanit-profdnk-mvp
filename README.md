@@ -164,6 +164,7 @@ docs/
   - обновление репозитория в `/srv/titanit-profdnk-mvp`,
   - обновление зависимостей Python,
   - перезапись `.env.deploy`,
+  - применение миграций `alembic upgrade head`,
   - `systemctl restart titanit-profdnk.service`,
   - `nginx reload`.
 
