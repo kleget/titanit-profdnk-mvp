@@ -15,6 +15,7 @@ from app.services.client_fields import build_client_form_fields, normalize_clien
 from app.services.content import render_safe_markdown
 from app.services.email import send_client_report_email
 from app.services.invite_links import is_invite_link_exhausted
+from app.services.rate_limit import check_request_rate_limit
 from app.services.reports import build_docx_report, build_report_context, render_html_report
 from app.services.scoring import calculate_metrics
 from app.web import templates
@@ -133,6 +134,23 @@ async def submit_client_test(
     background_tasks: BackgroundTasks,
     db: Session = Depends(get_db),
 ) -> object:
+    submit_rate_limit = check_request_rate_limit(
+        request,
+        scope="test_submit",
+        limit=settings.submit_rate_limit_attempts,
+        window_seconds=settings.submit_rate_limit_window_seconds,
+        key_suffix=token,
+    )
+    if not submit_rate_limit.allowed:
+        raise HTTPException(
+            status_code=429,
+            detail=(
+                "Слишком много отправок анкеты. "
+                f"Повторите через {submit_rate_limit.retry_after_seconds} сек."
+            ),
+            headers=submit_rate_limit.headers,
+        )
+
     test, invite_link = _get_test_by_token(token, db)
     form = await request.form()
 

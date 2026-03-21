@@ -28,6 +28,7 @@
 - Поддержка именованных ссылок кампаний и группировка результатов по источникам.
 - Сравнение кампаний по среднему % балла и % заполнения прямо на странице теста.
 - CSV-экспорт всех прохождений теста в один клик.
+- Rate limit для защиты от перебора на `POST /login` и от спама на `POST /t/{token}`.
 
 ## Технологии
 - Бэкенд: `Python 3.11`, `FastAPI`, `SQLAlchemy`.
@@ -73,6 +74,11 @@ pip install -r backend/requirements.txt
   - `AUTO_CREATE_SCHEMA=true` в локальной разработке (быстрый старт).
 - для логирования:
   - `LOG_LEVEL=INFO` (или `DEBUG` для детальной диагностики).
+- для защиты от частых запросов:
+  - `LOGIN_RATE_LIMIT_ATTEMPTS=8`
+  - `LOGIN_RATE_LIMIT_WINDOW_SECONDS=300`
+  - `SUBMIT_RATE_LIMIT_ATTEMPTS=30`
+  - `SUBMIT_RATE_LIMIT_WINDOW_SECONDS=60`
 - для почты (опционально):
   - `SMTP_ENABLED=true`
   - `SMTP_HOST=smtp.gmail.com`

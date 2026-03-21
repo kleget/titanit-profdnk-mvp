@@ -10,6 +10,8 @@ from sqlalchemy.orm import Session
 from app.db import get_db
 from app.models import User, UserRole, normalize_datetime
 from app.security import verify_password
+from app.config import settings
+from app.services.rate_limit import check_request_rate_limit
 from app.web import templates
 
 router = APIRouter()
@@ -37,6 +39,27 @@ def login(
     password: str = Form(...),
     db: Session = Depends(get_db),
 ) -> object:
+    rate_limit = check_request_rate_limit(
+        request,
+        scope="login",
+        limit=settings.login_rate_limit_attempts,
+        window_seconds=settings.login_rate_limit_window_seconds,
+    )
+    if not rate_limit.allowed:
+        return templates.TemplateResponse(
+            request,
+            "login.html",
+            {
+                "title": "Вход",
+                "error": (
+                    "Слишком много попыток входа. "
+                    f"Повторите через {rate_limit.retry_after_seconds} сек."
+                ),
+            },
+            status_code=429,
+            headers=rate_limit.headers,
+        )
+
     user = db.scalar(select(User).where(User.email == email.strip().lower()))
     if not user or not verify_password(password, user.password_hash):
         return templates.TemplateResponse(

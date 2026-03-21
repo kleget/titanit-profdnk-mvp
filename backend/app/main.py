@@ -42,6 +42,12 @@ ERROR_PAGE_CONTENT = {
         "action_href": "/",
         "action_label": "На главную",
     },
+    429: {
+        "title": "Слишком много запросов",
+        "message": "Сделайте паузу и повторите действие чуть позже.",
+        "action_href": "/",
+        "action_label": "На главную",
+    },
     500: {
         "title": "Внутренняя ошибка сервера",
         "message": "Мы уже зафиксировали проблему. Попробуйте обновить страницу чуть позже.",
@@ -94,7 +100,7 @@ def _wants_html_response(request: Request) -> bool:
 def _error_template_context(status_code: int, detail: str | None, request_id: str) -> dict[str, str]:
     base = ERROR_PAGE_CONTENT.get(status_code) or ERROR_PAGE_CONTENT[500]
     message = base["message"]
-    if status_code in {400, 403} and detail:
+    if status_code in {400, 403, 429} and detail:
         message = detail
     return {
         "title": f"Ошибка {status_code}",

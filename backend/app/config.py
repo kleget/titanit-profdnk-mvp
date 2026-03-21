@@ -60,6 +60,10 @@ class Settings:
     smtp_tls: bool
     smtp_timeout_seconds: int
     smtp_enabled: bool
+    login_rate_limit_attempts: int
+    login_rate_limit_window_seconds: int
+    submit_rate_limit_attempts: int
+    submit_rate_limit_window_seconds: int
 
 
 _app_env = _normalize_env(os.getenv("APP_ENV"))
@@ -114,4 +118,28 @@ settings = Settings(
         max_value=120,
     ),
     smtp_enabled=_to_bool(os.getenv("SMTP_ENABLED"), default=_smtp_enabled_default),
+    login_rate_limit_attempts=_to_int(
+        os.getenv("LOGIN_RATE_LIMIT_ATTEMPTS"),
+        default=8,
+        min_value=1,
+        max_value=1000,
+    ),
+    login_rate_limit_window_seconds=_to_int(
+        os.getenv("LOGIN_RATE_LIMIT_WINDOW_SECONDS"),
+        default=300,
+        min_value=10,
+        max_value=86400,
+    ),
+    submit_rate_limit_attempts=_to_int(
+        os.getenv("SUBMIT_RATE_LIMIT_ATTEMPTS"),
+        default=30,
+        min_value=1,
+        max_value=5000,
+    ),
+    submit_rate_limit_window_seconds=_to_int(
+        os.getenv("SUBMIT_RATE_LIMIT_WINDOW_SECONDS"),
+        default=60,
+        min_value=10,
+        max_value=86400,
+    ),
 )
