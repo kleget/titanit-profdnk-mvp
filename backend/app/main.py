@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from contextlib import asynccontextmanager
 import logging
 import secrets
 from pathlib import Path
@@ -106,12 +107,46 @@ def _error_template_context(status_code: int, detail: str | None, request_id: st
     }
 
 
+def _run_startup_tasks() -> None:
+    startup_logger.info(
+        "startup env=%s base_url=%s database=%s auto_create_schema=%s auto_seed=%s",
+        settings.app_env,
+        settings.base_url,
+        _sanitize_database_url(settings.database_url),
+        settings.auto_create_schema,
+        settings.auto_seed,
+    )
+    with engine.connect() as connection:
+        connection.execute(text("SELECT 1"))
+    startup_logger.info("database connectivity check passed")
+
+    if settings.auto_create_schema:
+        Base.metadata.create_all(bind=engine)
+        startup_logger.info("database schema synchronization executed (AUTO_CREATE_SCHEMA=true)")
+    else:
+        startup_logger.info("database schema synchronization skipped (AUTO_CREATE_SCHEMA=false)")
+
+    if settings.auto_seed:
+        with SessionLocal() as db:
+            seed_initial_data(db)
+        startup_logger.info("seed data applied (AUTO_SEED=true)")
+    else:
+        startup_logger.info("seed data skipped (AUTO_SEED=false)")
+
+
+@asynccontextmanager
+async def lifespan(_app: FastAPI):  # type: ignore[no-untyped-def]
+    _run_startup_tasks()
+    yield
+
+
 def create_app() -> FastAPI:
     _configure_logging()
     app = FastAPI(
         title="ПрофДНК API",
         description="Минимальная версия платформы ПрофДНК для хакатона ТИТАНИТ",
         version="0.1.0",
+        lifespan=lifespan,
     )
     app.add_middleware(
         SessionMiddleware,
@@ -178,8 +213,9 @@ def create_app() -> FastAPI:
         if _wants_html_response(request):
             context = _error_template_context(exc.status_code, detail, request_id)
             return templates.TemplateResponse(
+                request,
                 "error.html",
-                {"request": request, **context},
+                context,
                 status_code=exc.status_code,
                 headers=exc.headers,
             )
@@ -197,8 +233,9 @@ def create_app() -> FastAPI:
         if _wants_html_response(request):
             context = _error_template_context(400, detail, request_id)
             return templates.TemplateResponse(
+                request,
                 "error.html",
-                {"request": request, **context},
+                context,
                 status_code=400,
             )
         return JSONResponse(
@@ -222,41 +259,15 @@ def create_app() -> FastAPI:
         if _wants_html_response(request):
             context = _error_template_context(500, None, request_id)
             return templates.TemplateResponse(
+                request,
                 "error.html",
-                {"request": request, **context},
+                context,
                 status_code=500,
             )
         return JSONResponse(
             {"detail": "Internal server error", "request_id": request_id},
             status_code=500,
         )
-
-    @app.on_event("startup")
-    def on_startup() -> None:
-        startup_logger.info(
-            "startup env=%s base_url=%s database=%s auto_create_schema=%s auto_seed=%s",
-            settings.app_env,
-            settings.base_url,
-            _sanitize_database_url(settings.database_url),
-            settings.auto_create_schema,
-            settings.auto_seed,
-        )
-        with engine.connect() as connection:
-            connection.execute(text("SELECT 1"))
-        startup_logger.info("database connectivity check passed")
-
-        if settings.auto_create_schema:
-            Base.metadata.create_all(bind=engine)
-            startup_logger.info("database schema synchronization executed (AUTO_CREATE_SCHEMA=true)")
-        else:
-            startup_logger.info("database schema synchronization skipped (AUTO_CREATE_SCHEMA=false)")
-
-        if settings.auto_seed:
-            with SessionLocal() as db:
-                seed_initial_data(db)
-            startup_logger.info("seed data applied (AUTO_SEED=true)")
-        else:
-            startup_logger.info("seed data skipped (AUTO_SEED=false)")
 
     return app
 

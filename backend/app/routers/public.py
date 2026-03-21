@@ -54,9 +54,9 @@ def _get_test_by_token(token: str, db: Session) -> tuple[Test, InviteLink | None
 @router.get("/features")
 def features_page(request: Request) -> object:
     return templates.TemplateResponse(
+        request,
         "features.html",
         {
-            "request": request,
             "title": "Возможности платформы",
         },
     )
@@ -74,9 +74,9 @@ def psychologist_business_card(
     about_html = render_safe_markdown(psychologist.about_md or "")
     card_url = f"{settings.base_url}/public/psychologists/{psychologist.id}"
     return templates.TemplateResponse(
+        request,
         "business_card.html",
         {
-            "request": request,
             "title": f"Визитка: {psychologist.full_name}",
             "psychologist": psychologist,
             "about_html": about_html,
@@ -107,9 +107,9 @@ def client_test_page(
     test, invite_link = _get_test_by_token(token, db)
     client_profile_fields = build_client_form_fields(test.required_client_fields)
     return templates.TemplateResponse(
+        request,
         "client_test.html",
         {
-            "request": request,
             "title": test.title,
             "test": test,
             "token": token,
@@ -233,9 +233,9 @@ def client_done_page(
     if not submission:
         raise HTTPException(status_code=404, detail="Результат не найден")
     return templates.TemplateResponse(
+        request,
         "client_done.html",
         {
-            "request": request,
             "title": "Тест завершён",
             "test": test,
             "submission": submission,

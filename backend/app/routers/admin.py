@@ -29,9 +29,9 @@ def admin_page(
     ).all()
     access_reminders = build_admin_access_expiry_reminders(psychologists)
     return templates.TemplateResponse(
+        request,
         "admin.html",
         {
-            "request": request,
             "title": "Админ",
             "user": current_user,
             "psychologists": psychologists,
@@ -59,9 +59,9 @@ def create_psychologist(
         ).all()
         access_reminders = build_admin_access_expiry_reminders(psychologists)
         return templates.TemplateResponse(
+            request,
             "admin.html",
             {
-                "request": request,
                 "title": "Админ",
                 "user": db.get(User, request.session.get("user_id")),
                 "psychologists": psychologists,

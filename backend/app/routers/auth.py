@@ -24,8 +24,9 @@ def login_page(request: Request) -> object:
     if request.session.get("user_id"):
         return RedirectResponse("/", status_code=303)
     return templates.TemplateResponse(
+        request,
         "login.html",
-        {"request": request, "title": "Вход", "error": None},
+        {"title": "Вход", "error": None},
     )
 
 
@@ -39,22 +40,25 @@ def login(
     user = db.scalar(select(User).where(User.email == email.strip().lower()))
     if not user or not verify_password(password, user.password_hash):
         return templates.TemplateResponse(
+            request,
             "login.html",
-            {"request": request, "title": "Вход", "error": "Неверный логин или пароль"},
+            {"title": "Вход", "error": "Неверный логин или пароль"},
             status_code=400,
         )
 
     if user.is_blocked:
         return templates.TemplateResponse(
+            request,
             "login.html",
-            {"request": request, "title": "Вход", "error": "Пользователь заблокирован"},
+            {"title": "Вход", "error": "Пользователь заблокирован"},
             status_code=403,
         )
     access_until = normalize_datetime(user.access_until)
     if access_until and access_until < _now():
         return templates.TemplateResponse(
+            request,
             "login.html",
-            {"request": request, "title": "Вход", "error": "Срок доступа истёк"},
+            {"title": "Вход", "error": "Срок доступа истёк"},
             status_code=403,
         )
 

@@ -117,9 +117,9 @@ def dashboard(
     access_reminder = build_psychologist_access_reminder(current_user)
     about_html = render_safe_markdown(current_user.about_md or "")
     return templates.TemplateResponse(
+        request,
         "dashboard.html",
         {
-            "request": request,
             "title": "Личный кабинет",
             "user": current_user,
             "tests_count": tests_count,
@@ -176,9 +176,9 @@ def tests_page(
         query = query.where(Test.psychologist_id == current_user.id)
     tests = db.scalars(query).all()
     return templates.TemplateResponse(
+        request,
         "tests.html",
         {
-            "request": request,
             "title": "Мои опросники",
             "user": current_user,
             "tests": tests,
@@ -195,9 +195,9 @@ def new_test_page(
     if current_user.role == UserRole.ADMIN:
         raise HTTPException(status_code=403, detail="Admin cannot create tests")
     return templates.TemplateResponse(
+        request,
         "test_builder.html",
         {
-            "request": request,
             "title": "Конструктор методик",
             "user": current_user,
         },
@@ -347,9 +347,9 @@ def test_detail(
     submissions = sorted(test.submissions, key=lambda item: item.submitted_at, reverse=True)
     invite_groups = _build_invite_groups(submissions)
     return templates.TemplateResponse(
+        request,
         "test_detail.html",
         {
-            "request": request,
             "title": f"Тест: {test.title}",
             "user": current_user,
             "test": test,
