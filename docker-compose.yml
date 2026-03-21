@@ -24,6 +24,8 @@ services:
       DATABASE_URL: postgresql+psycopg2://profdnk:profdnk@db:5432/profdnk
       BASE_URL: http://localhost:8000
       AUTO_SEED: "true"
+      AUTO_CREATE_SCHEMA: "true"
+      LOG_LEVEL: "INFO"
     depends_on:
       db:
         condition: service_healthy

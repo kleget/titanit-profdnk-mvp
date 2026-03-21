@@ -5,9 +5,14 @@ import secrets
 from collections import OrderedDict
 
 from fastapi import HTTPException, status
+from pydantic import ValidationError
 from sqlalchemy.orm import Session
 
 from app.models import MetricFormula, Question, QuestionType, Test, TestSection
+from app.schemas.constructor import (
+    ConstructorPayloadSchema,
+    format_constructor_validation_error,
+)
 from app.services.client_fields import (
     ALLOWED_CUSTOM_FIELD_TYPES,
     RESERVED_CUSTOM_KEYS,
@@ -59,10 +64,31 @@ def create_test_from_payload(
     sections_payload: list[dict],
     formulas_payload: list[dict] | None = None,
 ) -> Test:
-    if not title.strip():
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Title is required")
-    if not sections_payload:
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="At least one section required")
+    try:
+        validated_payload = ConstructorPayloadSchema(
+            title=title,
+            description=description,
+            allow_client_report=allow_client_report,
+            required_client_fields=required_client_fields,
+            custom_client_fields=custom_client_fields or [],
+            report_templates=report_templates or normalize_report_templates(None),
+            sections_payload=sections_payload,
+            formulas_payload=formulas_payload or [],
+        ).to_service_payload()
+    except ValidationError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"Ошибка валидации конструктора: {format_constructor_validation_error(exc)}",
+        ) from exc
+
+    title = str(validated_payload["title"])
+    description = str(validated_payload["description"])
+    allow_client_report = bool(validated_payload["allow_client_report"])
+    required_client_fields = list(validated_payload["required_client_fields"])
+    custom_client_fields = list(validated_payload["custom_client_fields"])
+    report_templates = dict(validated_payload["report_templates"])
+    sections_payload = list(validated_payload["sections_payload"])
+    formulas_payload = list(validated_payload["formulas_payload"])
 
     required_fields = ["full_name"]
     required_fields.extend([field for field in required_client_fields if field != "full_name"])

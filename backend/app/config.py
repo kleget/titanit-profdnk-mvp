@@ -22,6 +22,13 @@ def _to_same_site(value: str | None, default: str = "lax") -> str:
     return normalized
 
 
+def _normalize_log_level(value: str | None, default: str = "INFO") -> str:
+    normalized = (value or default).strip().upper()
+    if normalized not in {"CRITICAL", "ERROR", "WARNING", "INFO", "DEBUG"}:
+        return default
+    return normalized
+
+
 @dataclass(frozen=True)
 class Settings:
     app_secret_key: str
@@ -29,8 +36,10 @@ class Settings:
     base_url: str
     app_env: str
     auto_seed: bool
+    auto_create_schema: bool
     session_https_only: bool
     session_same_site: str
+    log_level: str
 
 
 _app_env = _normalize_env(os.getenv("APP_ENV"))
@@ -57,10 +66,14 @@ settings = Settings(
     base_url=_base_url,
     app_env=_app_env,
     auto_seed=_to_bool(os.getenv("AUTO_SEED"), default=False),
+    auto_create_schema=_to_bool(
+        os.getenv("AUTO_CREATE_SCHEMA"),
+        default=not _is_production,
+    ),
     session_https_only=_to_bool(
         os.getenv("SESSION_HTTPS_ONLY"),
         default=_base_url.startswith("https://"),
     ),
     session_same_site=_to_same_site(os.getenv("SESSION_SAME_SITE"), default="lax"),
+    log_level=_normalize_log_level(os.getenv("LOG_LEVEL"), default="INFO"),
 )
-
