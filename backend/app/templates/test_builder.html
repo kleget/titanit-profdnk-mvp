@@ -138,7 +138,16 @@
             <h3>Вопросы</h3>
             <button type="button" id="add-question" class="btn small">+ Вопрос</button>
           </div>
-          <p class="field-hint">Для вариантов выбора заполняйте опции в формате "Текст:балл".</p>
+          <p class="field-hint">Соберите вопросы простым способом: текст, тип и обязательность. Остальное в расширенных настройках.</p>
+          <details class="collapse-panel">
+            <summary>Что означают ключ, min/max, вес и варианты ответа</summary>
+            <ul class="feature-list">
+              <li><strong>Ключ вопроса</strong>: нужен для ветвлений и формул. Если пусто, создаётся автоматически.</li>
+              <li><strong>Варианты ответа</strong>: теперь добавляются отдельными кнопками и полями «Вариант + Балл».</li>
+              <li><strong>Минимум/максимум</strong>: диапазон для типов «Число», «Слайдер», «Оценка».</li>
+              <li><strong>Вес</strong>: коэффициент влияния вопроса на итоговый балл (по умолчанию 1).</li>
+            </ul>
+          </details>
           <div id="question-list"></div>
         </div>
 
@@ -320,6 +329,6 @@
 {% endblock %}
 
 {% block extra_scripts %}
-<script src="/static/js/builder.js?v=20260322v2a"></script>
-<script src="/static/js/builder-wizard.js?v=20260322v2a"></script>
+<script src="/static/js/builder.js?v=20260322v2b"></script>
+<script src="/static/js/builder-wizard.js?v=20260322v2b"></script>
 {% endblock %}

@@ -51,6 +51,8 @@
     { value: "not_empty", label: "не пусто" },
   ];
   const LOGIC_OPERATORS_WITHOUT_VALUE = new Set(["is_true", "is_false", "empty", "not_empty"]);
+  const CHOICE_QUESTION_TYPES = new Set(["single_choice", "multiple_choice"]);
+  const RANGE_QUESTION_TYPES = new Set(["number", "slider", "rating"]);
 
   const clientFieldTemplates = {
     school: [
@@ -1080,6 +1082,173 @@
     return wrapper;
   }
 
+  function toNumericScore(rawValue, fallback = 1) {
+    const text = String(rawValue ?? "").trim().replace(",", ".");
+    if (!text) {
+      return fallback;
+    }
+    const parsed = Number(text);
+    return Number.isFinite(parsed) ? parsed : fallback;
+  }
+
+  function scoreToText(score) {
+    const numeric = Number(score);
+    if (!Number.isFinite(numeric)) {
+      return "1";
+    }
+    return String(numeric);
+  }
+
+  function createChoiceOptionRow(questionBox, payload = {}) {
+    const row = document.createElement("div");
+    row.className = "builder-option-row";
+    row.innerHTML = `
+      <label>
+        Вариант
+        <input type="text" class="builder-option-label" placeholder="Например: Стабильность">
+      </label>
+      <label>
+        Балл
+        <input type="number" class="builder-option-score" step="0.1" value="1">
+      </label>
+      <button type="button" class="btn small ghost builder-option-remove">Удалить</button>
+    `;
+
+    const labelInput = row.querySelector(".builder-option-label");
+    const scoreInput = row.querySelector(".builder-option-score");
+    const removeBtn = row.querySelector(".builder-option-remove");
+
+    if (labelInput) {
+      labelInput.value = String(payload.label || "");
+      labelInput.addEventListener("input", () => {
+        syncChoiceOptionsInput(questionBox);
+        markDraftDirty();
+      });
+    }
+    if (scoreInput) {
+      scoreInput.value = scoreToText(toNumericScore(payload.score, 1));
+      scoreInput.addEventListener("input", () => {
+        syncChoiceOptionsInput(questionBox);
+        markDraftDirty();
+      });
+    }
+    if (removeBtn) {
+      removeBtn.addEventListener("click", () => {
+        row.remove();
+        syncChoiceOptionsInput(questionBox);
+        markDraftDirty();
+      });
+    }
+
+    return row;
+  }
+
+  function syncChoiceOptionsInput(questionBox) {
+    const hiddenOptionsInput = questionBox.querySelector("input[name='q_options[]']");
+    const rows = [...questionBox.querySelectorAll(".builder-option-row")];
+    const serialized = rows
+      .map((row) => {
+        const label = String(row.querySelector(".builder-option-label")?.value || "").trim();
+        if (!label) {
+          return "";
+        }
+        const scoreValue = toNumericScore(row.querySelector(".builder-option-score")?.value, 1);
+        return `${label}:${scoreValue}`;
+      })
+      .filter(Boolean)
+      .join(", ");
+
+    if (hiddenOptionsInput) {
+      hiddenOptionsInput.value = serialized;
+    }
+
+    const emptyHint = questionBox.querySelector("[data-options-empty]");
+    if (emptyHint instanceof HTMLElement) {
+      emptyHint.hidden = rows.length > 0;
+    }
+  }
+
+  function renderChoiceOptions(questionBox, flatValue = "") {
+    const listNode = questionBox.querySelector("[data-options-list]");
+    if (!(listNode instanceof HTMLElement)) {
+      return;
+    }
+    listNode.innerHTML = "";
+    const parsed = parseChoiceOptions(flatValue);
+    const seed = parsed.length ? parsed : [{ label: "", score: 1 }, { label: "", score: 1 }];
+    seed.forEach((item) => {
+      listNode.appendChild(createChoiceOptionRow(questionBox, item));
+    });
+    syncChoiceOptionsInput(questionBox);
+  }
+
+  function syncQuestionTypeUI(questionBox, applyDefaults = false) {
+    const typeSelect = questionBox.querySelector("select[name='q_type[]']");
+    const typeValue = typeSelect?.value || "text";
+    const optionsEditor = questionBox.querySelector("[data-options-editor]");
+    const rangeRow = questionBox.querySelector("[data-range-row]");
+    const rangeHint = questionBox.querySelector("[data-range-hint]");
+    const minInput = questionBox.querySelector("input[name='q_min[]']");
+    const maxInput = questionBox.querySelector("input[name='q_max[]']");
+    const optionsList = questionBox.querySelector("[data-options-list]");
+    const optionsInput = questionBox.querySelector("input[name='q_options[]']");
+
+    const isChoiceType = CHOICE_QUESTION_TYPES.has(typeValue);
+    const isRangeType = RANGE_QUESTION_TYPES.has(typeValue);
+
+    if (optionsEditor instanceof HTMLElement) {
+      optionsEditor.hidden = !isChoiceType;
+      if (isChoiceType && optionsList instanceof HTMLElement && !optionsList.children.length) {
+        renderChoiceOptions(questionBox, optionsInput?.value || "");
+      }
+    }
+
+    if (rangeRow instanceof HTMLElement) {
+      rangeRow.hidden = !isRangeType;
+    }
+
+    if (rangeHint instanceof HTMLElement) {
+      if (!isRangeType) {
+        rangeHint.hidden = true;
+      } else {
+        rangeHint.hidden = false;
+        if (typeValue === "slider") {
+          rangeHint.textContent = "Диапазон для шкалы слайдера (например, 0-10).";
+        } else if (typeValue === "rating") {
+          rangeHint.textContent = "Диапазон оценок для радио-кнопок (например, 1-5).";
+        } else {
+          rangeHint.textContent = "Диапазон допустимых числовых значений для ответа.";
+        }
+      }
+    }
+
+    if (!isRangeType && applyDefaults) {
+      if (minInput instanceof HTMLInputElement) {
+        minInput.value = "";
+      }
+      if (maxInput instanceof HTMLInputElement) {
+        maxInput.value = "";
+      }
+    }
+    if (isRangeType && applyDefaults) {
+      if (typeValue === "slider") {
+        if (minInput instanceof HTMLInputElement && !String(minInput.value).trim()) {
+          minInput.value = "0";
+        }
+        if (maxInput instanceof HTMLInputElement && !String(maxInput.value).trim()) {
+          maxInput.value = "10";
+        }
+      } else if (typeValue === "rating") {
+        if (minInput instanceof HTMLInputElement && !String(minInput.value).trim()) {
+          minInput.value = "1";
+        }
+        if (maxInput instanceof HTMLInputElement && !String(maxInput.value).trim()) {
+          maxInput.value = "5";
+        }
+      }
+    }
+  }
+
   function createQuestionItem(payload = {}) {
     const box = document.createElement("div");
     box.className = "question-item builder-question-card";
@@ -1108,42 +1277,64 @@
           </select>
         </label>
       </div>
-      <div class="inline-form builder-question-row builder-question-row--text">
-        <label>Ключ вопроса (опционально)
-          <input name="q_key[]" placeholder="remote_ready">
-        </label>
-        <label>Текст вопроса
-          <input name="q_text[]" required placeholder="Введите формулировку вопроса">
-        </label>
-      </div>
-      <p class="muted question-key-preview" data-question-key-preview></p>
-      <label>Опции (для choice): формат "Текст:балл, Текст2:балл"
-        <input name="q_options[]" placeholder="Например: Доход:2, Стабильность:1">
+
+      <label class="builder-question-main-field">Текст вопроса
+        <input name="q_text[]" required placeholder="Введите формулировку вопроса">
       </label>
-      <div class="inline-form builder-question-row builder-question-row--range">
+
+      <label>Ключ вопроса (опционально)
+        <input name="q_key[]" placeholder="remote_ready">
+      </label>
+      <p class="field-hint">Ключ нужен для ветвлений и формул. Если оставить пустым, система создаст его автоматически.</p>
+      <p class="muted question-key-preview" data-question-key-preview></p>
+
+      <div class="builder-options-editor" data-options-editor hidden>
+        <div class="builder-options-head">
+          <strong>Варианты ответов</strong>
+          <button type="button" class="btn small ghost add-option-row">+ Вариант</button>
+        </div>
+        <p class="field-hint">
+          Заполняйте вариант и балл в отдельных полях. Формат <code>Текст:балл</code> формируется автоматически.
+        </p>
+        <input type="hidden" name="q_options[]">
+        <div class="builder-options-list" data-options-list></div>
+        <p class="field-hint" data-options-empty>Пока нет вариантов. Для выбора обычно нужно минимум 2.</p>
+      </div>
+
+      <div class="inline-form builder-question-row builder-question-row--range" data-range-row hidden>
         <label>Минимум
           <input type="number" step="any" name="q_min[]">
         </label>
         <label>Максимум
           <input type="number" step="any" name="q_max[]">
         </label>
-        <label>Вес
-          <input type="number" step="0.1" name="q_weight[]" value="1">
-        </label>
       </div>
-      <div class="inline-form logic-inline builder-question-row builder-question-row--logic">
-        <label>Показать вопрос, если ключ
-          <input name="q_if_key[]" placeholder="Ключ вопроса (например: remote_ready)">
-        </label>
-        <label>Оператор
-          <select name="q_if_operator[]" data-logic-operator>
-            ${buildLogicOperatorOptions("")}
-          </select>
-        </label>
-        <label>Значение
-          <input name="q_if_value[]" data-logic-value placeholder="Значение условия">
-        </label>
-      </div>
+      <p class="field-hint" data-range-hint hidden></p>
+
+      <details class="collapse-panel builder-question-advanced">
+        <summary>Расширенные настройки (вес и ветвления)</summary>
+        <div class="builder-question-row builder-question-row--weight">
+          <label>Вес вопроса
+            <input type="number" step="0.1" name="q_weight[]" value="1">
+          </label>
+        </div>
+        <p class="field-hint">Вес влияет на вклад вопроса в итоговый балл. Базовое значение: 1.</p>
+        <div class="inline-form logic-inline builder-question-row builder-question-row--logic">
+          <label>Показать вопрос, если ключ
+            <input name="q_if_key[]" placeholder="Ключ вопроса (например: remote_ready)">
+          </label>
+          <label>Оператор
+            <select name="q_if_operator[]" data-logic-operator>
+              ${buildLogicOperatorOptions("")}
+            </select>
+          </label>
+          <label>Значение
+            <input name="q_if_value[]" data-logic-value placeholder="Значение условия">
+          </label>
+        </div>
+        <p class="field-hint">Ветвление: вопрос будет показан только при выполнении условия.</p>
+      </details>
+
       <div class="actions-row builder-question-actions">
         <button type="button" class="btn small ghost duplicate-question">Дублировать вопрос</button>
         <button type="button" class="btn small ghost remove-question">Удалить вопрос</button>
@@ -1162,6 +1353,8 @@
     const ifKeyInput = box.querySelector("input[name='q_if_key[]']");
     const ifOperatorSelect = box.querySelector("select[name='q_if_operator[]']");
     const ifValueInput = box.querySelector("input[name='q_if_value[]']");
+    const addOptionBtn = box.querySelector(".add-option-row");
+    const optionsList = box.querySelector("[data-options-list]");
 
     const visibilityCondition =
       payload.visibility_condition && typeof payload.visibility_condition === "object"
@@ -1206,8 +1399,32 @@
       ifValueInput.value = payload.if_value || visibilityCondition?.value || "";
     }
 
-    ifOperatorSelect?.addEventListener("change", () => syncLogicValueState(box));
+    if (optionsList instanceof HTMLElement) {
+      renderChoiceOptions(box, optionsInput?.value || "");
+    }
+    if (addOptionBtn) {
+      addOptionBtn.addEventListener("click", () => {
+        if (!(optionsList instanceof HTMLElement)) {
+          return;
+        }
+        optionsList.appendChild(createChoiceOptionRow(box, { label: "", score: 1 }));
+        syncChoiceOptionsInput(box);
+        markDraftDirty();
+      });
+    }
+
+    ifOperatorSelect?.addEventListener("change", () => {
+      syncLogicValueState(box);
+      markDraftDirty();
+    });
+    if (typeSelect) {
+      typeSelect.addEventListener("change", () => {
+        syncQuestionTypeUI(box, true);
+        markDraftDirty();
+      });
+    }
     syncLogicValueState(box);
+    syncQuestionTypeUI(box, true);
 
     const duplicateBtn = box.querySelector(".duplicate-question");
     duplicateBtn.addEventListener("click", () => {
@@ -1233,17 +1450,18 @@
     keyInput?.addEventListener("input", () => {
       syncFormulaPreviewContextInputs();
       syncLogicKeyReferences();
+      markDraftDirty();
     });
     textInput?.addEventListener("input", () => {
       syncFormulaPreviewContextInputs();
       syncLogicKeyReferences();
-    });
-    ifKeyInput?.addEventListener("input", () => {
       markDraftDirty();
     });
-    ifValueInput?.addEventListener("input", () => {
-      markDraftDirty();
-    });
+    minInput?.addEventListener("input", markDraftDirty);
+    maxInput?.addEventListener("input", markDraftDirty);
+    weightInput?.addEventListener("input", markDraftDirty);
+    ifKeyInput?.addEventListener("input", markDraftDirty);
+    ifValueInput?.addEventListener("input", markDraftDirty);
     syncLogicKeyReferences();
     return box;
   }
@@ -2064,10 +2282,28 @@
   }
 
   function parseChoiceOptions(value) {
-    return (value || "")
+    return String(value || "")
       .split(",")
       .map((item) => item.trim())
-      .filter(Boolean);
+      .filter(Boolean)
+      .map((item, index) => {
+        if (!item.includes(":")) {
+          return {
+            label: item,
+            score: 1,
+            value: normalizeBuilderKey(item, `option_${index + 1}`),
+          };
+        }
+        const [rawLabel, rawScore] = item.split(/:(?=[^:]+$)/);
+        const label = String(rawLabel || "").trim();
+        const score = toNumericScore(rawScore, 1);
+        return {
+          label,
+          score,
+          value: normalizeBuilderKey(label, `option_${index + 1}`),
+        };
+      })
+      .filter((item) => item.label);
   }
 
   function parseLogicCondition(keyInput, operatorInput, valueInput, label, issues) {
@@ -2233,10 +2469,13 @@
       if (typeValue === "single_choice" || typeValue === "multiple_choice") {
         const options = parseChoiceOptions(qOptions?.value || "");
         if (options.length < 2) {
-          if (qOptions) {
-            setValidationError(qOptions, "Нужно минимум 2 опции через запятую.");
+          const optionLabelInput = item.querySelector(".builder-option-label");
+          if (optionLabelInput) {
+            setValidationError(optionLabelInput, "Добавьте минимум 2 варианта ответа.");
+          } else if (qOptions) {
+            setValidationError(qOptions, "Для вопросов с выбором нужно минимум 2 варианта.");
           }
-          issues.push(`Вопрос #${index + 1}: для выбора нужно минимум 2 опции.`);
+          issues.push(`Вопрос #${index + 1}: для выбора нужно минимум 2 варианта.`);
         }
       }
 
