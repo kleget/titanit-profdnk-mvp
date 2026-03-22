@@ -80,7 +80,7 @@ def features_page(request: Request, user: User | None = Depends(get_optional_use
         request,
         "features.html",
         {
-            "title": "Возможности платформы",
+            "title": "О сайте",
             "user": user,
         },
     )

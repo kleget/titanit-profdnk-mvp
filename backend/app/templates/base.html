@@ -36,7 +36,7 @@
           class="{% if current_path.startswith('/features') %}is-active{% endif %}"
           href="/features"
           {% if current_path.startswith('/features') %}aria-current="page"{% endif %}
-        >Возможности</a>
+        >О сайте</a>
         {% if user %}
           {% if user.role.value == "admin" %}
             <a
