@@ -25,34 +25,73 @@ from app.web import templates
 REDIRECT_STATUSES = {301, 302, 303, 307, 308}
 ERROR_PAGE_CONTENT = {
     400: {
-        "title": "Ошибка запроса",
-        "message": "Проверьте заполнение полей и повторите попытку.",
+        "title": "\u041e\u0448\u0438\u0431\u043a\u0430 \u0437\u0430\u043f\u0440\u043e\u0441\u0430",
+        "message": (
+            "\u041f\u0440\u043e\u0432\u0435\u0440\u044c\u0442\u0435 "
+            "\u0437\u0430\u043f\u043e\u043b\u043d\u0435\u043d\u0438\u0435 \u043f\u043e\u043b\u0435\u0439 "
+            "\u0438 \u043f\u043e\u0432\u0442\u043e\u0440\u0438\u0442\u0435 \u043f\u043e\u043f\u044b\u0442\u043a\u0443."
+        ),
         "action_href": "/",
-        "action_label": "Вернуться на главную",
+        "action_label": (
+            "\u0412\u0435\u0440\u043d\u0443\u0442\u044c\u0441\u044f "
+            "\u043d\u0430 \u0433\u043b\u0430\u0432\u043d\u0443\u044e"
+        ),
     },
     403: {
-        "title": "Доступ ограничен",
-        "message": "Для этого действия нужны другие права или активный доступ.",
+        "title": "\u0414\u043e\u0441\u0442\u0443\u043f \u043e\u0433\u0440\u0430\u043d\u0438\u0447\u0435\u043d",
+        "message": (
+            "\u0414\u043b\u044f \u044d\u0442\u043e\u0433\u043e \u0434\u0435\u0439\u0441\u0442\u0432\u0438\u044f "
+            "\u043d\u0443\u0436\u043d\u044b \u0434\u0440\u0443\u0433\u0438\u0435 \u043f\u0440\u0430\u0432\u0430 "
+            "\u0438\u043b\u0438 \u0430\u043a\u0442\u0438\u0432\u043d\u044b\u0439 \u0434\u043e\u0441\u0442\u0443\u043f."
+        ),
         "action_href": "/login",
-        "action_label": "Перейти ко входу",
+        "action_label": (
+            "\u041f\u0435\u0440\u0435\u0439\u0442\u0438 "
+            "\u043a\u043e \u0432\u0445\u043e\u0434\u0443"
+        ),
     },
     404: {
-        "title": "Страница не найдена",
-        "message": "Запрошенный адрес не существует или был перемещён.",
+        "title": (
+            "\u0421\u0442\u0440\u0430\u043d\u0438\u0446\u0430 "
+            "\u043d\u0435 \u043d\u0430\u0439\u0434\u0435\u043d\u0430"
+        ),
+        "message": (
+            "\u0417\u0430\u043f\u0440\u043e\u0448\u0435\u043d\u043d\u044b\u0439 "
+            "\u0430\u0434\u0440\u0435\u0441 \u043d\u0435 \u0441\u0443\u0449\u0435\u0441\u0442\u0432\u0443\u0435\u0442 "
+            "\u0438\u043b\u0438 \u0431\u044b\u043b \u043f\u0435\u0440\u0435\u043c\u0435\u0449\u0451\u043d."
+        ),
         "action_href": "/",
-        "action_label": "На главную",
+        "action_label": "\u041d\u0430 \u0433\u043b\u0430\u0432\u043d\u0443\u044e",
     },
     429: {
-        "title": "Слишком много запросов",
-        "message": "Сделайте паузу и повторите действие чуть позже.",
+        "title": (
+            "\u0421\u043b\u0438\u0448\u043a\u043e\u043c \u043c\u043d\u043e\u0433\u043e "
+            "\u0437\u0430\u043f\u0440\u043e\u0441\u043e\u0432"
+        ),
+        "message": (
+            "\u0421\u0434\u0435\u043b\u0430\u0439\u0442\u0435 \u043f\u0430\u0443\u0437\u0443 "
+            "\u0438 \u043f\u043e\u0432\u0442\u043e\u0440\u0438\u0442\u0435 "
+            "\u0434\u0435\u0439\u0441\u0442\u0432\u0438\u0435 \u0447\u0443\u0442\u044c \u043f\u043e\u0437\u0436\u0435."
+        ),
         "action_href": "/",
-        "action_label": "На главную",
+        "action_label": "\u041d\u0430 \u0433\u043b\u0430\u0432\u043d\u0443\u044e",
     },
     500: {
-        "title": "Внутренняя ошибка сервера",
-        "message": "Мы уже зафиксировали проблему. Попробуйте обновить страницу чуть позже.",
+        "title": (
+            "\u0412\u043d\u0443\u0442\u0440\u0435\u043d\u043d\u044f\u044f "
+            "\u043e\u0448\u0438\u0431\u043a\u0430 \u0441\u0435\u0440\u0432\u0435\u0440\u0430"
+        ),
+        "message": (
+            "\u041c\u044b \u0443\u0436\u0435 \u0437\u0430\u0444\u0438\u043a\u0441\u0438\u0440\u043e\u0432\u0430\u043b\u0438 "
+            "\u043f\u0440\u043e\u0431\u043b\u0435\u043c\u0443. \u041f\u043e\u043f\u0440\u043e\u0431\u0443\u0439\u0442\u0435 "
+            "\u043e\u0431\u043d\u043e\u0432\u0438\u0442\u044c \u0441\u0442\u0440\u0430\u043d\u0438\u0446\u0443 "
+            "\u0447\u0443\u0442\u044c \u043f\u043e\u0437\u0436\u0435."
+        ),
         "action_href": "/",
-        "action_label": "Обновить страницу",
+        "action_label": (
+            "\u041e\u0431\u043d\u043e\u0432\u0438\u0442\u044c "
+            "\u0441\u0442\u0440\u0430\u043d\u0438\u0446\u0443"
+        ),
     },
 }
 
@@ -103,7 +142,7 @@ def _error_template_context(status_code: int, detail: str | None, request_id: st
     if status_code in {400, 403, 404, 429} and detail:
         message = detail
     return {
-        "title": f"Ошибка {status_code}",
+        "title": f"\u041e\u0448\u0438\u0431\u043a\u0430 {status_code}",
         "status_code": str(status_code),
         "error_title": base["title"],
         "error_message": message,
@@ -149,8 +188,13 @@ async def lifespan(_app: FastAPI):  # type: ignore[no-untyped-def]
 def create_app() -> FastAPI:
     _configure_logging()
     app = FastAPI(
-        title="ПрофДНК API",
-        description="Минимальная версия платформы ПрофДНК для хакатона ТИТАНИТ",
+        title="\u041f\u0440\u043e\u0444\u0414\u041d\u041a API",
+        description=(
+            "\u041c\u0438\u043d\u0438\u043c\u0430\u043b\u044c\u043d\u0430\u044f "
+            "\u0432\u0435\u0440\u0441\u0438\u044f \u043f\u043b\u0430\u0442\u0444\u043e\u0440\u043c\u044b "
+            "\u041f\u0440\u043e\u0444\u0414\u041d\u041a \u0434\u043b\u044f "
+            "\u0445\u0430\u043a\u0430\u0442\u043e\u043d\u0430 \u0422\u0418\u0422\u0410\u041d\u0418\u0422"
+        ),
         version="0.1.0",
         lifespan=lifespan,
     )
@@ -235,7 +279,11 @@ def create_app() -> FastAPI:
     ):  # type: ignore[no-untyped-def]
         request_id = getattr(request.state, "request_id", "unknown")
         first_error = exc.errors()[0] if exc.errors() else {}
-        detail = str(first_error.get("msg") or "Некорректные данные запроса")
+        detail = str(
+            first_error.get("msg")
+            or "\u041d\u0435\u043a\u043e\u0440\u0440\u0435\u043a\u0442\u043d\u044b\u0435 "
+            "\u0434\u0430\u043d\u043d\u044b\u0435 \u0437\u0430\u043f\u0440\u043e\u0441\u0430"
+        )
         if _wants_html_response(request):
             context = _error_template_context(400, detail, request_id)
             return templates.TemplateResponse(

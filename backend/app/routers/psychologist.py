@@ -81,7 +81,7 @@ def _submission_invite_label(submission: Submission) -> str:
         cleaned = _normalize_label(raw_value)
         if cleaned:
             return cleaned
-    return "ÐžÑÐ½Ð¾Ð²Ð½Ð°Ñ ÑÑÑ‹Ð»ÐºÐ°"
+    return "\u041e\u0441\u043d\u043e\u0432\u043d\u0430\u044f \u0441\u0441\u044b\u043b\u043a\u0430"
 
 
 def _submission_invite_link_id(submission: Submission) -> int | None:
@@ -101,11 +101,34 @@ def _parse_usage_limit(raw_value: str) -> int | None:
     try:
         parsed = int(cleaned)
     except ValueError as exc:
-        raise HTTPException(status_code=400, detail="Ð›Ð¸Ð¼Ð¸Ñ‚ Ð¿Ñ€Ð¾Ñ…Ð¾Ð¶Ð´ÐµÐ½Ð¸Ð¹ Ð´Ð¾Ð»Ð¶ÐµÐ½ Ð±Ñ‹Ñ‚ÑŒ Ñ†ÐµÐ»Ñ‹Ð¼ Ñ‡Ð¸ÑÐ»Ð¾Ð¼") from exc
+        raise HTTPException(
+            status_code=400,
+            detail=(
+                "\u041b\u0438\u043c\u0438\u0442 "
+                "\u043f\u0440\u043e\u0445\u043e\u0436\u0434\u0435\u043d\u0438\u0439 "
+                "\u0434\u043e\u043b\u0436\u0435\u043d \u0431\u044b\u0442\u044c "
+                "\u0446\u0435\u043b\u044b\u043c \u0447\u0438\u0441\u043b\u043e\u043c"
+            ),
+        ) from exc
     if parsed <= 0:
-        raise HTTPException(status_code=400, detail="Ð›Ð¸Ð¼Ð¸Ñ‚ Ð¿Ñ€Ð¾Ñ…Ð¾Ð¶Ð´ÐµÐ½Ð¸Ð¹ Ð´Ð¾Ð»Ð¶ÐµÐ½ Ð±Ñ‹Ñ‚ÑŒ Ð±Ð¾Ð»ÑŒÑˆÐµ Ð½ÑƒÐ»Ñ")
+        raise HTTPException(
+            status_code=400,
+            detail=(
+                "\u041b\u0438\u043c\u0438\u0442 "
+                "\u043f\u0440\u043e\u0445\u043e\u0436\u0434\u0435\u043d\u0438\u0439 "
+                "\u0434\u043e\u043b\u0436\u0435\u043d \u0431\u044b\u0442\u044c "
+                "\u0431\u043e\u043b\u044c\u0448\u0435 \u043d\u0443\u043b\u044f"
+            ),
+        )
     if parsed > 1_000_000:
-        raise HTTPException(status_code=400, detail="Ð›Ð¸Ð¼Ð¸Ñ‚ Ð¿Ñ€Ð¾Ñ…Ð¾Ð¶Ð´ÐµÐ½Ð¸Ð¹ ÑÐ»Ð¸ÑˆÐºÐ¾Ð¼ Ð±Ð¾Ð»ÑŒÑˆÐ¾Ð¹")
+        raise HTTPException(
+            status_code=400,
+            detail=(
+                "\u041b\u0438\u043c\u0438\u0442 "
+                "\u043f\u0440\u043e\u0445\u043e\u0436\u0434\u0435\u043d\u0438\u0439 "
+                "\u0441\u043b\u0438\u0448\u043a\u043e\u043c \u0431\u043e\u043b\u044c\u0448\u043e\u0439"
+            ),
+        )
     return parsed
 
 
@@ -118,19 +141,33 @@ def _parse_link_datetime(raw_value: str, field_label: str) -> datetime | None:
     if not cleaned:
         return None
     try:
-        # datetime-local Ð¿Ñ€Ð¸Ñ…Ð¾Ð´Ð¸Ñ‚ Ð±ÐµÐ· TZ: Ñ‚Ñ€Ð°ÐºÑ‚ÑƒÐµÐ¼ ÐºÐ°Ðº UTC Ð´Ð»Ñ Ð¿Ñ€ÐµÐ´ÑÐºÐ°Ð·ÑƒÐµÐ¼Ð¾ÑÑ‚Ð¸ Ð½Ð° Ð´ÐµÐ¼Ð¾.
+        # datetime-local приходит без TZ: трактуем как UTC для предсказуемости на демо.
         parsed = datetime.fromisoformat(cleaned)
     except ValueError as exc:
-        raise HTTPException(status_code=400, detail=f"ÐÐµÐºÐ¾Ñ€Ñ€ÐµÐºÑ‚Ð½Ð°Ñ Ð´Ð°Ñ‚Ð°: {field_label}") from exc
+        raise HTTPException(
+            status_code=400,
+            detail=(
+                f"\u041d\u0435\u043a\u043e\u0440\u0440\u0435\u043a\u0442\u043d\u0430\u044f "
+                f"\u0434\u0430\u0442\u0430: {field_label}"
+            ),
+        ) from exc
     if parsed.tzinfo is None:
         return parsed.replace(tzinfo=timezone.utc)
     return parsed.astimezone(timezone.utc)
 
 
 def _format_link_window(link: InviteLink) -> str:
-    start_text = link.start_at.strftime("%Y-%m-%d %H:%M") if link.start_at else "ÑÑ€Ð°Ð·Ñƒ"
-    end_text = link.expires_at.strftime("%Y-%m-%d %H:%M") if link.expires_at else "Ð±ÐµÐ· Ð´ÐµÐ´Ð»Ð°Ð¹Ð½Ð°"
-    return f"{start_text} â†’ {end_text}"
+    start_text = (
+        link.start_at.strftime("%Y-%m-%d %H:%M")
+        if link.start_at
+        else "\u0441\u0440\u0430\u0437\u0443"
+    )
+    end_text = (
+        link.expires_at.strftime("%Y-%m-%d %H:%M")
+        if link.expires_at
+        else "\u0431\u0435\u0437 \u0434\u0435\u0434\u043b\u0430\u0439\u043d\u0430"
+    )
+    return f"{start_text} -> {end_text}"
 
 
 def _safe_float(value: object) -> float | None:
@@ -179,7 +216,7 @@ def _submission_invite_limit_text(
 ) -> str:
     invite_link_id = _submission_invite_link_id(submission)
     if invite_link_id is None:
-        return "Ð±ÐµÐ· Ð»Ð¸Ð¼Ð¸Ñ‚Ð°"
+        return "\u0431\u0435\u0437 \u043b\u0438\u043c\u0438\u0442\u0430"
     link = invite_links_by_id.get(invite_link_id)
     if not link:
         return "-"
@@ -212,8 +249,8 @@ def _build_invite_groups(
     for sub in submissions:
         label = _submission_invite_label(sub)
         state = INVITE_LINK_STATE_ACTIVE
-        limit_text = "Ð±ÐµÐ· Ð»Ð¸Ð¼Ð¸Ñ‚Ð°"
-        if label != "ÐžÑÐ½Ð¾Ð²Ð½Ð°Ñ ÑÑÑ‹Ð»ÐºÐ°":
+        limit_text = "\u0431\u0435\u0437 \u043b\u0438\u043c\u0438\u0442\u0430"
+        if label != "\u041e\u0441\u043d\u043e\u0432\u043d\u0430\u044f \u0441\u0441\u044b\u043b\u043a\u0430":
             link = invite_links_by_label.get(label)
             if link:
                 state = invite_link_state(link)
@@ -302,8 +339,8 @@ def _build_campaign_comparison(
         completion_percent = _safe_float(metrics.get("completion_percent"))
 
         if label not in grouped:
-            limit_text = "Ð±ÐµÐ· Ð»Ð¸Ð¼Ð¸Ñ‚Ð°"
-            if label != "ÐžÑÐ½Ð¾Ð²Ð½Ð°Ñ ÑÑÑ‹Ð»ÐºÐ°":
+            limit_text = "\u0431\u0435\u0437 \u043b\u0438\u043c\u0438\u0442\u0430"
+            if label != "\u041e\u0441\u043d\u043e\u0432\u043d\u0430\u044f \u0441\u0441\u044b\u043b\u043a\u0430":
                 link = invite_links_by_label.get(label)
                 if link is not None:
                     limit_text = invite_link_limit_text(link)
@@ -745,7 +782,7 @@ def dashboard(
         request,
         "dashboard.html",
         {
-            "title": "Ð›Ð¸Ñ‡Ð½Ñ‹Ð¹ ÐºÐ°Ð±Ð¸Ð½ÐµÑ‚",
+            "title": "\u041b\u0438\u0447\u043d\u044b\u0439 \u043a\u0430\u0431\u0438\u043d\u0435\u0442",
             "user": current_user,
             "tests_count": tests_count,
             "submissions_count": submissions_count,
@@ -805,7 +842,7 @@ def tests_page(
         request,
         "tests.html",
         {
-            "title": "ÐœÐ¾Ð¸ Ð¾Ð¿Ñ€Ð¾ÑÐ½Ð¸ÐºÐ¸",
+            "title": "\u041c\u043e\u0438 \u043e\u043f\u0440\u043e\u0441\u043d\u0438\u043a\u0438",
             "user": current_user,
             "tests": tests,
             "base_url": settings.base_url,
@@ -873,7 +910,10 @@ def new_test_page(
         request,
         "test_builder.html",
         {
-            "title": "ÐšÐ¾Ð½ÑÑ‚Ñ€ÑƒÐºÑ‚Ð¾Ñ€ Ð¼ÐµÑ‚Ð¾Ð´Ð¸Ðº",
+            "title": (
+                "\u041a\u043e\u043d\u0441\u0442\u0440\u0443\u043a\u0442\u043e\u0440 "
+                "\u043c\u0435\u0442\u043e\u0434\u0438\u043a"
+            ),
             "user": current_user,
         },
     )
@@ -1083,7 +1123,7 @@ def test_detail(
                 "state_label": invite_link_state_label(state),
                 "limit_text": invite_link_limit_text(link),
                 "window_text": _format_link_window(link),
-                "single_use_text": "Ð”Ð°" if link.single_use else "ÐÐµÑ‚",
+                "single_use_text": "\u0414\u0430" if link.single_use else "\u041d\u0435\u0442",
                 "target_client_name": link.target_client_name or "-",
             }
         )
@@ -1093,7 +1133,7 @@ def test_detail(
         request,
         "test_detail.html",
         {
-            "title": f"Ð¢ÐµÑÑ‚: {test.title}",
+            "title": f"\u0422\u0435\u0441\u0442: {test.title}",
             "user": current_user,
             "test": test,
             "submission_rows": submission_rows,
@@ -1148,16 +1188,33 @@ def create_invite_link(
     ):
         raise HTTPException(
             status_code=400,
-            detail="Ð”ÐµÐ´Ð»Ð°Ð¹Ð½ ÑÑÑ‹Ð»ÐºÐ¸ Ð´Ð¾Ð»Ð¶ÐµÐ½ Ð±Ñ‹Ñ‚ÑŒ Ð¿Ð¾Ð·Ð¶Ðµ Ð²Ñ€ÐµÐ¼ÐµÐ½Ð¸ ÑÑ‚Ð°Ñ€Ñ‚Ð°",
+            detail=(
+                "\u0414\u0435\u0434\u043b\u0430\u0439\u043d "
+                "\u0441\u0441\u044b\u043b\u043a\u0438 \u0434\u043e\u043b\u0436\u0435\u043d "
+                "\u0431\u044b\u0442\u044c \u043f\u043e\u0437\u0436\u0435 "
+                "\u0432\u0440\u0435\u043c\u0435\u043d\u0438 \u0441\u0442\u0430\u0440\u0442\u0430"
+            ),
         )
     is_single_use = single_use.strip().lower() in {"true", "1", "yes", "on"}
     cleaned_target_client_name = _normalize_label(target_client_name)
     if cleaned_target_client_name and len(cleaned_target_client_name) > 255:
-        raise HTTPException(status_code=400, detail="Ð˜Ð¼Ñ ÐºÐ»Ð¸ÐµÐ½Ñ‚Ð° Ð´Ð»Ñ Ð¿ÐµÑ€ÑÐ¾Ð½Ð°Ð»ÑŒÐ½Ð¾Ð¹ ÑÑÑ‹Ð»ÐºÐ¸ ÑÐ»Ð¸ÑˆÐºÐ¾Ð¼ Ð´Ð»Ð¸Ð½Ð½Ð¾Ðµ")
+        raise HTTPException(
+            status_code=400,
+            detail=(
+                "\u0418\u043c\u044f \u043a\u043b\u0438\u0435\u043d\u0442\u0430 "
+                "\u0434\u043b\u044f \u043f\u0435\u0440\u0441\u043e\u043d\u0430\u043b\u044c\u043d\u043e\u0439 "
+                "\u0441\u0441\u044b\u043b\u043a\u0438 \u0441\u043b\u0438\u0448\u043a\u043e\u043c "
+                "\u0434\u043b\u0438\u043d\u043d\u043e\u0435"
+            ),
+        )
     if cleaned_target_client_name and not is_single_use:
         raise HTTPException(
             status_code=400,
-            detail="ÐŸÐµÑ€ÑÐ¾Ð½Ð°Ð»ÑŒÐ½Ð°Ñ ÑÑÑ‹Ð»ÐºÐ° Ð´Ð¾Ð»Ð¶Ð½Ð° Ð±Ñ‹Ñ‚ÑŒ Ð¾Ð´Ð½Ð¾Ñ€Ð°Ð·Ð¾Ð²Ð¾Ð¹",
+            detail=(
+                "\u041f\u0435\u0440\u0441\u043e\u043d\u0430\u043b\u044c\u043d\u0430\u044f "
+                "\u0441\u0441\u044b\u043b\u043a\u0430 \u0434\u043e\u043b\u0436\u043d\u0430 "
+                "\u0431\u044b\u0442\u044c \u043e\u0434\u043d\u043e\u0440\u0430\u0437\u043e\u0432\u043e\u0439"
+            ),
         )
 
     invite_link = InviteLink(
@@ -1215,9 +1272,23 @@ def toggle_invite_link(
     if not link.is_active:
         state = invite_link_state(link)
         if is_invite_link_exhausted(link):
-            raise HTTPException(status_code=400, detail="Ð¡ÑÑ‹Ð»ÐºÐ° Ð¸ÑÑ‡ÐµÑ€Ð¿Ð°Ð»Ð° Ð»Ð¸Ð¼Ð¸Ñ‚ Ð¿Ñ€Ð¾Ñ…Ð¾Ð¶Ð´ÐµÐ½Ð¸Ð¹")
+            raise HTTPException(
+                status_code=400,
+                detail=(
+                    "\u0421\u0441\u044b\u043b\u043a\u0430 "
+                    "\u0438\u0441\u0447\u0435\u0440\u043f\u0430\u043b\u0430 "
+                    "\u043b\u0438\u043c\u0438\u0442 \u043f\u0440\u043e\u0445\u043e\u0436\u0434\u0435\u043d\u0438\u0439"
+                ),
+            )
         if state == INVITE_LINK_STATE_EXPIRED:
-            raise HTTPException(status_code=400, detail="Ð¡Ñ€Ð¾Ðº Ð´ÐµÐ¹ÑÑ‚Ð²Ð¸Ñ ÑÑÑ‹Ð»ÐºÐ¸ Ð¸ÑÑ‚Ñ‘Ðº")
+            raise HTTPException(
+                status_code=400,
+                detail=(
+                    "\u0421\u0440\u043e\u043a "
+                    "\u0434\u0435\u0439\u0441\u0442\u0432\u0438\u044f \u0441\u0441\u044b\u043b\u043a\u0438 "
+                    "\u0438\u0441\u0442\u0451\u043a"
+                ),
+            )
 
     link.is_active = not link.is_active
     log_test_change(

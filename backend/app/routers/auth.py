@@ -7,11 +7,11 @@ from fastapi.responses import RedirectResponse
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
+from app.config import settings
 from app.db import get_db
 from app.dependencies import require_csrf_token
 from app.models import User, UserRole, normalize_datetime
 from app.security import verify_password
-from app.config import settings
 from app.services.csrf import rotate_csrf_token
 from app.services.rate_limit import check_request_rate_limit
 from app.web import templates
@@ -30,7 +30,7 @@ def login_page(request: Request) -> object:
     return templates.TemplateResponse(
         request,
         "login.html",
-        {"title": "Вход", "error": None},
+        {"title": "\u0412\u0445\u043e\u0434", "error": None},
     )
 
 
@@ -53,10 +53,12 @@ def login(
             request,
             "login.html",
             {
-                "title": "Вход",
+                "title": "\u0412\u0445\u043e\u0434",
                 "error": (
-                    "Слишком много попыток входа. "
-                    f"Повторите через {rate_limit.retry_after_seconds} сек."
+                    "\u0421\u043b\u0438\u0448\u043a\u043e\u043c \u043c\u043d\u043e\u0433\u043e "
+                    "\u043f\u043e\u043f\u044b\u0442\u043e\u043a \u0432\u0445\u043e\u0434\u0430. "
+                    f"\u041f\u043e\u0432\u0442\u043e\u0440\u0438\u0442\u0435 \u0447\u0435\u0440\u0435\u0437 "
+                    f"{rate_limit.retry_after_seconds} \u0441\u0435\u043a."
                 ),
             },
             status_code=429,
@@ -68,7 +70,11 @@ def login(
         return templates.TemplateResponse(
             request,
             "login.html",
-            {"title": "Вход", "error": "Неверный логин или пароль"},
+            {
+                "title": "\u0412\u0445\u043e\u0434",
+                "error": "\u041d\u0435\u0432\u0435\u0440\u043d\u044b\u0439 \u043b\u043e\u0433\u0438\u043d "
+                "\u0438\u043b\u0438 \u043f\u0430\u0440\u043e\u043b\u044c",
+            },
             status_code=400,
         )
 
@@ -76,7 +82,11 @@ def login(
         return templates.TemplateResponse(
             request,
             "login.html",
-            {"title": "Вход", "error": "Пользователь заблокирован"},
+            {
+                "title": "\u0412\u0445\u043e\u0434",
+                "error": "\u041f\u043e\u043b\u044c\u0437\u043e\u0432\u0430\u0442\u0435\u043b\u044c "
+                "\u0437\u0430\u0431\u043b\u043e\u043a\u0438\u0440\u043e\u0432\u0430\u043d",
+            },
             status_code=403,
         )
     access_until = normalize_datetime(user.access_until)
@@ -84,7 +94,11 @@ def login(
         return templates.TemplateResponse(
             request,
             "login.html",
-            {"title": "Вход", "error": "Срок доступа истёк"},
+            {
+                "title": "\u0412\u0445\u043e\u0434",
+                "error": "\u0421\u0440\u043e\u043a \u0434\u043e\u0441\u0442\u0443\u043f\u0430 "
+                "\u0438\u0441\u0442\u0451\u043a",
+            },
             status_code=403,
         )
 
