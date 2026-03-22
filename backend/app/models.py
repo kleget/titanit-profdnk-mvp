@@ -108,6 +108,11 @@ class Test(Base):
         cascade="all, delete-orphan",
         order_by="MetricFormula.position",
     )
+    change_logs: Mapped[list[TestChangeLog]] = relationship(
+        back_populates="test",
+        cascade="all, delete-orphan",
+        order_by="TestChangeLog.created_at.desc()",
+    )
 
 
 class TestSection(Base):
@@ -117,6 +122,7 @@ class TestSection(Base):
     test_id: Mapped[int] = mapped_column(ForeignKey("tests.id"), nullable=False, index=True)
     title: Mapped[str] = mapped_column(String(255), nullable=False)
     position: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
+    visibility_condition_json: Mapped[dict | None] = mapped_column(JSON)
 
     test: Mapped[Test] = relationship(back_populates="sections")
     questions: Mapped[list[Question]] = relationship(
@@ -155,6 +161,7 @@ class Question(Base):
     max_value: Mapped[float | None] = mapped_column(Float)
     weight: Mapped[float] = mapped_column(Float, default=1.0, nullable=False)
     position: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
+    visibility_condition_json: Mapped[dict | None] = mapped_column(JSON)
 
     section: Mapped[TestSection] = relationship(back_populates="questions")
     answers: Mapped[list[Answer]] = relationship(
@@ -229,6 +236,10 @@ class InviteLink(Base):
     is_active: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
     usage_limit: Mapped[int | None] = mapped_column(Integer)
     usage_count: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
+    start_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    expires_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    single_use: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
+    target_client_name: Mapped[str | None] = mapped_column(String(255))
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), default=utcnow, nullable=False
     )
@@ -253,3 +264,18 @@ class AdminAuditLog(Base):
         back_populates="admin_audit_logs",
         foreign_keys=[admin_user_id],
     )
+
+
+class TestChangeLog(Base):
+    __tablename__ = "test_change_logs"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    test_id: Mapped[int] = mapped_column(ForeignKey("tests.id"), nullable=False, index=True)
+    actor_user_id: Mapped[int | None] = mapped_column(ForeignKey("users.id"), index=True)
+    action: Mapped[str] = mapped_column(String(100), nullable=False, index=True)
+    details_json: Mapped[dict | None] = mapped_column(JSON)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), default=utcnow, nullable=False, index=True
+    )
+
+    test: Mapped[Test] = relationship(back_populates="change_logs")

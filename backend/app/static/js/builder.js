@@ -35,6 +35,22 @@
     "total_questions",
   ]);
   const FORMULA_PREVIEW_ALLOWED_FUNCTIONS = new Set(["min", "max", "abs", "round"]);
+  const LOGIC_OPERATORS = [
+    { value: "", label: "Без условия" },
+    { value: "equals", label: "равно" },
+    { value: "not_equals", label: "не равно" },
+    { value: "contains", label: "содержит" },
+    { value: "not_contains", label: "не содержит" },
+    { value: "gt", label: ">" },
+    { value: "gte", label: ">=" },
+    { value: "lt", label: "<" },
+    { value: "lte", label: "<=" },
+    { value: "is_true", label: "истина (да/true)" },
+    { value: "is_false", label: "ложь (нет/false)" },
+    { value: "empty", label: "пусто" },
+    { value: "not_empty", label: "не пусто" },
+  ];
+  const LOGIC_OPERATORS_WITHOUT_VALUE = new Set(["is_true", "is_false", "empty", "not_empty"]);
 
   const clientFieldTemplates = {
     school: [
@@ -516,25 +532,120 @@
     return [...new Set(matches)];
   }
 
+  function buildLogicOperatorOptions(selected = "") {
+    return LOGIC_OPERATORS.map((operator) => {
+      const selectedAttr = operator.value === selected ? "selected" : "";
+      return `<option value="${operator.value}" ${selectedAttr}>${operator.label}</option>`;
+    }).join("");
+  }
+
+  function buildQuestionConditionKeys() {
+    const seen = new Set();
+    const keys = [];
+    [...questionsNode.querySelectorAll(".question-item")].forEach((item, index) => {
+      const keyInput = item.querySelector("input[name='q_key[]']");
+      const textInput = item.querySelector("input[name='q_text[]']");
+      const key = normalizeBuilderKey(
+        (keyInput?.value || "").trim() || (textInput?.value || "").trim(),
+        `question_${index + 1}`
+      );
+      if (seen.has(key)) {
+        return;
+      }
+      seen.add(key);
+      keys.push(key);
+    });
+    return keys;
+  }
+
+  function syncLogicKeyReferences() {
+    const datalistId = "builder-question-keys";
+    let datalist = document.getElementById(datalistId);
+    if (!datalist) {
+      datalist = document.createElement("datalist");
+      datalist.id = datalistId;
+      manualForm?.appendChild(datalist);
+    }
+
+    const keys = buildQuestionConditionKeys();
+    datalist.innerHTML = keys.map((key) => `<option value="${escapeHtml(key)}"></option>`).join("");
+
+    [...document.querySelectorAll("input[name='section_if_key[]'], input[name='q_if_key[]']")].forEach(
+      (input) => {
+        input.setAttribute("list", datalistId);
+      }
+    );
+
+    [...questionsNode.querySelectorAll(".question-item")].forEach((item, index) => {
+      const keyInput = item.querySelector("input[name='q_key[]']");
+      const textInput = item.querySelector("input[name='q_text[]']");
+      const keyPreview = item.querySelector("[data-question-key-preview]");
+      const normalized = normalizeBuilderKey(
+        (keyInput?.value || "").trim() || (textInput?.value || "").trim(),
+        `question_${index + 1}`
+      );
+      if (keyPreview) {
+        keyPreview.textContent = `Ключ вопроса: ${normalized}`;
+      }
+    });
+  }
+
+  function syncLogicValueState(container) {
+    if (!container) {
+      return;
+    }
+    const operatorInput = container.querySelector("[data-logic-operator]");
+    const valueInput = container.querySelector("[data-logic-value]");
+    if (!(operatorInput instanceof HTMLSelectElement) || !(valueInput instanceof HTMLInputElement)) {
+      return;
+    }
+    const operator = operatorInput.value.trim().toLowerCase();
+    const noValue = LOGIC_OPERATORS_WITHOUT_VALUE.has(operator) || !operator;
+    valueInput.disabled = noValue;
+    if (noValue) {
+      valueInput.value = "";
+      valueInput.placeholder = "Значение не требуется";
+    } else {
+      valueInput.placeholder = "Значение условия";
+    }
+  }
+
   function readQuestionPayload(box) {
     const sectionSelect = box.querySelector("select[name='q_section[]']");
     const typeSelect = box.querySelector("select[name='q_type[]']");
     const requiredSelect = box.querySelector("select[name='q_required[]']");
+    const keyInput = box.querySelector("input[name='q_key[]']");
     const textInput = box.querySelector("input[name='q_text[]']");
     const optionsInput = box.querySelector("input[name='q_options[]']");
     const minInput = box.querySelector("input[name='q_min[]']");
     const maxInput = box.querySelector("input[name='q_max[]']");
     const weightInput = box.querySelector("input[name='q_weight[]']");
+    const ifKeyInput = box.querySelector("input[name='q_if_key[]']");
+    const ifOperatorInput = box.querySelector("select[name='q_if_operator[]']");
+    const ifValueInput = box.querySelector("input[name='q_if_value[]']");
 
     return {
       section: sectionSelect?.value || "",
       question_type: typeSelect?.value || "text",
       required: (requiredSelect?.value || "true") === "true",
+      key: keyInput?.value || "",
       text: textInput?.value || "",
       options_flat: optionsInput?.value || "",
       min_value: minInput?.value || "",
       max_value: maxInput?.value || "",
       weight: weightInput?.value || "1",
+      if_key: ifKeyInput?.value || "",
+      if_operator: ifOperatorInput?.value || "",
+      if_value: ifValueInput?.value || "",
+    };
+  }
+
+  function readSectionPayload(box) {
+    return {
+      title: box.querySelector("input[name='section_titles[]']")?.value || "",
+      if_key: box.querySelector("input[name='section_if_key[]']")?.value || "",
+      if_operator: box.querySelector("select[name='section_if_operator[]']")?.value || "",
+      if_value: box.querySelector("input[name='section_if_value[]']")?.value || "",
     };
   }
 
@@ -582,8 +693,13 @@
   function collectFormulaPreviewQuestionKeys() {
     const keys = [];
     const seen = new Set();
-    [...questionsNode.querySelectorAll("input[name='q_text[]']")].forEach((input, index) => {
-      const key = normalizeBuilderKey(input.value, `question_${index + 1}`);
+    [...questionsNode.querySelectorAll(".question-item")].forEach((item, index) => {
+      const textInput = item.querySelector("input[name='q_text[]']");
+      const keyInput = item.querySelector("input[name='q_key[]']");
+      const key = normalizeBuilderKey(
+        (keyInput?.value || "").trim() || (textInput?.value || "").trim(),
+        `question_${index + 1}`
+      );
       if (!seen.has(key)) {
         seen.add(key);
         keys.push(key);
@@ -831,13 +947,44 @@
   }
 
   function createSectionInput(value = "") {
+    const sectionPayload =
+      typeof value === "object" && value !== null
+        ? {
+            title: String(value.title || ""),
+            if_key: String(value.if_key || ""),
+            if_operator: String(value.if_operator || ""),
+            if_value: String(value.if_value || ""),
+          }
+        : {
+            title: String(value || ""),
+            if_key: "",
+            if_operator: "",
+            if_value: "",
+          };
     const wrapper = document.createElement("div");
-    wrapper.className = "inline-form";
+    wrapper.className = "question-item section-item";
     const input = document.createElement("input");
     input.name = "section_titles[]";
     input.placeholder = "Название секции";
     input.required = true;
-    input.value = value;
+    input.value = sectionPayload.title;
+    const ifKeyInput = document.createElement("input");
+    ifKeyInput.name = "section_if_key[]";
+    ifKeyInput.placeholder = "Ключ вопроса (например: remote_ready)";
+
+    const ifOperatorSelect = document.createElement("select");
+    ifOperatorSelect.name = "section_if_operator[]";
+    ifOperatorSelect.dataset.logicOperator = "1";
+    ifOperatorSelect.innerHTML = buildLogicOperatorOptions("");
+
+    const ifValueInput = document.createElement("input");
+    ifValueInput.name = "section_if_value[]";
+    ifValueInput.dataset.logicValue = "1";
+    ifValueInput.placeholder = "Значение условия";
+
+    ifKeyInput.value = sectionPayload.if_key;
+    ifOperatorSelect.value = sectionPayload.if_operator;
+    ifValueInput.value = sectionPayload.if_value;
 
     const remove = document.createElement("button");
     remove.type = "button";
@@ -847,9 +994,35 @@
       wrapper.remove();
       syncQuestionSections();
       syncEmptyStates();
+      syncLogicKeyReferences();
       markDraftDirty();
     });
-    input.addEventListener("input", syncQuestionSections);
+    input.addEventListener("input", () => {
+      syncQuestionSections();
+      syncLogicKeyReferences();
+    });
+
+    const logicRow = document.createElement("div");
+    logicRow.className = "inline-form logic-inline";
+
+    const keyLabel = document.createElement("label");
+    keyLabel.textContent = "Показать секцию, если ключ";
+    keyLabel.appendChild(ifKeyInput);
+
+    const operatorLabel = document.createElement("label");
+    operatorLabel.textContent = "Оператор";
+    operatorLabel.appendChild(ifOperatorSelect);
+
+    const valueLabel = document.createElement("label");
+    valueLabel.textContent = "Значение";
+    valueLabel.appendChild(ifValueInput);
+
+    logicRow.append(keyLabel, operatorLabel, valueLabel);
+
+    const helper = document.createElement("p");
+    helper.className = "muted";
+    helper.textContent =
+      "Условие секции можно привязать только к вопросам из предыдущих секций.";
 
     const duplicate = document.createElement("button");
     duplicate.type = "button";
@@ -858,7 +1031,12 @@
     duplicate.addEventListener("click", () => {
       const sourceTitle = input.value.trim();
       const copyTitle = buildCopyTitle(sourceTitle || "Секция", sectionOptions());
-      const duplicateSection = createSectionInput(copyTitle);
+      const duplicateSection = createSectionInput({
+        title: copyTitle,
+        if_key: ifKeyInput.value.trim(),
+        if_operator: ifOperatorSelect.value,
+        if_value: ifValueInput.value.trim(),
+      });
       wrapper.parentNode.insertBefore(duplicateSection, wrapper.nextSibling);
 
       const sourceQuestions = [...questionsNode.querySelectorAll(".question-item")]
@@ -875,11 +1053,30 @@
 
       syncQuestionSections();
       syncEmptyStates();
+      syncLogicKeyReferences();
       markDraftDirty();
       notify("success", "Секция и её вопросы продублированы.");
     });
 
-    wrapper.append(input, duplicate, remove);
+    const headRow = document.createElement("div");
+    headRow.className = "inline-form";
+    const titleLabel = document.createElement("label");
+    titleLabel.textContent = "Название секции";
+    titleLabel.appendChild(input);
+    const actionRow = document.createElement("div");
+    actionRow.className = "actions-row";
+    actionRow.append(duplicate, remove);
+    headRow.append(titleLabel, actionRow);
+
+    ifOperatorSelect.addEventListener("change", () => {
+      syncLogicValueState(wrapper);
+      markDraftDirty();
+    });
+    ifKeyInput.addEventListener("input", markDraftDirty);
+    ifValueInput.addEventListener("input", markDraftDirty);
+    syncLogicValueState(wrapper);
+
+    wrapper.append(headRow, logicRow, helper);
     return wrapper;
   }
 
@@ -911,9 +1108,15 @@
           </select>
         </label>
       </div>
-      <label>Текст вопроса
-        <input name="q_text[]" required placeholder="Введите формулировку вопроса">
-      </label>
+      <div class="inline-form">
+        <label>Ключ вопроса (опционально)
+          <input name="q_key[]" placeholder="remote_ready">
+        </label>
+        <label>Текст вопроса
+          <input name="q_text[]" required placeholder="Введите формулировку вопроса">
+        </label>
+      </div>
+      <p class="muted question-key-preview" data-question-key-preview></p>
       <label>Опции (для choice): формат "Текст:балл, Текст2:балл"
         <input name="q_options[]" placeholder="Например: Доход:2, Стабильность:1">
       </label>
@@ -928,6 +1131,19 @@
           <input type="number" step="0.1" name="q_weight[]" value="1">
         </label>
       </div>
+      <div class="inline-form logic-inline">
+        <label>Показать вопрос, если ключ
+          <input name="q_if_key[]" placeholder="Ключ вопроса (например: remote_ready)">
+        </label>
+        <label>Оператор
+          <select name="q_if_operator[]" data-logic-operator>
+            ${buildLogicOperatorOptions("")}
+          </select>
+        </label>
+        <label>Значение
+          <input name="q_if_value[]" data-logic-value placeholder="Значение условия">
+        </label>
+      </div>
       <div class="actions-row">
         <button type="button" class="btn small ghost duplicate-question">Дублировать вопрос</button>
         <button type="button" class="btn small ghost remove-question">Удалить вопрос</button>
@@ -937,11 +1153,20 @@
     const sectionSelect = box.querySelector("select[name='q_section[]']");
     const typeSelect = box.querySelector("select[name='q_type[]']");
     const requiredSelect = box.querySelector("select[name='q_required[]']");
+    const keyInput = box.querySelector("input[name='q_key[]']");
     const textInput = box.querySelector("input[name='q_text[]']");
     const optionsInput = box.querySelector("input[name='q_options[]']");
     const minInput = box.querySelector("input[name='q_min[]']");
     const maxInput = box.querySelector("input[name='q_max[]']");
     const weightInput = box.querySelector("input[name='q_weight[]']");
+    const ifKeyInput = box.querySelector("input[name='q_if_key[]']");
+    const ifOperatorSelect = box.querySelector("select[name='q_if_operator[]']");
+    const ifValueInput = box.querySelector("input[name='q_if_value[]']");
+
+    const visibilityCondition =
+      payload.visibility_condition && typeof payload.visibility_condition === "object"
+        ? payload.visibility_condition
+        : null;
 
     if (typeSelect && payload.question_type) {
       typeSelect.value = payload.question_type;
@@ -949,6 +1174,9 @@
     if (requiredSelect) {
       const requiredValue = typeof payload.required === "boolean" ? payload.required : true;
       requiredSelect.value = requiredValue ? "true" : "false";
+    }
+    if (keyInput && payload.key) {
+      keyInput.value = payload.key;
     }
     if (textInput && payload.text) {
       textInput.value = payload.text;
@@ -968,6 +1196,18 @@
     if (sectionSelect && payload.section) {
       sectionSelect.dataset.preferredSection = payload.section;
     }
+    if (ifKeyInput) {
+      ifKeyInput.value = payload.if_key || visibilityCondition?.question_key || "";
+    }
+    if (ifOperatorSelect) {
+      ifOperatorSelect.value = payload.if_operator || visibilityCondition?.operator || "";
+    }
+    if (ifValueInput) {
+      ifValueInput.value = payload.if_value || visibilityCondition?.value || "";
+    }
+
+    ifOperatorSelect?.addEventListener("change", () => syncLogicValueState(box));
+    syncLogicValueState(box);
 
     const duplicateBtn = box.querySelector(".duplicate-question");
     duplicateBtn.addEventListener("click", () => {
@@ -977,6 +1217,7 @@
       syncQuestionSections();
       syncEmptyStates();
       syncFormulaPreviewContextInputs();
+      syncLogicKeyReferences();
       markDraftDirty();
       notify("success", "Вопрос продублирован.");
     });
@@ -986,8 +1227,24 @@
       box.remove();
       syncEmptyStates();
       syncFormulaPreviewContextInputs();
+      syncLogicKeyReferences();
       markDraftDirty();
     });
+    keyInput?.addEventListener("input", () => {
+      syncFormulaPreviewContextInputs();
+      syncLogicKeyReferences();
+    });
+    textInput?.addEventListener("input", () => {
+      syncFormulaPreviewContextInputs();
+      syncLogicKeyReferences();
+    });
+    ifKeyInput?.addEventListener("input", () => {
+      markDraftDirty();
+    });
+    ifValueInput?.addEventListener("input", () => {
+      markDraftDirty();
+    });
+    syncLogicKeyReferences();
     return box;
   }
 
@@ -1293,57 +1550,41 @@
 
     sectionsNode.innerHTML = "";
     (preset.sections || []).forEach((section) => {
-      sectionsNode.appendChild(createSectionInput(section.title || "Секция"));
+      sectionsNode.appendChild(
+        createSectionInput({
+          title: section.title || "Секция",
+          if_key: section.visibility_condition?.question_key || "",
+          if_operator: section.visibility_condition?.operator || "",
+          if_value: section.visibility_condition?.value || "",
+        })
+      );
     });
     syncQuestionSections();
 
     questionsNode.innerHTML = "";
     (preset.sections || []).forEach((section) => {
       (section.questions || []).forEach((question) => {
-        const item = createQuestionItem();
-        const sectionSelect = item.querySelector("select[name='q_section[]']");
-        const typeSelect = item.querySelector("select[name='q_type[]']");
-        const requiredSelect = item.querySelector("select[name='q_required[]']");
-        const textInput = item.querySelector("input[name='q_text[]']");
-        const optionsInput = item.querySelector("input[name='q_options[]']");
-        const minInput = item.querySelector("input[name='q_min[]']");
-        const maxInput = item.querySelector("input[name='q_max[]']");
-        const weightInput = item.querySelector("input[name='q_weight[]']");
-
-        if (sectionSelect) {
-          sectionSelect.value = section.title || "Общая секция";
-        }
-        if (typeSelect) {
-          typeSelect.value = question.question_type || "text";
-        }
-        if (requiredSelect) {
-          requiredSelect.value = question.required ? "true" : "false";
-        }
-        if (textInput) {
-          textInput.value = question.text || "";
-        }
-        if (optionsInput) {
-          optionsInput.value = optionsToFlatValue(question.options_json);
-        }
-        if (minInput) {
-          minInput.value =
+        const item = createQuestionItem({
+          section: section.title || "Общая секция",
+          question_type: question.question_type || "text",
+          required: question.required !== false,
+          key: question.key || "",
+          text: question.text || "",
+          options_flat: optionsToFlatValue(question.options_json),
+          min_value:
             typeof question.min_value === "number" && Number.isFinite(question.min_value)
               ? String(question.min_value)
-              : "";
-        }
-        if (maxInput) {
-          maxInput.value =
+              : "",
+          max_value:
             typeof question.max_value === "number" && Number.isFinite(question.max_value)
               ? String(question.max_value)
-              : "";
-        }
-        if (weightInput) {
-          const weight =
+              : "",
+          weight:
             typeof question.weight === "number" && Number.isFinite(question.weight)
-              ? question.weight
-              : 1;
-          weightInput.value = String(weight);
-        }
+              ? String(question.weight)
+              : "1",
+          visibility_condition: question.visibility_condition || null,
+        });
         questionsNode.appendChild(item);
       });
     });
@@ -1376,6 +1617,7 @@
     syncQuestionSections();
     syncEmptyStates();
     syncFormulaPreviewContextInputs();
+    syncLogicKeyReferences();
     markDraftDirty();
     notify("success", "Пресет применён. Проверьте детали и создайте тест.");
   }
@@ -1441,8 +1683,8 @@
       required_client_fields: [...(manualForm?.querySelectorAll("input[name='required_client_fields']") || [])]
         .filter((input) => input.checked)
         .map((input) => input.value),
-      sections: [...sectionsNode.querySelectorAll("input[name='section_titles[]']")].map((input) =>
-        input.value.trim()
+      sections: [...sectionsNode.querySelectorAll(".section-item")].map((item) =>
+        readSectionPayload(item)
       ),
       questions: [...questionsNode.querySelectorAll(".question-item")].map((item) =>
         readQuestionPayload(item)
@@ -1538,10 +1780,21 @@
     }
     applyBuiltinRequiredFields(draft.required_client_fields || []);
 
-    const sectionTitles = Array.isArray(draft.sections) ? draft.sections : [];
+    const sectionPayloads = Array.isArray(draft.sections) ? draft.sections : [];
     sectionsNode.innerHTML = "";
-    sectionTitles.forEach((title) => {
-      sectionsNode.appendChild(createSectionInput(title || ""));
+    sectionPayloads.forEach((sectionPayload) => {
+      if (typeof sectionPayload === "string") {
+        sectionsNode.appendChild(createSectionInput(sectionPayload || ""));
+        return;
+      }
+      sectionsNode.appendChild(
+        createSectionInput({
+          title: sectionPayload?.title || "",
+          if_key: sectionPayload?.if_key || "",
+          if_operator: sectionPayload?.if_operator || "",
+          if_value: sectionPayload?.if_value || "",
+        })
+      );
     });
 
     questionsNode.innerHTML = "";
@@ -1578,6 +1831,7 @@
     syncQuestionSections();
     syncEmptyStates();
     syncFormulaPreviewContextInputs();
+    syncLogicKeyReferences();
     return true;
   }
 
@@ -1715,6 +1969,7 @@
       }
       delete select.dataset.preferredSection;
     });
+    syncLogicKeyReferences();
   }
 
   addSectionBtn.addEventListener("click", () => {
@@ -1815,6 +2070,49 @@
       .filter(Boolean);
   }
 
+  function parseLogicCondition(keyInput, operatorInput, valueInput, label, issues) {
+    const questionKey = String(keyInput?.value || "").trim();
+    const operator = String(operatorInput?.value || "").trim().toLowerCase();
+    const conditionValue = String(valueInput?.value || "").trim();
+    const hasAny = Boolean(questionKey || operator || conditionValue);
+    if (!hasAny) {
+      return null;
+    }
+    if (!questionKey) {
+      if (keyInput) {
+        setValidationError(keyInput, "Укажи ключ вопроса для условия.");
+      }
+      issues.push(`${label}: укажи ключ вопроса в условии.`);
+      return null;
+    }
+    if (!/^[A-Za-z_][A-Za-z0-9_]*$/.test(questionKey)) {
+      if (keyInput) {
+        setValidationError(keyInput, "Ключ условия: только латиница, цифры и _.");
+      }
+      issues.push(`${label}: некорректный ключ в условии.`);
+      return null;
+    }
+    if (!LOGIC_OPERATORS.some((item) => item.value === operator && item.value !== "")) {
+      if (operatorInput) {
+        setValidationError(operatorInput, "Выбери оператор условия.");
+      }
+      issues.push(`${label}: выбери оператор условия.`);
+      return null;
+    }
+    if (!LOGIC_OPERATORS_WITHOUT_VALUE.has(operator) && !conditionValue) {
+      if (valueInput) {
+        setValidationError(valueInput, "Для выбранного оператора нужно значение.");
+      }
+      issues.push(`${label}: заполни значение условия.`);
+      return null;
+    }
+    return {
+      question_key: questionKey,
+      operator,
+      value: conditionValue,
+    };
+  }
+
   function validateReportBlocks(container, fieldName, labelPrefix, issues) {
     const selects = [...(container?.querySelectorAll(`select[name='${fieldName}']`) || [])];
     if (!selects.length) {
@@ -1842,27 +2140,64 @@
       issues.push("Укажи понятное название теста (не короче 5 символов).");
     }
 
-    const sectionInputs = [...sectionsNode.querySelectorAll("input[name='section_titles[]']")];
-    if (!sectionInputs.length) {
+    const sectionItems = [...sectionsNode.querySelectorAll(".section-item")];
+    if (!sectionItems.length) {
       issues.push("Добавь хотя бы одну секцию.");
     }
-    sectionInputs.forEach((input, index) => {
-      if (!input.value.trim()) {
-        setValidationError(input, "Название секции обязательно.");
+    const sectionTitlesInOrder = [];
+    const sectionConditionsInOrder = [];
+    const seenSectionTitles = new Set();
+    sectionItems.forEach((item, index) => {
+      const titleInput = item.querySelector("input[name='section_titles[]']");
+      const ifKeyInput = item.querySelector("input[name='section_if_key[]']");
+      const ifOperatorInput = item.querySelector("select[name='section_if_operator[]']");
+      const ifValueInput = item.querySelector("input[name='section_if_value[]']");
+      const title = titleInput?.value?.trim() || "";
+      sectionTitlesInOrder.push(title);
+      if (!title) {
+        if (titleInput) {
+          setValidationError(titleInput, "Название секции обязательно.");
+        }
         issues.push(`Секция #${index + 1}: пустое название.`);
+      } else {
+        if (seenSectionTitles.has(title.toLowerCase())) {
+          if (titleInput) {
+            setValidationError(titleInput, "Названия секций должны быть уникальными.");
+          }
+          issues.push(`Секция #${index + 1}: дублирующееся название.`);
+        }
+        seenSectionTitles.add(title.toLowerCase());
       }
+      sectionConditionsInOrder.push(
+        parseLogicCondition(
+          ifKeyInput,
+          ifOperatorInput,
+          ifValueInput,
+          `Секция #${index + 1}`,
+          issues
+        )
+      );
     });
 
     const questionItems = [...questionsNode.querySelectorAll(".question-item")];
     if (!questionItems.length) {
       issues.push("Добавь минимум один вопрос.");
     }
+    const questionResolvedKeys = [];
+    const questionConditionsInOrder = [];
+    const seenQuestionKeys = new Set();
+    const questionSectionTitles = [];
     questionItems.forEach((item, index) => {
       const qText = item.querySelector("input[name='q_text[]']");
+      const qKeyInput = item.querySelector("input[name='q_key[]']");
       const qType = item.querySelector("select[name='q_type[]']");
       const qOptions = item.querySelector("input[name='q_options[]']");
       const qMin = item.querySelector("input[name='q_min[]']");
       const qMax = item.querySelector("input[name='q_max[]']");
+      const qSection = item.querySelector("select[name='q_section[]']");
+      const qIfKeyInput = item.querySelector("input[name='q_if_key[]']");
+      const qIfOperatorInput = item.querySelector("select[name='q_if_operator[]']");
+      const qIfValueInput = item.querySelector("input[name='q_if_value[]']");
 
       if (!qText || !qText.value.trim()) {
         if (qText) {
@@ -1870,6 +2205,29 @@
         }
         issues.push(`Вопрос #${index + 1}: заполни формулировку.`);
       }
+
+      const resolvedKey = normalizeBuilderKey(
+        (qKeyInput?.value || "").trim() || (qText?.value || "").trim(),
+        `question_${index + 1}`
+      );
+      if (seenQuestionKeys.has(resolvedKey)) {
+        if (qKeyInput || qText) {
+          setValidationError(qKeyInput || qText, "Ключ вопроса должен быть уникальным.");
+        }
+        issues.push(`Вопрос #${index + 1}: дублирующийся ключ '${resolvedKey}'.`);
+      }
+      seenQuestionKeys.add(resolvedKey);
+      questionResolvedKeys.push(resolvedKey);
+      questionSectionTitles.push((qSection?.value || "").trim() || "Общая секция");
+      questionConditionsInOrder.push(
+        parseLogicCondition(
+          qIfKeyInput,
+          qIfOperatorInput,
+          qIfValueInput,
+          `Вопрос #${index + 1}`,
+          issues
+        )
+      );
 
       const typeValue = qType?.value || "text";
       if (typeValue === "single_choice" || typeValue === "multiple_choice") {
@@ -1890,6 +2248,42 @@
         }
         issues.push(`Вопрос #${index + 1}: проверь диапазон min/max.`);
       }
+    });
+
+    // Проверяем зависимости ветвлений по порядку секций и вопросов.
+    const knownQuestionKeys = new Set();
+    sectionTitlesInOrder.forEach((sectionTitle, sectionIndex) => {
+      if (!sectionTitle) {
+        return;
+      }
+      const sectionCondition = sectionConditionsInOrder[sectionIndex];
+      if (sectionCondition && !knownQuestionKeys.has(sectionCondition.question_key)) {
+        const sectionItem = sectionItems[sectionIndex];
+        const ifKeyInput = sectionItem?.querySelector("input[name='section_if_key[]']");
+        if (ifKeyInput) {
+          setValidationError(ifKeyInput, "Можно ссылаться только на вопросы из предыдущих секций.");
+        }
+        issues.push(
+          `Секция #${sectionIndex + 1}: условие ссылается на '${sectionCondition.question_key}', который ещё не определён.`
+        );
+      }
+
+      questionItems.forEach((item, questionIndex) => {
+        if (questionSectionTitles[questionIndex] !== sectionTitle) {
+          return;
+        }
+        const questionCondition = questionConditionsInOrder[questionIndex];
+        if (questionCondition && !knownQuestionKeys.has(questionCondition.question_key)) {
+          const ifKeyInput = item.querySelector("input[name='q_if_key[]']");
+          if (ifKeyInput) {
+            setValidationError(ifKeyInput, "Ссылка на вопрос ниже по порядку недопустима.");
+          }
+          issues.push(
+            `Вопрос #${questionIndex + 1}: условие ссылается на '${questionCondition.question_key}', который объявлен ниже или отсутствует.`
+          );
+        }
+        knownQuestionKeys.add(questionResolvedKeys[questionIndex]);
+      });
     });
 
     const customKeyInputs = [...(clientFieldNode?.querySelectorAll("input[name='cf_key[]']") || [])];

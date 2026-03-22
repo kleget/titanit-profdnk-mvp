@@ -21,6 +21,10 @@ from app.services.client_fields import (
     pack_client_fields_config,
 )
 from app.services.formulas import FormulaError, evaluate_formula
+from app.services.logic import (
+    normalize_condition_payload,
+    validate_condition_dependencies,
+)
 
 
 def normalize_key(source: str, fallback: str) -> str:
@@ -188,6 +192,7 @@ def create_test_from_payload(
         if not section_title:
             continue
         section = TestSection(test_id=test.id, title=section_title, position=section_pos)
+        section.visibility_condition_json = section_payload.get("visibility_condition_json")
         db.add(section)
         db.flush()
         questions_payload = section_payload.get("questions") or []
@@ -213,6 +218,7 @@ def create_test_from_payload(
                 max_value=q.get("max_value"),
                 weight=float(q.get("weight") or 1.0),
                 position=question_pos,
+                visibility_condition_json=q.get("visibility_condition_json"),
             )
             db.add(question)
 
@@ -274,9 +280,17 @@ def export_test_config(test: Test) -> dict:
                     "max_value": question.max_value,
                     "weight": question.weight,
                     "position": question.position,
+                    "visibility_condition": question.visibility_condition_json,
                 }
             )
-        sections.append({"title": section.title, "position": section.position, "questions": questions})
+        sections.append(
+            {
+                "title": section.title,
+                "position": section.position,
+                "visibility_condition": section.visibility_condition_json,
+                "questions": questions,
+            }
+        )
 
     return {
         "title": test.title,
@@ -422,6 +436,7 @@ def formulas_from_flat_form(
 def sections_from_flat_form(
     section_titles: list[str],
     question_texts: list[str],
+    question_keys: list[str] | None,
     question_types: list[str],
     question_required: list[str],
     question_options: list[str],
@@ -429,8 +444,30 @@ def sections_from_flat_form(
     question_max: list[str],
     question_weight: list[str],
     question_section_titles: list[str],
+    section_if_key: list[str] | None = None,
+    section_if_operator: list[str] | None = None,
+    section_if_value: list[str] | None = None,
+    question_if_key: list[str] | None = None,
+    question_if_operator: list[str] | None = None,
+    question_if_value: list[str] | None = None,
 ) -> list[dict]:
     unique_sections: OrderedDict[str, list] = OrderedDict()
+    section_conditions_by_title: dict[str, dict | None] = {}
+    raw_section_if_key = list(section_if_key or [])
+    raw_section_if_operator = list(section_if_operator or [])
+    raw_section_if_value = list(section_if_value or [])
+    section_total = len(section_titles)
+    if not (raw_section_if_key or raw_section_if_operator or raw_section_if_value):
+        raw_section_if_key = [""] * section_total
+        raw_section_if_operator = [""] * section_total
+        raw_section_if_value = [""] * section_total
+    elif (
+        len(raw_section_if_key) != section_total
+        or len(raw_section_if_operator) != section_total
+        or len(raw_section_if_value) != section_total
+    ):
+        raise HTTPException(status_code=400, detail="Invalid section logic payload")
+
     for title in section_titles:
         normalized = title.strip()
         if normalized:
@@ -446,8 +483,40 @@ def sections_from_flat_form(
         question_weight,
         question_section_titles,
     ]
+    question_keys = list(question_keys or [])
+    if not question_keys:
+        question_keys = [""] * size
+    question_if_key = list(question_if_key or [])
+    if not question_if_key:
+        question_if_key = [""] * size
+    question_if_operator = list(question_if_operator or [])
+    if not question_if_operator:
+        question_if_operator = [""] * size
+    question_if_value = list(question_if_value or [])
+    if not question_if_value:
+        question_if_value = [""] * size
+    attrs.extend([question_if_key, question_if_operator, question_if_value])
+    attrs.append(question_keys)
     if any(len(arr) != size for arr in attrs):
         raise HTTPException(status_code=400, detail="Invalid question form payload")
+
+    for section_index, section_title_raw in enumerate(section_titles):
+        normalized_title = section_title_raw.strip()
+        if not normalized_title:
+            continue
+        try:
+            section_condition = normalize_condition_payload(
+                raw_section_if_key[section_index],
+                raw_section_if_operator[section_index],
+                raw_section_if_value[section_index],
+            )
+        except ValueError as exc:
+            raise HTTPException(status_code=400, detail=f"Секция #{section_index + 1}: {exc}") from exc
+        if normalized_title not in section_conditions_by_title:
+            section_conditions_by_title[normalized_title] = section_condition
+
+    question_keys_in_order: list[str] = []
+    question_conditions_in_order: list[dict | None] = []
 
     for idx in range(size):
         text = question_texts[idx].strip()
@@ -472,9 +541,20 @@ def sections_from_flat_form(
         except ValueError as exc:
             raise HTTPException(status_code=400, detail=f"Invalid weight in question {idx+1}") from exc
 
+        raw_question_key = question_keys[idx].strip()
+        question_key = normalize_key(raw_question_key or text, f"question_{idx+1}")
+        try:
+            question_condition = normalize_condition_payload(
+                question_if_key[idx],
+                question_if_operator[idx],
+                question_if_value[idx],
+            )
+        except ValueError as exc:
+            raise HTTPException(status_code=400, detail=f"Вопрос #{idx + 1}: {exc}") from exc
+
         unique_sections[section_title].append(
             {
-                "key": normalize_key(text, f"question_{idx+1}"),
+                "key": question_key,
                 "text": text,
                 "question_type": q_type,
                 "required": required,
@@ -482,13 +562,36 @@ def sections_from_flat_form(
                 "min_value": min_value,
                 "max_value": max_value,
                 "weight": weight,
+                "visibility_condition": question_condition,
             }
         )
+        question_keys_in_order.append(question_key)
+        question_conditions_in_order.append(question_condition)
+
+    section_conditions_in_order = [
+        section_conditions_by_title.get(title, None) for title in unique_sections.keys()
+    ]
+    section_question_counts = [len(questions) for questions in unique_sections.values()]
+    try:
+        validate_condition_dependencies(
+            question_keys_in_order=question_keys_in_order,
+            section_conditions=section_conditions_in_order,
+            question_conditions=question_conditions_in_order,
+            section_question_counts=section_question_counts,
+        )
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
 
     result: list[dict] = []
     for title, questions in unique_sections.items():
         if questions:
-            result.append({"title": title, "questions": questions})
+            result.append(
+                {
+                    "title": title,
+                    "questions": questions,
+                    "visibility_condition": section_conditions_by_title.get(title),
+                }
+            )
     return result
 
 

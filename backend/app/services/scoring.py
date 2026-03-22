@@ -151,12 +151,17 @@ def _build_question_numeric_value(question: Question, answer: object) -> float:
 
 
 def _build_formula_base_context(
-    test: Test, answer_map: dict[int, object], metrics: dict[str, float]
+    test: Test,
+    answer_map: dict[int, object],
+    metrics: dict[str, float],
+    visible_question_ids: set[int] | None = None,
 ) -> dict[str, float]:
     context: dict[str, float] = dict(metrics)
 
     for section in test.sections:
         for question in section.questions:
+            if visible_question_ids is not None and question.id not in visible_question_ids:
+                continue
             answer_value = answer_map.get(question.id)
             base_value = _build_question_numeric_value(question, answer_value)
             context[question.key] = base_value
@@ -205,7 +210,11 @@ def _evaluate_derived_metrics(
     return results
 
 
-def calculate_metrics(test: Test, answer_map: dict[int, object]) -> ScoringResult:
+def calculate_metrics(
+    test: Test,
+    answer_map: dict[int, object],
+    visible_question_ids: set[int] | None = None,
+) -> ScoringResult:
     total_questions = 0
     answered = 0
     total_score = 0.0
@@ -213,6 +222,8 @@ def calculate_metrics(test: Test, answer_map: dict[int, object]) -> ScoringResul
 
     for section in test.sections:
         for question in section.questions:
+            if visible_question_ids is not None and question.id not in visible_question_ids:
+                continue
             total_questions += 1
             answer_value = answer_map.get(question.id)
             if not _is_empty(answer_value):
@@ -258,7 +269,12 @@ def calculate_metrics(test: Test, answer_map: dict[int, object]) -> ScoringResul
         "answered_count": float(answered),
         "total_questions": float(total_questions),
     }
-    formula_context = _build_formula_base_context(test, answer_map, base_metrics)
+    formula_context = _build_formula_base_context(
+        test,
+        answer_map,
+        base_metrics,
+        visible_question_ids=visible_question_ids,
+    )
     derived_metrics = _evaluate_derived_metrics(list(test.formulas or []), formula_context)
 
     return ScoringResult(

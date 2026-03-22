@@ -100,7 +100,7 @@ def _wants_html_response(request: Request) -> bool:
 def _error_template_context(status_code: int, detail: str | None, request_id: str) -> dict[str, str]:
     base = ERROR_PAGE_CONTENT.get(status_code) or ERROR_PAGE_CONTENT[500]
     message = base["message"]
-    if status_code in {400, 403, 429} and detail:
+    if status_code in {400, 403, 404, 429} and detail:
         message = detail
     return {
         "title": f"Ошибка {status_code}",

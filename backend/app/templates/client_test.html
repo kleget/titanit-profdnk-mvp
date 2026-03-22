@@ -45,9 +45,23 @@
     {% endfor %}
 
     {% for section in test.sections %}
+      <div
+        class="section-block"
+        data-section
+        data-if-key="{{ section.visibility_condition_json.question_key if section.visibility_condition_json else '' }}"
+        data-if-op="{{ section.visibility_condition_json.operator if section.visibility_condition_json else '' }}"
+        data-if-value="{{ section.visibility_condition_json.value if section.visibility_condition_json else '' }}"
+      >
       <div class="section-title">{{ section.title }}</div>
       {% for q in section.questions %}
-        <div class="question" data-question>
+        <div
+          class="question"
+          data-question
+          data-question-key="{{ q.key }}"
+          data-if-key="{{ q.visibility_condition_json.question_key if q.visibility_condition_json else '' }}"
+          data-if-op="{{ q.visibility_condition_json.operator if q.visibility_condition_json else '' }}"
+          data-if-value="{{ q.visibility_condition_json.value if q.visibility_condition_json else '' }}"
+        >
           <div class="question-title">{{ q.text }} {% if q.required %}*{% endif %}</div>
 
           {% if q.question_type.value == "text" %}
@@ -131,6 +145,7 @@
           {% endif %}
         </div>
       {% endfor %}
+      </div>
     {% endfor %}
     <div class="sticky-action-bar">
       <button class="btn" type="submit">Отправить ответы</button>
@@ -141,10 +156,107 @@
 <script>
   const form = document.getElementById("client-test-form");
   const questions = [...document.querySelectorAll("[data-question]")];
+  const sections = [...document.querySelectorAll("[data-section]")];
   const fill = document.getElementById("progress-fill");
   const text = document.getElementById("progress-text");
   const progressDetail = document.getElementById("progress-detail");
   const rangeInputs = [...document.querySelectorAll("input[type='range'][data-range-output]")];
+
+  function parseAnswerValue(input) {
+    if (!input) {
+      return null;
+    }
+    if (input.type === "checkbox") {
+      const nodes = [...form.querySelectorAll(`input[name='${input.name}']`)];
+      return nodes.filter((item) => item.checked).map((item) => item.value);
+    }
+    if (input.type === "radio") {
+      const checked = form.querySelector(`input[name='${input.name}']:checked`);
+      return checked ? checked.value : null;
+    }
+    return input.value;
+  }
+
+  function collectAnswersByKey() {
+    const result = {};
+    questions.forEach((question) => {
+      const key = question.dataset.questionKey || "";
+      if (!key) {
+        return;
+      }
+      const firstInput = question.querySelector("input, textarea, select");
+      result[key] = parseAnswerValue(firstInput);
+    });
+    return result;
+  }
+
+  function isEmpty(value) {
+    return value === null || value === "" || (Array.isArray(value) && value.length === 0);
+  }
+
+  function toNumber(value) {
+    if (value === null || value === "") {
+      return null;
+    }
+    const parsed = Number(String(value).replace(",", "."));
+    return Number.isFinite(parsed) ? parsed : null;
+  }
+
+  function evaluateCondition(node, answersByKey) {
+    const key = (node.dataset.ifKey || "").trim();
+    const operator = (node.dataset.ifOp || "").trim().toLowerCase();
+    const expected = (node.dataset.ifValue || "").trim();
+    if (!key || !operator) {
+      return true;
+    }
+    const actual = answersByKey[key];
+    const actualText = `${actual ?? ""}`.trim().toLowerCase();
+    const expectedText = expected.toLowerCase();
+
+    if (operator === "equals") return actualText === expectedText;
+    if (operator === "not_equals") return actualText !== expectedText;
+    if (operator === "contains") {
+      if (Array.isArray(actual)) {
+        return actual.map((item) => `${item}`.toLowerCase()).includes(expectedText);
+      }
+      return actualText.includes(expectedText);
+    }
+    if (operator === "not_contains") {
+      if (Array.isArray(actual)) {
+        return !actual.map((item) => `${item}`.toLowerCase()).includes(expectedText);
+      }
+      return !actualText.includes(expectedText);
+    }
+    if (operator === "gt") return toNumber(actual) !== null && toNumber(expected) !== null && toNumber(actual) > toNumber(expected);
+    if (operator === "gte") return toNumber(actual) !== null && toNumber(expected) !== null && toNumber(actual) >= toNumber(expected);
+    if (operator === "lt") return toNumber(actual) !== null && toNumber(expected) !== null && toNumber(actual) < toNumber(expected);
+    if (operator === "lte") return toNumber(actual) !== null && toNumber(expected) !== null && toNumber(actual) <= toNumber(expected);
+    if (operator === "is_true") return ["true", "1", "yes", "on"].includes(actualText);
+    if (operator === "is_false") return ["false", "0", "no", "off"].includes(actualText);
+    if (operator === "empty") return isEmpty(actual);
+    if (operator === "not_empty") return !isEmpty(actual);
+    return true;
+  }
+
+  function syncVisibility() {
+    const answersByKey = collectAnswersByKey();
+
+    sections.forEach((section) => {
+      const sectionVisible = evaluateCondition(section, answersByKey);
+      section.style.display = sectionVisible ? "" : "none";
+      section.querySelectorAll("[data-question]").forEach((question) => {
+        const questionVisible = sectionVisible && evaluateCondition(question, answersByKey);
+        question.style.display = questionVisible ? "" : "none";
+        question.querySelectorAll("input, select, textarea").forEach((input) => {
+          if (questionVisible) {
+            input.removeAttribute("disabled");
+          } else {
+            input.setAttribute("disabled", "disabled");
+          }
+        });
+      });
+    });
+  }
 
   function updateRangeValue(input) {
     const targetId = input.dataset.rangeOutput;
@@ -167,8 +279,9 @@
   }
 
   function updateProgress() {
-    const total = questions.length || 1;
-    const completed = questions.filter(questionFilled).length;
+    const visibleQuestions = questions.filter((question) => question.style.display !== "none");
+    const total = visibleQuestions.length || 1;
+    const completed = visibleQuestions.filter(questionFilled).length;
     const percent = Math.round((completed / total) * 100);
     fill.style.width = `${percent}%`;
     text.textContent = `${percent}%`;
@@ -177,8 +290,14 @@
     }
   }
 
-  form.addEventListener("input", updateProgress);
-  form.addEventListener("change", updateProgress);
+  form.addEventListener("input", () => {
+    syncVisibility();
+    updateProgress();
+  });
+  form.addEventListener("change", () => {
+    syncVisibility();
+    updateProgress();
+  });
   form.addEventListener(
     "invalid",
     (event) => {
@@ -194,6 +313,7 @@
     input.addEventListener("input", () => updateRangeValue(input));
     input.addEventListener("change", () => updateRangeValue(input));
   });
+  syncVisibility();
   updateProgress();
 </script>
 {% endblock %}

@@ -13,6 +13,8 @@
         <button class="btn ghost" type="submit">Клонировать тест</button>
       </form>
       <a class="btn ghost" href="/tests/{{ test.id }}/submissions.csv">Экспорт CSV</a>
+      <a class="btn ghost" href="/tests/{{ test.id }}/submissions.xlsx">Экспорт XLSX</a>
+      <a class="btn ghost" href="/tests/{{ test.id }}/campaign-report.pdf">PDF по кампаниям</a>
       <button class="btn" id="refresh-submissions">Обновить (AJAX)</button>
     </div>
   </div>
@@ -29,6 +31,13 @@
       {{ csrf_input(request) }}
       <input type="text" name="label" maxlength="120" placeholder="Название кампании" required>
       <input type="number" name="usage_limit" min="1" step="1" placeholder="Лимит (опционально)">
+      <input type="datetime-local" name="start_at" placeholder="Старт (опционально)">
+      <input type="datetime-local" name="expires_at" placeholder="Дедлайн (опционально)">
+      <label class="choice-option">
+        <input type="checkbox" name="single_use" value="true">
+        <span>Одноразовая</span>
+      </label>
+      <input type="text" name="target_client_name" maxlength="255" placeholder="Персональная ФИО (опц.)">
       <button class="btn" type="submit">Добавить ссылку</button>
     </form>
   </div>
@@ -39,6 +48,8 @@
         <tr>
           <th>Метка</th>
           <th>Статус</th>
+          <th>Окно действия</th>
+          <th>Персональная</th>
           <th>Использовано / лимит</th>
           <th>Ссылка</th>
           <th>Действия</th>
@@ -48,6 +59,8 @@
         <tr>
           <td data-label="Метка">Основная ссылка</td>
           <td data-label="Статус"><span class="status-badge status-active">Активна</span></td>
+          <td data-label="Окно действия">сразу → без дедлайна</td>
+          <td data-label="Персональная">Нет</td>
           <td data-label="Использовано / лимит">без лимита</td>
           <td data-label="Ссылка"><code>{{ base_url }}/t/{{ test.share_token }}</code></td>
           <td data-label="Действия">
@@ -59,6 +72,13 @@
             <td data-label="Метка">{{ link_row.link.label }}</td>
             <td data-label="Статус">
               <span class="status-badge status-{{ link_row.state }}">{{ link_row.state_label }}</span>
+            </td>
+            <td data-label="Окно действия">{{ link_row.window_text }}</td>
+            <td data-label="Персональная">
+              {{ link_row.single_use_text }}
+              {% if link_row.target_client_name != "-" %}
+                · {{ link_row.target_client_name }}
+              {% endif %}
             </td>
             <td data-label="Использовано / лимит">{{ link_row.limit_text }}</td>
             <td data-label="Ссылка"><code>{{ base_url }}/t/{{ link_row.link.token }}</code></td>
@@ -82,6 +102,34 @@
       </button>
     </div>
   {% endif %}
+</section>
+
+<section class="panel">
+  <h2>История изменений теста</h2>
+  <div class="table-wrap">
+    <table class="responsive-table responsive-cards-table">
+      <thead>
+        <tr>
+          <th>Дата</th>
+          <th>Действие</th>
+          <th>Детали</th>
+        </tr>
+      </thead>
+      <tbody>
+      {% for row in latest_change_logs %}
+        <tr>
+          <td data-label="Дата">{{ row.created_at.strftime("%Y-%m-%d %H:%M") }}</td>
+          <td data-label="Действие">{{ row.action }}</td>
+          <td data-label="Детали"><code>{{ row.details_json or {} }}</code></td>
+        </tr>
+      {% else %}
+        <tr>
+          <td colspan="3" class="muted">Изменений пока нет</td>
+        </tr>
+      {% endfor %}
+      </tbody>
+    </table>
+  </div>
 </section>
 
 <section class="panel">
@@ -175,6 +223,243 @@
 </section>
 
 <section class="panel">
+  <h2>Killer-аналитика аудитории</h2>
+  <p class="muted">
+    Блок для презентации жюри: динамика источников, портрет аудитории, риски, аномалии,
+    рекомендации по профессиям и сравнение с медианой группы.
+  </p>
+
+  {% if killer_analytics.has_data %}
+    <div class="story-kpi-grid">
+      <article class="story-kpi-card">
+        <strong>{{ killer_analytics.audience_portrait.total_submissions }}</strong>
+        <span>Всего прохождений</span>
+      </article>
+      <article class="story-kpi-card">
+        <strong>{{ killer_analytics.source_dynamics.sources | length }}</strong>
+        <span>Источников трафика</span>
+      </article>
+      <article class="story-kpi-card">
+        <strong>{{ killer_analytics.risk_overview.zone_counters.high }}</strong>
+        <span>Клиентов в зоне высокого риска</span>
+      </article>
+      <article class="story-kpi-card">
+        <strong>{{ killer_analytics.anomalies | length }}</strong>
+        <span>Аномалий выявлено</span>
+      </article>
+      <article class="story-kpi-card">
+        <strong>{{ killer_analytics.risk_overview.zone_counters.medium }}</strong>
+        <span>Средний риск</span>
+      </article>
+      <article class="story-kpi-card">
+        <strong>{{ killer_analytics.risk_overview.zone_counters.low }}</strong>
+        <span>Низкий риск</span>
+      </article>
+    </div>
+
+    <div class="subpanel">
+      <h3>KF-18: Динамика по источникам и датам</h3>
+      <div class="table-wrap">
+        <table class="responsive-table responsive-cards-table">
+          <thead>
+            <tr>
+              <th>Дата</th>
+              <th>Источник</th>
+              <th>Прохождений</th>
+              <th>Ср. % балла</th>
+              <th>Ср. % заполнения</th>
+            </tr>
+          </thead>
+          <tbody id="source-dynamics-body">
+          {% for row in killer_analytics.source_dynamics.timeline_rows %}
+            <tr>
+              <td data-label="Дата">{{ row.date }}</td>
+              <td data-label="Источник">{{ row.source_label }}</td>
+              <td data-label="Прохождений">{{ row.count }}</td>
+              <td data-label="Ср. % балла">{{ "%.2f"|format(row.avg_score_percent or 0) }}</td>
+              <td data-label="Ср. % заполнения">{{ "%.2f"|format(row.avg_completion_percent or 0) }}</td>
+            </tr>
+          {% else %}
+            <tr>
+              <td colspan="5" class="muted">Пока нет данных по динамике.</td>
+            </tr>
+          {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <div class="subpanel">
+      <h3>KF-19: Портрет аудитории</h3>
+      <div class="grid two-col">
+        <article class="card-item">
+          <h4>Возрастные группы</h4>
+          <ul class="feature-list">
+            {% for item in killer_analytics.audience_portrait.age_buckets %}
+              <li>{{ item.label }}: <strong>{{ item.count }}</strong></li>
+            {% endfor %}
+          </ul>
+        </article>
+        <article class="card-item">
+          <h4>Уровни результатов</h4>
+          <ul class="feature-list">
+            {% for item in killer_analytics.audience_portrait.level_buckets %}
+              <li>{{ item.label }}: <strong>{{ item.count }}</strong></li>
+            {% endfor %}
+          </ul>
+        </article>
+      </div>
+      {% if killer_analytics.audience_portrait.top_custom_fields %}
+        <div class="card-list">
+          {% for field in killer_analytics.audience_portrait.top_custom_fields %}
+            <article class="card-item">
+              <h4>Поле: {{ field.field_key }}</h4>
+              <ul class="feature-list">
+                {% for top in field.top_values %}
+                  <li>{{ top.value }} — {{ top.count }}</li>
+                {% endfor %}
+              </ul>
+            </article>
+          {% endfor %}
+        </div>
+      {% endif %}
+    </div>
+
+    <div class="subpanel">
+      <h3>KF-20/KF-21: Аномалии и шкала риска</h3>
+      <div class="table-wrap">
+        <table class="responsive-table responsive-cards-table">
+          <thead>
+            <tr>
+              <th>Клиент</th>
+              <th>Источник</th>
+              <th>Индекс устойчивости</th>
+              <th>Индекс риска</th>
+              <th>Зона</th>
+            </tr>
+          </thead>
+          <tbody>
+          {% for row in killer_analytics.risk_overview.rows %}
+            <tr>
+              <td data-label="Клиент">{{ row.client_full_name }}</td>
+              <td data-label="Источник">{{ row.source_label }}</td>
+              <td data-label="Индекс устойчивости">{{ row.resilience_index }}</td>
+              <td data-label="Индекс риска">{{ row.risk_index }}</td>
+              <td data-label="Зона"><span class="status-badge risk-zone-{{ row.zone }}">{{ row.zone_label }}</span></td>
+            </tr>
+          {% else %}
+            <tr>
+              <td colspan="5" class="muted">Пока нет данных.</td>
+            </tr>
+          {% endfor %}
+          </tbody>
+        </table>
+      </div>
+      <div class="table-wrap">
+        <table class="responsive-table responsive-cards-table">
+          <thead>
+            <tr>
+              <th>Клиент</th>
+              <th>Источник</th>
+              <th>Аномалии</th>
+            </tr>
+          </thead>
+          <tbody>
+          {% for row in killer_analytics.anomalies %}
+            <tr>
+              <td data-label="Клиент">{{ row.client_full_name }}</td>
+              <td data-label="Источник">{{ row.source_label }}</td>
+              <td data-label="Аномалии">{{ row.flags | join(", ") }}</td>
+            </tr>
+          {% else %}
+            <tr>
+              <td colspan="3" class="muted">Аномалии не обнаружены.</td>
+            </tr>
+          {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <div class="subpanel">
+      <h3>KF-22: Рекомендованные профессии</h3>
+      <div class="table-wrap">
+        <table class="responsive-table responsive-cards-table">
+          <thead>
+            <tr>
+              <th>Клиент</th>
+              <th>Источник</th>
+              <th>Топ-3 рекомендации</th>
+              <th>Пояснение</th>
+            </tr>
+          </thead>
+          <tbody>
+          {% for row in killer_analytics.recommendations %}
+            <tr>
+              <td data-label="Клиент">{{ row.client_full_name }}</td>
+              <td data-label="Источник">{{ row.source_label }}</td>
+              <td data-label="Топ-3 рекомендации">
+                {% for rec in row.recommendations %}
+                  <div>{{ rec.role }} ({{ rec.score }})</div>
+                {% endfor %}
+              </td>
+              <td data-label="Пояснение">{{ row.reason }}</td>
+            </tr>
+          {% else %}
+            <tr>
+              <td colspan="4" class="muted">Нет данных для рекомендаций.</td>
+            </tr>
+          {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <div class="subpanel">
+      <h3>KF-23/KF-24: Сравнение с медианой и нормализация</h3>
+      <div class="table-wrap">
+        <table class="responsive-table responsive-cards-table">
+          <thead>
+            <tr>
+              <th>Клиент</th>
+              <th>Источник</th>
+              <th>Score %</th>
+              <th>Δ к медиане (score)</th>
+              <th>Completion %</th>
+              <th>Δ к медиане (completion)</th>
+              <th>Z-score (score)</th>
+              <th>Percentile (score)</th>
+            </tr>
+          </thead>
+          <tbody>
+          {% for row in killer_analytics.normalization.rows %}
+            <tr>
+              <td data-label="Клиент">{{ row.client_full_name }}</td>
+              <td data-label="Источник">{{ row.source_label }}</td>
+              <td data-label="Score %">{{ row.metrics.score_percent.value if row.metrics.score_percent else "-" }}</td>
+              <td data-label="Δ к медиане (score)">{{ row.metrics.score_percent.median_delta if row.metrics.score_percent else "-" }}</td>
+              <td data-label="Completion %">{{ row.metrics.completion_percent.value if row.metrics.completion_percent else "-" }}</td>
+              <td data-label="Δ к медиане (completion)">{{ row.metrics.completion_percent.median_delta if row.metrics.completion_percent else "-" }}</td>
+              <td data-label="Z-score (score)">{{ row.metrics.score_percent.z_score if row.metrics.score_percent else "-" }}</td>
+              <td data-label="Percentile (score)">{{ row.metrics.score_percent.percentile if row.metrics.score_percent else "-" }}</td>
+            </tr>
+          {% else %}
+            <tr>
+              <td colspan="8" class="muted">Недостаточно данных для нормализации.</td>
+            </tr>
+          {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  {% else %}
+    <div class="empty-state">
+      <p>Пока нет данных для killer-аналитики. После первых прохождений блок автоматически заполнится.</p>
+    </div>
+  {% endif %}
+</section>
+
+<section class="panel">
   <div class="panel-head">
     <h2>Результаты прохождений</h2>
     <form method="get" class="inline-form compact-filter">
@@ -183,6 +468,8 @@
         <select name="source_status" id="source-status-filter">
           <option value="all" {% if source_status_filter == "all" %}selected{% endif %}>Все</option>
           <option value="active" {% if source_status_filter == "active" %}selected{% endif %}>Активна</option>
+          <option value="pending" {% if source_status_filter == "pending" %}selected{% endif %}>Ожидает старта</option>
+          <option value="expired" {% if source_status_filter == "expired" %}selected{% endif %}>Истекла</option>
           <option value="exhausted" {% if source_status_filter == "exhausted" %}selected{% endif %}>Лимит исчерпан</option>
           <option value="disabled" {% if source_status_filter == "disabled" %}selected{% endif %}>Отключена</option>
           <option value="unknown" {% if source_status_filter == "unknown" %}selected{% endif %}>Неизвестно</option>
@@ -217,6 +504,13 @@
           </td>
           <td data-label="Действия" class="actions-row">
             {% if test.allow_client_report %}
+              <button
+                class="btn small ghost copy-link-btn"
+                type="button"
+                data-link="{{ base_url }}/t/{{ test.share_token }}/report/{{ row.submission.id }}.html"
+              >
+                Поделиться клиенту
+              </button>
               <a class="btn small ghost" href="/reports/{{ row.submission.id }}/client.html" target="_blank">Клиент HTML</a>
               <a class="btn small ghost" href="/reports/{{ row.submission.id }}/client.docx">Клиент DOCX</a>
             {% endif %}
@@ -381,6 +675,13 @@
         <td data-label="Метрики">Балл: ${item.total_score ?? 0} / ${item.max_score ?? 0}, % балла: ${item.score_percent ?? 0}, заполнение: ${item.completion_percent ?? 0}%</td>
         <td data-label="Действия" class="actions-row">
           {% if test.allow_client_report %}
+            <button
+              class="btn small ghost copy-link-btn"
+              type="button"
+              data-link="{{ base_url }}/t/{{ test.share_token }}/report/${item.id}.html"
+            >
+              Поделиться клиенту
+            </button>
             <a class="btn small ghost" href="/reports/${item.id}/client.html" target="_blank">Клиент HTML</a>
             <a class="btn small ghost" href="/reports/${item.id}/client.docx">Клиент DOCX</a>
           {% endif %}
@@ -492,9 +793,11 @@
     const groups = {};
     const stateRank = {
       active: 1,
-      disabled: 2,
-      exhausted: 3,
-      unknown: 4,
+      pending: 2,
+      disabled: 3,
+      expired: 4,
+      exhausted: 5,
+      unknown: 0,
     };
     for (const item of items) {
       const label = item.invite_label || "Основная ссылка";
@@ -574,6 +877,7 @@
       renderGroups(data);
       renderCampaignComparison(data);
       applyStatusFilter();
+      wireCopyButtons();
       if (typeof window.uiNotify === "function") {
         window.uiNotify("success", "Данные по прохождениям обновлены.");
       }

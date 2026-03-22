@@ -15,10 +15,17 @@ from app.models import Answer, InviteLink, QuestionType, Submission, Test, TestS
 from app.services.client_fields import build_client_form_fields, normalize_client_fields_config
 from app.services.content import render_safe_markdown
 from app.services.email import send_client_report_email
-from app.services.invite_links import is_invite_link_exhausted
+from app.services.invite_links import (
+    is_invite_link_available,
+    is_invite_link_exhausted,
+    is_invite_link_expired,
+    is_invite_link_pending,
+)
+from app.services.logic import evaluate_condition
 from app.services.rate_limit import check_request_rate_limit
 from app.services.reports import build_docx_report, build_report_context, render_html_report
 from app.services.scoring import calculate_metrics
+from app.services.test_changes import log_test_change
 from app.web import templates
 
 router = APIRouter(tags=["public"])
@@ -43,12 +50,19 @@ def _load_test_for_client(test_id: int, db: Session) -> Test | None:
 def _get_test_by_token(token: str, db: Session) -> tuple[Test, InviteLink | None]:
     invite_link = db.scalar(select(InviteLink).where(InviteLink.token == token))
     if invite_link:
-        if is_invite_link_exhausted(invite_link):
-            if invite_link.is_active:
+        if not is_invite_link_available(invite_link):
+            if invite_link.is_active and (
+                is_invite_link_exhausted(invite_link) or is_invite_link_expired(invite_link)
+            ):
                 invite_link.is_active = False
                 db.commit()
-            raise HTTPException(status_code=404, detail="Ссылка для прохождения недоступна")
-        if not invite_link.is_active:
+            if is_invite_link_pending(invite_link):
+                raise HTTPException(
+                    status_code=404,
+                    detail="Ссылка ещё не активна. Попробуйте позже.",
+                )
+            if is_invite_link_expired(invite_link):
+                raise HTTPException(status_code=404, detail="Срок действия ссылки истёк")
             raise HTTPException(status_code=404, detail="Ссылка для прохождения недоступна")
         test = _load_test_for_client(invite_link.test_id, db)
     else:
@@ -163,6 +177,12 @@ async def submit_client_test(
 
     if not client_full_name:
         raise HTTPException(status_code=400, detail="ФИО обязательно")
+    if invite_link and invite_link.target_client_name:
+        if client_full_name.lower() != invite_link.target_client_name.strip().lower():
+            raise HTTPException(
+                status_code=400,
+                detail="Эта персональная ссылка предназначена для другого клиента",
+            )
 
     client_fields_config = normalize_client_fields_config(test.required_client_fields)
     required_fields = set(client_fields_config["required_builtin_fields"])
@@ -188,7 +208,13 @@ async def submit_client_test(
 
     answer_map: dict[int, object] = {}
     answers_to_insert: list[Answer] = []
+    answer_key_map: dict[str, object] = {}
+    visible_question_ids: set[int] = set()
+    visible_section_ids: set[int] = set()
     for section in test.sections:
+        section_visible = evaluate_condition(section.visibility_condition_json, answer_key_map)
+        if section_visible:
+            visible_section_ids.add(section.id)
         for question in section.questions:
             field_name = f"q_{question.id}"
             if question.question_type == QuestionType.MULTIPLE_CHOICE:
@@ -201,14 +227,25 @@ async def submit_client_test(
                     value = str(raw_value).lower() in {"true", "1", "yes", "on"}
             else:
                 value = form.get(field_name)
+            answer_map[question.id] = value
+            answer_key_map[question.key] = value
+
+    for section in test.sections:
+        if section.id not in visible_section_ids:
+            continue
+        for question in section.questions:
+            question_visible = evaluate_condition(question.visibility_condition_json, answer_key_map)
+            if not question_visible:
+                continue
+            visible_question_ids.add(question.id)
+            value = answer_map.get(question.id)
             if question.required and _is_empty(value):
                 raise HTTPException(
                     status_code=400,
                     detail=f"Заполните обязательный вопрос: {question.text}",
                 )
-            answer_map[question.id] = value
 
-    metrics_result = calculate_metrics(test, answer_map)
+    metrics_result = calculate_metrics(test, answer_map, visible_question_ids=visible_question_ids)
 
     client_extra: dict[str, object] = {}
     if client_age:
@@ -234,6 +271,8 @@ async def submit_client_test(
 
     for section in test.sections:
         for question in section.questions:
+            if question.id not in visible_question_ids:
+                continue
             answers_to_insert.append(
                 Answer(
                     submission_id=submission.id,
@@ -248,6 +287,17 @@ async def submit_client_test(
         if is_invite_link_exhausted(invite_link):
             invite_link.is_active = False
 
+    log_test_change(
+        db,
+        test_id=test.id,
+        action="client_submission_created",
+        actor_user_id=None,
+        details={
+            "submission_id": submission.id,
+            "invite_label": invite_link.label if invite_link else "Основная ссылка",
+            "client_full_name": client_full_name,
+        },
+    )
     db.commit()
 
     public_token = test.share_token

@@ -12,6 +12,7 @@ from app.services.client_fields import (
     BUILTIN_CLIENT_FIELDS,
     RESERVED_CUSTOM_KEYS,
 )
+from app.services.logic import ALLOWED_LOGIC_OPERATORS, validate_condition_dependencies
 
 CHOICE_QUESTION_TYPES = {QuestionType.SINGLE_CHOICE.value, QuestionType.MULTIPLE_CHOICE.value}
 RANGE_QUESTION_TYPES = {
@@ -48,6 +49,30 @@ class ConstructorQuestionOptionSchema(BaseModel):
     score: float = Field(default=1.0, ge=-100000, le=100000)
 
 
+class ConstructorLogicConditionSchema(BaseModel):
+    model_config = ConfigDict(extra="forbid", str_strip_whitespace=True)
+
+    question_key: str = Field(min_length=1, max_length=128, pattern=r"^[a-zA-Z_][a-zA-Z0-9_]*$")
+    operator: str
+    value: str = Field(default="", max_length=255)
+
+    @field_validator("operator")
+    @classmethod
+    def validate_operator(cls, value: str) -> str:
+        normalized = value.strip().lower()
+        if normalized not in ALLOWED_LOGIC_OPERATORS:
+            raise ValueError(f"Неподдерживаемый оператор условия: {value}")
+        return normalized
+
+    @model_validator(mode="after")
+    def validate_value_rules(self) -> "ConstructorLogicConditionSchema":
+        if self.operator in {"is_true", "is_false", "empty", "not_empty"}:
+            return self
+        if not self.value.strip():
+            raise ValueError("Для выбранного оператора нужно значение")
+        return self
+
+
 class ConstructorQuestionSchema(BaseModel):
     model_config = ConfigDict(extra="forbid", str_strip_whitespace=True)
 
@@ -59,6 +84,7 @@ class ConstructorQuestionSchema(BaseModel):
     min_value: float | None = None
     max_value: float | None = None
     weight: float = Field(default=1.0, gt=0, le=100)
+    visibility_condition: ConstructorLogicConditionSchema | None = None
 
     @field_validator("question_type")
     @classmethod
@@ -98,6 +124,7 @@ class ConstructorSectionSchema(BaseModel):
 
     title: str = Field(min_length=1, max_length=255)
     questions: list[ConstructorQuestionSchema] = Field(min_length=1, max_length=200)
+    visibility_condition: ConstructorLogicConditionSchema | None = None
 
 
 class ConstructorCustomFieldSchema(BaseModel):
@@ -199,6 +226,38 @@ class ConstructorPayloadSchema(BaseModel):
                 raise ValueError(f"Дублирующийся ключ формулы: {key}")
             formula_keys.add(key)
 
+        question_keys_in_order: list[str] = []
+        question_conditions: list[dict | None] = []
+        section_conditions: list[dict | None] = []
+        section_question_counts: list[int] = []
+        for section_index, section in enumerate(self.sections_payload, start=1):
+            section_condition = (
+                section.visibility_condition.model_dump() if section.visibility_condition else None
+            )
+            section_conditions.append(section_condition)
+            section_question_counts.append(len(section.questions))
+            for question_index, question in enumerate(section.questions, start=1):
+                key = _normalize_key(
+                    question.key or question.text,
+                    f"question_{section_index}_{question_index}",
+                )
+                question_keys_in_order.append(key)
+                question_conditions.append(
+                    question.visibility_condition.model_dump()
+                    if question.visibility_condition
+                    else None
+                )
+
+        try:
+            validate_condition_dependencies(
+                question_keys_in_order=question_keys_in_order,
+                section_conditions=section_conditions,
+                question_conditions=question_conditions,
+                section_question_counts=section_question_counts,
+            )
+        except ValueError as exc:
+            raise ValueError(str(exc)) from exc
+
         return self
 
     def to_service_payload(self) -> dict[str, Any]:
@@ -234,9 +293,24 @@ class ConstructorPayloadSchema(BaseModel):
                         "min_value": question.min_value,
                         "max_value": question.max_value,
                         "weight": question.weight,
+                        "visibility_condition_json": (
+                            question.visibility_condition.model_dump()
+                            if question.visibility_condition
+                            else None
+                        ),
                     }
                 )
-            sections_payload.append({"title": section.title, "questions": questions})
+            sections_payload.append(
+                {
+                    "title": section.title,
+                    "questions": questions,
+                    "visibility_condition_json": (
+                        section.visibility_condition.model_dump()
+                        if section.visibility_condition
+                        else None
+                    ),
+                }
+            )
 
         formulas_payload = []
         for idx, formula in enumerate(self.formulas_payload, start=1):
