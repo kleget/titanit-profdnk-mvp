@@ -10,9 +10,15 @@
   <p class="muted">Лаконичный сценарий презентации без перегруза. Каждый блок отражает реальную функцию платформы.</p>
   <div class="actions">
     <button class="btn ghost" type="button" data-history-back data-fallback="{{ back_fallback }}">Назад</button>
-    <a class="btn" href="/tests/new">Открыть конструктор</a>
-    <a class="btn ghost" href="/tests">Мои опросники</a>
-    <a class="btn ghost" href="/dashboard">Кабинет</a>
+    {% if not user %}
+      <a class="btn" href="/login">Войти</a>
+    {% elif user.role.value == "admin" %}
+      <a class="btn" href="/admin">Открыть админку</a>
+      <a class="btn ghost" href="/tests">Опросники</a>
+    {% else %}
+      <a class="btn" href="/tests">Мои опросники</a>
+      <a class="btn ghost" href="/tests/new">Конструктор</a>
+    {% endif %}
   </div>
 </section>
 

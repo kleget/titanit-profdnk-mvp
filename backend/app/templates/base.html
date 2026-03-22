@@ -44,6 +44,11 @@
               href="/admin"
               {% if current_path.startswith('/admin') %}aria-current="page"{% endif %}
             >Админ</a>
+            <a
+              class="{% if current_path.startswith('/tests') %}is-active{% endif %}"
+              href="/tests"
+              {% if current_path.startswith('/tests') %}aria-current="page"{% endif %}
+            >Опросники</a>
           {% else %}
             <a
               class="{% if current_path.startswith('/dashboard') %}is-active{% endif %}"
