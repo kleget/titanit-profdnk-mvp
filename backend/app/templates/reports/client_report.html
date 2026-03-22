@@ -1,4 +1,4 @@
-<!doctype html>
+﻿<!doctype html>
 <html lang="ru">
 <head>
   <meta charset="utf-8">
@@ -6,119 +6,198 @@
   <title>{{ title }}</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&family=Sora:wght@500;600;700&display=swap" rel="stylesheet">
-  <script>
-    (function () {
-      let savedTheme = null;
-      try {
-        savedTheme = localStorage.getItem("profdnk_theme");
-      } catch (error) {
-        savedTheme = null;
-      }
-      const theme = savedTheme === "light" || savedTheme === "dark" ? savedTheme : "light";
-      document.documentElement.setAttribute("data-theme", theme);
-    })();
-  </script>
+  <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
   <style>
     :root {
-      --ink: #16181d;
-      --muted: #5c6574;
-      --line: #e3e7ee;
-      --bg: #f6f8fb;
-      --page-bg: #ffffff;
+      --ink: #172027;
+      --muted: #5e6d76;
+      --line: #d7e0e5;
       --surface: #ffffff;
-      --surface-soft: #f6f8fb;
-      --bar-bg: #dfe7f0;
-      --accent: #6be13f;
-      --accent2: #38bdf8;
+      --surface-2: #f5f8fa;
+      --accent: #4fb59b;
     }
-    html[data-theme="dark"] {
-      --ink: #e8edf6;
-      --muted: #95a4bb;
-      --line: #2f3d53;
-      --bg: #141d2c;
-      --page-bg: #0a0f18;
-      --surface: #101828;
-      --surface-soft: #162133;
-      --bar-bg: #243349;
-      color-scheme: dark;
-    }
-    body { font-family: "IBM Plex Sans", "Segoe UI", sans-serif; margin: 24px; color: var(--ink); background: var(--page-bg); transition: background-color .2s ease, color .2s ease; }
-    h1, h2, h3 { margin: 0 0 12px; font-family: "Sora", "IBM Plex Sans", sans-serif; letter-spacing: -0.01em; }
-    .muted { color: var(--muted); }
-    .panel { border: 1px solid var(--line); border-radius: 12px; padding: 16px; margin: 12px 0; background: var(--surface); }
-    .panel-soft { background: var(--surface-soft); }
-    table { width: 100%; border-collapse: collapse; margin-top: 10px; }
-    th, td { border: 1px solid var(--line); padding: 8px; text-align: left; vertical-align: top; }
-    th { background: var(--bg); }
-    .metric-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px; }
-    .metric-card { border: 1px solid var(--line); border-radius: 10px; padding: 10px; background: var(--surface); }
-    .metric-card strong { font-size: 20px; display: block; }
-    .chart-grid { display: grid; gap: 10px; }
-    .chart-row { display: grid; gap: 6px; }
-    .chart-head { display: flex; justify-content: space-between; font-size: 14px; }
-    .bar { height: 12px; border-radius: 999px; background: var(--bar-bg); overflow: hidden; }
-    .bar span { display: block; height: 100%; background: linear-gradient(90deg, var(--accent2), var(--accent)); }
-    .formula-list { margin: 0; padding-left: 18px; }
-    .formula-list li { margin-bottom: 8px; }
-    .theme-switch {
-      position: sticky;
-      top: 8px;
-      float: right;
-      border: 1px solid var(--line);
-      border-radius: 999px;
-      background: var(--surface);
+
+    * { box-sizing: border-box; }
+
+    body {
+      font-family: "IBM Plex Sans", "Segoe UI", sans-serif;
+      margin: 20px;
       color: var(--ink);
-      padding: 8px 12px;
-      cursor: pointer;
-      font-weight: 600;
-      margin-bottom: 8px;
+      background: #fff;
+      line-height: 1.42;
+      font-size: 14px;
     }
+
+    h1, h2, h3 { margin: 0 0 10px; line-height: 1.2; }
+    h1 { font-size: 24px; }
+    h2 { font-size: 18px; }
+    h3 { font-size: 16px; }
+
+    p { margin: 0; }
+
+    .muted { color: var(--muted); }
+
+    .panel {
+      border: 1px solid var(--line);
+      border-radius: 12px;
+      padding: 14px;
+      margin: 10px 0;
+      background: var(--surface);
+      break-inside: avoid;
+      page-break-inside: avoid;
+    }
+
+    .panel-soft {
+      background: var(--surface-2);
+    }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      margin-top: 10px;
+    }
+
+    th,
+    td {
+      border: 1px solid var(--line);
+      padding: 8px;
+      text-align: left;
+      vertical-align: top;
+    }
+
+    th {
+      background: var(--surface-2);
+      font-weight: 600;
+    }
+
+    .metric-grid {
+      display: grid;
+      gap: 10px;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+    }
+
+    .metric-card {
+      border: 1px solid var(--line);
+      border-radius: 10px;
+      background: var(--surface);
+      padding: 10px;
+      break-inside: avoid;
+      page-break-inside: avoid;
+    }
+
+    .metric-card strong {
+      display: block;
+      font-size: 22px;
+      margin-top: 6px;
+    }
+
+    .chart-grid {
+      display: grid;
+      gap: 10px;
+    }
+
+    .chart-row {
+      display: grid;
+      gap: 6px;
+    }
+
+    .chart-head {
+      display: flex;
+      justify-content: space-between;
+      gap: 8px;
+      font-size: 13px;
+    }
+
+    .bar {
+      height: 10px;
+      border-radius: 999px;
+      overflow: hidden;
+      background: #dbe5ea;
+    }
+
+    .bar span {
+      display: block;
+      height: 100%;
+      background: linear-gradient(90deg, #6ec8b1, var(--accent));
+    }
+
+    .formula-list {
+      margin: 0;
+      padding-left: 18px;
+    }
+
+    .formula-list li + li {
+      margin-top: 6px;
+    }
+
+    @media (max-width: 760px) {
+      body {
+        margin: 10px;
+      }
+
+      .metric-grid {
+        grid-template-columns: 1fr;
+      }
+
+      table,
+      thead,
+      tbody,
+      tr,
+      th,
+      td {
+        display: block;
+        width: 100%;
+      }
+
+      thead {
+        display: none;
+      }
+
+      tr {
+        border: 1px solid var(--line);
+        border-radius: 10px;
+        margin-bottom: 8px;
+        overflow: hidden;
+      }
+
+      td {
+        border: 0;
+        border-bottom: 1px solid var(--line);
+      }
+
+      td:last-child {
+        border-bottom: 0;
+      }
+    }
+
     @media print {
       @page {
         size: A4;
         margin: 12mm;
       }
-      html,
-      body {
-        background: #fff !important;
-        color: #111 !important;
-      }
+
       body {
         margin: 0;
-        -webkit-print-color-adjust: exact;
-        print-color-adjust: exact;
-      }
-      .theme-switch { display: none; }
-      .panel,
-      .metric-card {
-        background: #fff !important;
-        border-color: #cfd8e3 !important;
-        box-shadow: none !important;
-        break-inside: avoid;
-        page-break-inside: avoid;
-      }
-      .panel {
-        margin: 10px 0;
-      }
-      table {
         font-size: 11pt;
       }
+
+      .panel,
+      .metric-card {
+        box-shadow: none !important;
+      }
+
       thead {
         display: table-header-group;
       }
+
       tr {
         break-inside: avoid;
         page-break-inside: avoid;
-      }
-      .bar {
-        border: 1px solid #cfd8e3;
       }
     }
   </style>
 </head>
 <body>
-  <button id="report-theme-toggle" class="theme-switch" type="button">Тема: светлая</button>
   <h1>{{ title }}</h1>
   <p class="muted">Тест: {{ test_title }} · Клиент: {{ client_name }} · Дата: {{ submitted_at }}</p>
 
@@ -216,33 +295,5 @@
       </div>
     {% endif %}
   {% endfor %}
-  <script>
-    (function () {
-      const toggle = document.getElementById("report-theme-toggle");
-      if (!toggle) {
-        return;
-      }
-
-      function currentTheme() {
-        return document.documentElement.getAttribute("data-theme") === "dark" ? "dark" : "light";
-      }
-
-      function setTheme(theme) {
-        document.documentElement.setAttribute("data-theme", theme);
-        try {
-          localStorage.setItem("profdnk_theme", theme);
-        } catch (error) {
-          // Ничего не делаем, если хранилище недоступно.
-        }
-        toggle.textContent = theme === "dark" ? "Тема: тёмная" : "Тема: светлая";
-      }
-
-      setTheme(currentTheme());
-      toggle.addEventListener("click", function () {
-        const next = currentTheme() === "dark" ? "light" : "dark";
-        setTheme(next);
-      });
-    })();
-  </script>
 </body>
 </html>
