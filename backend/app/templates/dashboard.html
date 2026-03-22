@@ -1,4 +1,4 @@
-{% extends "base.html" %}
+﻿{% extends "base.html" %}
 {% block content %}
 {% set avg_submissions = (submissions_count / tests_count) if tests_count else 0 %}
 <section class="hero-surface" data-reveal>
@@ -98,9 +98,8 @@
         accept=".png,.jpg,.jpeg,.webp"
         required
       >
-      <label class="btn ghost file-picker-btn" for="photo-file-input">Выбрать фото</label>
-      <span id="photo-file-name" class="file-name empty">Файл не выбран</span>
-      <button id="photo-upload-submit" class="btn ghost" type="submit" disabled>Загрузить фото</button>
+      <label class="btn ghost file-picker-btn" for="photo-file-input">Обновить фото</label>
+      <span class="muted">После выбора файл загрузится автоматически.</span>
     </form>
     <form method="post" action="/profile" class="form-grid">
       {{ csrf_input(request) }}
@@ -110,37 +109,28 @@
       </label>
       <button class="btn" type="submit">Сохранить</button>
     </form>
-    <div class="md-preview">
-      <h3>Предпросмотр визитки</h3>
-      <div class="rich">{{ about_html | safe }}</div>
-    </div>
   </article>
 </section>
 
 <script>
   const photoInput = document.getElementById("photo-file-input");
-  const photoName = document.getElementById("photo-file-name");
-  const photoSubmit = document.getElementById("photo-upload-submit");
+  const photoForm = photoInput ? photoInput.closest("form") : null;
 
-  function updatePhotoUploadState() {
-    if (!photoInput || !photoName || !photoSubmit) {
+  function submitPhotoOnSelect() {
+    if (!photoInput || !photoForm) {
       return;
     }
     const file = photoInput.files && photoInput.files[0];
-    if (file) {
-      photoName.textContent = file.name;
-      photoName.classList.remove("empty");
-      photoSubmit.disabled = false;
+    if (!file) {
       return;
     }
-    photoName.textContent = "Файл не выбран";
-    photoName.classList.add("empty");
-    photoSubmit.disabled = true;
+    photoForm.submit();
   }
 
   if (photoInput) {
-    photoInput.addEventListener("change", updatePhotoUploadState);
-    updatePhotoUploadState();
+    photoInput.addEventListener("change", submitPhotoOnSelect);
   }
 </script>
 {% endblock %}
+
+

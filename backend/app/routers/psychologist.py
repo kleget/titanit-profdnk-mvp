@@ -28,7 +28,6 @@ from app.models import (
 from app.schemas.formula_preview import FormulaPreviewPayloadSchema
 from app.services.access_reminders import build_psychologist_access_reminder
 from app.services.client_fields import normalize_client_fields_config
-from app.services.content import render_safe_markdown
 from app.services.formulas import FormulaError, evaluate_formula
 from app.services.invite_links import (
     INVITE_LINK_STATE_ACTIVE,
@@ -742,7 +741,6 @@ def dashboard(
         or 0
     )
     access_reminder = build_psychologist_access_reminder(current_user)
-    about_html = render_safe_markdown(current_user.about_md or "")
     return templates.TemplateResponse(
         request,
         "dashboard.html",
@@ -752,7 +750,6 @@ def dashboard(
             "tests_count": tests_count,
             "submissions_count": submissions_count,
             "access_reminder": access_reminder,
-            "about_html": about_html,
             "base_url": settings.base_url,
         },
     )
