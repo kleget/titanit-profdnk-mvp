@@ -823,6 +823,57 @@
     return { context, issues };
   }
 
+  function collectStrictFormulaIssues() {
+    const issues = [];
+    const formulaItems = [...(formulaNode?.querySelectorAll(".question-item") || [])];
+    const formulaResolvedKeys = formulaItems.map((item, index) => {
+      const keyInput = item.querySelector("input[name='metric_key[]']");
+      const labelInput = item.querySelector("input[name='metric_label[]']");
+      return normalizeBuilderKey(
+        (keyInput?.value || "").trim() || (labelInput?.value || "").trim(),
+        `metric_${index + 1}`
+      );
+    });
+    const formulaKeyPosition = new Map(formulaResolvedKeys.map((key, index) => [key, index]));
+    const availableVariables = new Set([
+      ...FORMULA_PREVIEW_BASE_KEYS,
+      ...collectFormulaPreviewQuestionKeys(),
+    ]);
+
+    formulaItems.forEach((item, index) => {
+      const expressionInput = item.querySelector("input[name='metric_expression[]']");
+      const expression = String(expressionInput?.value || "").trim();
+      if (!expression) {
+        return;
+      }
+      const dependencies = parseFormulaIdentifiers(expression).filter(
+        (identifier) => !FORMULA_PREVIEW_ALLOWED_FUNCTIONS.has(identifier)
+      );
+      for (const dependency of dependencies) {
+        if (availableVariables.has(dependency)) {
+          continue;
+        }
+        const dependencyPosition = formulaKeyPosition.get(dependency);
+        if (dependencyPosition === undefined) {
+          issues.push({
+            input: expressionInput,
+            message: `Формула #${index + 1}: неизвестная переменная '${dependency}'. Используйте ключи вопросов.`,
+          });
+          break;
+        }
+        if (dependencyPosition >= index) {
+          issues.push({
+            input: expressionInput,
+            message: `Формула #${index + 1}: переменная '${dependency}' объявлена ниже по списку формул.`,
+          });
+          break;
+        }
+      }
+      availableVariables.add(formulaResolvedKeys[index]);
+    });
+    return issues;
+  }
+
   function renderFormulaPreviewResults(results) {
     if (!formulaPreviewResultsNode) {
       return;
@@ -884,6 +935,20 @@
     }
     if (formulas.some((formula) => !formula.expression)) {
       notify("error", "Для заполненных строк формул укажи выражение.");
+      return;
+    }
+
+    const strictIssues = collectStrictFormulaIssues();
+    if (strictIssues.length) {
+      const firstIssue = strictIssues[0];
+      if (firstIssue?.input) {
+        setValidationError(firstIssue.input, firstIssue.message);
+      }
+      notify("error", firstIssue?.message || "Формулы содержат ошибки.");
+      formulaPreviewResultsNode.innerHTML = "";
+      formulaPreviewResultsNode.appendChild(
+        createEmptyState(firstIssue?.message || "Формулы содержат ошибки.", "", null)
+      );
       return;
     }
 
@@ -2670,7 +2735,7 @@
     const sample = createFormulaItem({
       key: "adaptability_index",
       label: "Индекс адаптивности",
-      expression: "round((digital_skill + stress_level) / 2, 2)",
+      expression: "round((score_percent + completion_percent) / 2, 2)",
       description: "Средняя оценка цифровых навыков и устойчивости к нагрузке",
     });
     formulaNode.appendChild(sample);
