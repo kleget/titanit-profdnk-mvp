@@ -2,11 +2,15 @@
 {% block content %}
 <section class="panel">
   <div class="panel-head">
-    <h1>Мои опросники</h1>
+    <div>
+      <h1>Мои опросники</h1>
+      <p class="muted">Список методик, ссылки для клиентов и быстрые действия по экспорту/клонированию.</p>
+    </div>
     {% if user.role.value != "admin" %}
       <a class="btn" href="/tests/new">Создать тест</a>
     {% endif %}
   </div>
+
   {% if tests %}
     <div class="table-wrap">
       <table class="responsive-table responsive-cards-table">
@@ -40,12 +44,13 @@
             </td>
             <td data-label="Действия" class="actions-row">
               <button class="btn small ghost copy-link" data-link="{{ base_url }}/t/{{ test.share_token }}">Скопировать ссылку</button>
-              <form method="post" action="/tests/{{ test.id }}/clone">
+              <form method="post" action="/tests/{{ test.id }}/clone" class="inline-form">
                 {{ csrf_input(request) }}
                 <button class="btn small ghost" type="submit">Клонировать тест</button>
               </form>
-              <a class="btn small ghost" href="/tests/{{ test.id }}/submissions.csv">Экспорт CSV</a>
-              <a class="btn small ghost" href="/tests/{{ test.id }}/export.json">Экспорт JSON</a>
+              <a class="btn small ghost" href="/tests/{{ test.id }}/submissions.csv">CSV</a>
+              <a class="btn small ghost" href="/tests/{{ test.id }}/submissions.xlsx">XLSX</a>
+              <a class="btn small ghost" href="/tests/{{ test.id }}/export.json">JSON</a>
             </td>
           </tr>
         {% endfor %}
@@ -54,32 +59,34 @@
     </div>
   {% else %}
     <div class="empty-state">
-      <p>Опросников пока нет. Начни с первого теста и отправь ссылку клиенту, чтобы собрать первые результаты.</p>
+      <p>Опросников пока нет. Создайте первый тест и отправьте ссылку клиенту для запуска диагностики.</p>
       <div class="actions">
         <a class="btn" href="/tests/new">Создать первый тест</a>
-        <a class="btn ghost" href="/features">Открыть сценарий демонстрации</a>
+        <a class="btn ghost" href="/features">Посмотреть сценарий демонстрации</a>
       </div>
     </div>
   {% endif %}
 </section>
+{% endblock %}
 
+{% block extra_scripts %}
 <script>
-  document.querySelectorAll(".copy-link").forEach((btn) => {
-    btn.addEventListener("click", async () => {
-      try {
-        await navigator.clipboard.writeText(btn.dataset.link);
-        btn.textContent = "Ссылка скопирована";
-        if (typeof window.uiNotify === "function") {
-          window.uiNotify("success", "Ссылка на тест скопирована.");
-        }
-        setTimeout(() => { btn.textContent = "Скопировать ссылку"; }, 1200);
-      } catch (error) {
-        if (typeof window.uiNotify === "function") {
-          window.uiNotify("error", "Не удалось скопировать ссылку.");
-        }
+  document.querySelectorAll(".copy-link").forEach((button) => {
+    button.addEventListener("click", async () => {
+      const ok = await window.copyTextWithToast(
+        button.dataset.link || "",
+        "Ссылка на тест скопирована.",
+        "Не удалось скопировать ссылку."
+      );
+      if (!ok) {
+        return;
       }
+      const oldText = button.textContent;
+      button.textContent = "Ссылка скопирована";
+      setTimeout(() => {
+        button.textContent = oldText;
+      }, 1200);
     });
   });
 </script>
 {% endblock %}
-

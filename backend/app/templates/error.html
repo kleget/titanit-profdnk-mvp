@@ -1,10 +1,10 @@
-{% extends "base.html" %}
+﻿{% extends "base.html" %}
 {% block content %}
-<section class="panel">
+<section class="panel center-wrap">
   <h1>{{ error_title }} ({{ status_code }})</h1>
   <p class="muted">{{ error_message }}</p>
   <p class="muted">ID запроса: <code>{{ request_id }}</code></p>
-  <div class="actions-row">
+  <div class="actions">
     <a class="btn" href="{{ action_href }}">{{ action_label }}</a>
     <a class="btn ghost" href="/">На главную</a>
   </div>

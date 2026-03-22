@@ -1,234 +1,233 @@
-{% extends "base.html" %}
+﻿{% extends "base.html" %}
 {% block content %}
 <section class="grid builder-layout builder-page">
   <article class="panel">
-    <h1>Конструктор методик (ручной)</h1>
+    <h1>Конструктор методик</h1>
+    <p class="muted">Пошаговый мастер: базовые настройки, поля клиента, структура теста, логика и публикация.</p>
+
     <div class="builder-draft-bar">
       <span id="builder-draft-status" class="draft-status">Черновик: не сохранён</span>
       <div class="actions-row">
-        <button type="button" id="restore-builder-draft" class="btn small ghost" disabled>
-          Восстановить черновик
-        </button>
-        <button type="button" id="clear-builder-draft" class="btn small ghost" disabled>
-          Очистить черновик
-        </button>
+        <button type="button" id="restore-builder-draft" class="btn small ghost" disabled>Восстановить черновик</button>
+        <button type="button" id="clear-builder-draft" class="btn small ghost" disabled>Очистить черновик</button>
       </div>
     </div>
-    <nav class="builder-quick-nav" aria-label="Быстрые действия конструктора">
-      <button type="button" class="btn small ghost" data-builder-scroll="builder-block-core">Основное</button>
-      <button type="button" class="btn small ghost" data-builder-scroll="builder-block-client-fields">Поля клиента</button>
-      <button type="button" class="btn small ghost" data-builder-scroll="builder-block-questions">Вопросы</button>
-      <button type="button" class="btn small ghost" data-builder-scroll="builder-block-formulas">Формулы</button>
-      <button type="button" class="btn small ghost" data-builder-click="add-question">+ Вопрос</button>
-      <button type="button" class="btn small ghost" data-builder-click="add-section">+ Секция</button>
+
+    <nav class="builder-wizard-nav" aria-label="Шаги конструктора">
+      <button type="button" class="builder-step-btn is-active" data-step-target="1">1. Основное</button>
+      <button type="button" class="builder-step-btn" data-step-target="2">2. Поля клиента</button>
+      <button type="button" class="builder-step-btn" data-step-target="3">3. Секции и вопросы</button>
+      <button type="button" class="builder-step-btn" data-step-target="4">4. Логика и формулы</button>
+      <button type="button" class="builder-step-btn" data-step-target="5">5. Публикация</button>
     </nav>
+
     <form method="post" action="/tests/new/manual" class="form-grid" id="manual-builder">
       {{ csrf_input(request) }}
-      <div class="subpanel" id="builder-block-core">
-        <h3>Основные настройки методики</h3>
-        <label>
-          Название теста
-          <input name="title" required placeholder="Например: ПрофДНК v2">
-          <small class="field-hint">Минимум 5 символов, чтобы название было понятным на демо и в отчетах.</small>
-        </label>
-        <label>
-          Описание
-          <textarea name="description" rows="4" placeholder="Кратко о методике"></textarea>
-        </label>
-        <label>
-          Клиентский отчёт
-          <select name="allow_client_report">
-            <option value="true">Показывать клиенту</option>
-            <option value="false">Не показывать клиенту</option>
-          </select>
-        </label>
 
-        <fieldset>
-          <legend>Обязательные поля клиента</legend>
-          <label><input type="checkbox" checked disabled> full_name (всегда обязательно)</label>
-          <label><input type="checkbox" name="required_client_fields" value="email"> email</label>
-          <label><input type="checkbox" name="required_client_fields" value="phone"> phone</label>
-          <label><input type="checkbox" name="required_client_fields" value="age"> age</label>
-        </fieldset>
-      </div>
+      <section class="builder-step is-active" data-builder-step="1">
+        <div class="subpanel" id="builder-block-core">
+          <h3>Основные настройки</h3>
+          <label>
+            Название теста
+            <input name="title" required placeholder="Например: ПрофДНК v2">
+            <small class="field-hint">Минимум 5 символов, чтобы название было понятным на демо и в отчетах.</small>
+          </label>
+          <label>
+            Описание
+            <textarea name="description" rows="4" placeholder="Кратко о методике"></textarea>
+          </label>
+          <label>
+            Клиентский отчёт
+            <select name="allow_client_report">
+              <option value="true">Показывать клиенту</option>
+              <option value="false">Не показывать клиенту</option>
+            </select>
+          </label>
 
-      <div class="subpanel">
-        <div class="panel-head">
-          <h3>Быстрые пресеты методик</h3>
+          <fieldset>
+            <legend>Обязательные поля клиента</legend>
+            <label><input type="checkbox" checked disabled> full_name (всегда обязательно)</label>
+            <label><input type="checkbox" name="required_client_fields" value="email"> email</label>
+            <label><input type="checkbox" name="required_client_fields" value="phone"> phone</label>
+            <label><input type="checkbox" name="required_client_fields" value="age"> age</label>
+          </fieldset>
         </div>
-        <p class="muted">
-          Готовые стартовые шаблоны для разных аудиторий. Пресет заполняет структуру, вопросы,
-          формулы и блоки отчетов, после чего можно сразу донастроить детали.
-        </p>
-        <div class="actions">
-          <button type="button" class="btn small ghost method-preset-btn" data-template="school_trajectory">
-            Пресет: Школьная траектория
-          </button>
-          <button type="button" class="btn small ghost method-preset-btn" data-template="college_focus">
-            Пресет: Колледж/вуз
-          </button>
-          <button type="button" class="btn small ghost method-preset-btn" data-template="career_restart">
-            Пресет: Карьерный перезапуск
-          </button>
-        </div>
-      </div>
 
-      <div class="subpanel" id="builder-block-client-fields">
-        <div class="panel-head">
-          <h3>Дополнительные поля клиента</h3>
-          <button type="button" id="add-client-field" class="btn small">+ Поле</button>
-        </div>
-        <p class="muted">
-          Настрой собственные поля анкеты клиента для этого теста.
-          Можно быстро добавить шаблон и затем отредактировать.
-        </p>
-        <div class="actions">
-          <button type="button" class="btn small ghost client-field-template" data-template="school">
-            Шаблон: Школа/вуз
-          </button>
-          <button type="button" class="btn small ghost client-field-template" data-template="career">
-            Шаблон: Карьерная сессия
-          </button>
-        </div>
-        <div id="client-field-list"></div>
-      </div>
-
-      <div class="subpanel" id="builder-block-report-templates">
-        <div class="panel-head">
-          <h3>Конструктор шаблонов отчётов</h3>
-        </div>
-        <p class="muted">
-          Настрой, какие блоки и в каком порядке попадут в клиентский и профессиональный отчёты.
-          Можно использовать готовые пресеты и донастроить вручную.
-        </p>
-        <div class="actions">
-          <button type="button" class="btn small ghost report-template-preset" data-template="base">
-            Пресет: базовый
-          </button>
-          <button type="button" class="btn small ghost report-template-preset" data-template="demo_focus">
-            Пресет: короткий клиент
-          </button>
-        </div>
-        <div class="grid builder-report-grid">
-          <div class="question-item">
-            <div class="panel-head">
-              <h4>Клиентский отчёт</h4>
-              <button type="button" id="add-client-report-block" class="btn small">+ Блок</button>
-            </div>
-            <div id="client-report-block-list"></div>
+        <details class="collapse-panel" open>
+          <summary>Быстрые пресеты методик</summary>
+          <div class="actions">
+            <button type="button" class="btn small ghost method-preset-btn" data-template="school_trajectory">Школьная траектория</button>
+            <button type="button" class="btn small ghost method-preset-btn" data-template="college_focus">Колледж/вуз</button>
+            <button type="button" class="btn small ghost method-preset-btn" data-template="career_restart">Карьерный перезапуск</button>
           </div>
-          <div class="question-item">
-            <div class="panel-head">
-              <h4>Профессиональный отчёт</h4>
-              <button type="button" id="add-psych-report-block" class="btn small">+ Блок</button>
-            </div>
-            <div id="psych-report-block-list"></div>
+        </details>
+
+        <div class="builder-step-foot">
+          <span class="muted">Шаг 1 из 5</span>
+          <div class="actions">
+            <button type="button" class="btn" data-step-next>Далее</button>
           </div>
         </div>
-      </div>
+      </section>
 
-      <div class="subpanel" id="builder-block-sections">
-        <h3>Секции</h3>
-        <p class="field-hint">Сначала задай логические разделы, потом привяжи к ним вопросы.</p>
-        <div id="sections">
-          <div class="inline-form">
-            <input name="section_titles[]" value="Профиль клиента" required>
-          </div>
-          <div class="inline-form">
-            <input name="section_titles[]" value="Интересы и стиль работы" required>
-          </div>
-        </div>
-        <button type="button" id="add-section" class="btn small ghost">+ Секция</button>
-      </div>
-
-      <div class="subpanel" id="builder-block-questions">
-        <div class="panel-head">
-          <h3>Вопросы</h3>
-          <button type="button" id="add-question" class="btn small">+ Вопрос</button>
-        </div>
-        <p class="field-hint">Для вариантов выбора обязательно заполни опции в формате "Текст:балл".</p>
-        <div id="question-list"></div>
-      </div>
-
-      <div class="subpanel" id="builder-block-formulas">
-        <div class="panel-head">
-          <h3>Редактор формул метрик</h3>
-          <button type="button" id="add-metric-formula" class="btn small">+ Формула</button>
-        </div>
-        <p class="muted">
-          Переменные: ключи вопросов + базовые метрики:
-          <code>total_score</code>, <code>score_percent</code>, <code>completion_percent</code>,
-          <code>answered_count</code>, <code>total_questions</code>.
-          Функции: <code>min</code>, <code>max</code>, <code>abs</code>, <code>round</code>.
-        </p>
-        <div class="actions">
-          <button type="button" class="btn small ghost formula-preset-btn" data-template="engagement_base">
-            Пресет: вовлечённость
-          </button>
-          <button type="button" class="btn small ghost formula-preset-btn" data-template="career_readiness">
-            Пресет: карьерная готовность
-          </button>
-          <button type="button" class="btn small ghost formula-preset-btn" data-template="risk_profile">
-            Пресет: риск-профиль
-          </button>
-        </div>
-        <div id="metric-formula-list"></div>
-        <div class="formula-preview-panel">
+      <section class="builder-step" data-builder-step="2">
+        <div class="subpanel" id="builder-block-client-fields">
           <div class="panel-head">
-            <h4>Проверка формул на тестовых данных</h4>
-            <button type="button" id="run-formula-preview" class="btn small ghost">
-              Проверить формулы
-            </button>
+            <h3>Дополнительные поля клиента</h3>
+            <button type="button" id="add-client-field" class="btn small">+ Поле</button>
+          </div>
+          <p class="muted">Настройте дополнительные поля анкеты клиента. Можно использовать быстрые шаблоны.</p>
+          <div class="actions">
+            <button type="button" class="btn small ghost client-field-template" data-template="school">Шаблон: школа/вуз</button>
+            <button type="button" class="btn small ghost client-field-template" data-template="career">Шаблон: карьерная сессия</button>
+          </div>
+          <div id="client-field-list"></div>
+        </div>
+
+        <details class="collapse-panel" id="builder-block-report-templates">
+          <summary>Расширенные настройки: шаблоны отчётов</summary>
+          <p class="muted">Определите блоки и порядок вывода для клиентского и профессионального отчета.</p>
+          <div class="actions">
+            <button type="button" class="btn small ghost report-template-preset" data-template="base">Пресет: базовый</button>
+            <button type="button" class="btn small ghost report-template-preset" data-template="demo_focus">Пресет: короткий клиент</button>
+          </div>
+          <div class="grid builder-report-grid">
+            <div class="question-item">
+              <div class="panel-head">
+                <h4>Клиентский отчёт</h4>
+                <button type="button" id="add-client-report-block" class="btn small">+ Блок</button>
+              </div>
+              <div id="client-report-block-list"></div>
+            </div>
+            <div class="question-item">
+              <div class="panel-head">
+                <h4>Профессиональный отчёт</h4>
+                <button type="button" id="add-psych-report-block" class="btn small">+ Блок</button>
+              </div>
+              <div id="psych-report-block-list"></div>
+            </div>
+          </div>
+        </details>
+
+        <div class="builder-step-foot">
+          <span class="muted">Шаг 2 из 5</span>
+          <div class="actions">
+            <button type="button" class="btn ghost" data-step-prev>Назад</button>
+            <button type="button" class="btn" data-step-next>Далее</button>
+          </div>
+        </div>
+      </section>
+
+      <section class="builder-step" data-builder-step="3">
+        <div class="subpanel" id="builder-block-sections">
+          <h3>Секции</h3>
+          <p class="field-hint">Сначала задайте разделы, затем привяжите вопросы.</p>
+          <div id="sections">
+            <div class="inline-form">
+              <input name="section_titles[]" value="Профиль клиента" required>
+            </div>
+            <div class="inline-form">
+              <input name="section_titles[]" value="Интересы и стиль работы" required>
+            </div>
+          </div>
+          <button type="button" id="add-section" class="btn small ghost">+ Секция</button>
+        </div>
+
+        <div class="subpanel" id="builder-block-questions">
+          <div class="panel-head">
+            <h3>Вопросы</h3>
+            <button type="button" id="add-question" class="btn small">+ Вопрос</button>
+          </div>
+          <p class="field-hint">Для вариантов выбора заполняйте опции в формате "Текст:балл".</p>
+          <div id="question-list"></div>
+        </div>
+
+        <div class="builder-step-foot">
+          <span class="muted">Шаг 3 из 5</span>
+          <div class="actions">
+            <button type="button" class="btn ghost" data-step-prev>Назад</button>
+            <button type="button" class="btn" data-step-next>Далее</button>
+          </div>
+        </div>
+      </section>
+
+      <section class="builder-step" data-builder-step="4">
+        <details class="collapse-panel" open id="builder-block-formulas">
+          <summary>Редактор формул метрик</summary>
+          <div class="panel-head">
+            <h4>Производные метрики</h4>
+            <button type="button" id="add-metric-formula" class="btn small">+ Формула</button>
           </div>
           <p class="muted">
-            Укажи тестовые значения и проверь, как считаются метрики до публикации методики.
+            Переменные: ключи вопросов + базовые метрики:
+            <code>total_score</code>, <code>score_percent</code>, <code>completion_percent</code>,
+            <code>answered_count</code>, <code>total_questions</code>.
           </p>
-          <div class="formula-preview-grid">
-            <label>
-              total_score
-              <input type="number" step="any" value="42" data-formula-base-key="total_score">
-            </label>
-            <label>
-              max_score
-              <input type="number" step="any" value="60" data-formula-base-key="max_score">
-            </label>
-            <label>
-              score_percent
-              <input type="number" step="any" value="70" data-formula-base-key="score_percent">
-            </label>
-            <label>
-              completion_percent
-              <input type="number" step="any" value="90" data-formula-base-key="completion_percent">
-            </label>
-            <label>
-              answered_count
-              <input type="number" step="any" value="9" data-formula-base-key="answered_count">
-            </label>
-            <label>
-              total_questions
-              <input type="number" step="any" value="10" data-formula-base-key="total_questions">
-            </label>
+          <div class="actions">
+            <button type="button" class="btn small ghost formula-preset-btn" data-template="engagement_base">Вовлечённость</button>
+            <button type="button" class="btn small ghost formula-preset-btn" data-template="career_readiness">Карьерная готовность</button>
+            <button type="button" class="btn small ghost formula-preset-btn" data-template="risk_profile">Риск-профиль</button>
           </div>
-          <div>
-            <h4>Переменные вопросов</h4>
-            <p class="muted">
-              Поля формируются автоматически по ключам вопросов и идентификаторам из формул.
-            </p>
-            <div id="formula-preview-question-context" class="formula-preview-grid"></div>
-          </div>
-          <div id="formula-preview-results" class="formula-preview-results"></div>
-        </div>
-      </div>
+          <div id="metric-formula-list"></div>
 
-      <div class="sticky-action-bar">
-        <button class="btn" type="submit">Создать тест</button>
-      </div>
+          <div class="formula-preview-panel">
+            <div class="panel-head">
+              <h4>Проверка формул на тестовых данных</h4>
+              <button type="button" id="run-formula-preview" class="btn small ghost">Проверить формулы</button>
+            </div>
+            <div class="formula-preview-grid">
+              <label>total_score<input type="number" step="any" value="42" data-formula-base-key="total_score"></label>
+              <label>max_score<input type="number" step="any" value="60" data-formula-base-key="max_score"></label>
+              <label>score_percent<input type="number" step="any" value="70" data-formula-base-key="score_percent"></label>
+              <label>completion_percent<input type="number" step="any" value="90" data-formula-base-key="completion_percent"></label>
+              <label>answered_count<input type="number" step="any" value="9" data-formula-base-key="answered_count"></label>
+              <label>total_questions<input type="number" step="any" value="10" data-formula-base-key="total_questions"></label>
+            </div>
+            <div>
+              <h4>Переменные вопросов</h4>
+              <p class="muted">Формируются автоматически по ключам вопросов и идентификаторам формул.</p>
+              <div id="formula-preview-question-context" class="formula-preview-grid"></div>
+            </div>
+            <div id="formula-preview-results" class="formula-preview-results"></div>
+          </div>
+        </details>
+
+        <div class="builder-step-foot">
+          <span class="muted">Шаг 4 из 5</span>
+          <div class="actions">
+            <button type="button" class="btn ghost" data-step-prev>Назад</button>
+            <button type="button" class="btn" data-step-next>Далее</button>
+          </div>
+        </div>
+      </section>
+
+      <section class="builder-step" data-builder-step="5">
+        <div class="subpanel">
+          <h3>Публикация методики</h3>
+          <ul class="feature-list">
+            <li>Проверьте название, обязательные поля клиента и структуру вопросов.</li>
+            <li>Если нужны сложные настройки, откройте формулы на предыдущем шаге.</li>
+            <li>После публикации тест сразу появится в списке опросников.</li>
+          </ul>
+        </div>
+
+        <div class="sticky-action-bar">
+          <button class="btn" type="submit">Создать тест</button>
+        </div>
+
+        <div class="builder-step-foot">
+          <span class="muted">Шаг 5 из 5</span>
+          <div class="actions">
+            <button type="button" class="btn ghost" data-step-prev>Назад</button>
+          </div>
+        </div>
+      </section>
     </form>
   </article>
 
   <article class="panel">
     <h2>Импорт JSON</h2>
-    <p class="muted">Можно быстро импортировать методику вместе с формулами.</p>
+    <p class="muted">Быстрый способ создать методику из готовой структуры.</p>
     <form method="post" action="/tests/new/import" class="form-grid">
       {{ csrf_input(request) }}
       <label>
@@ -318,39 +317,9 @@
     </form>
   </article>
 </section>
+{% endblock %}
 
-<script src="/static/js/builder.js?v=20260321h"></script>
-<script>
-  (function () {
-    const scrollButtons = Array.from(document.querySelectorAll("[data-builder-scroll]"));
-    const clickButtons = Array.from(document.querySelectorAll("[data-builder-click]"));
-
-    scrollButtons.forEach((button) => {
-      button.addEventListener("click", () => {
-        const targetId = button.dataset.builderScroll;
-        if (!targetId) {
-          return;
-        }
-        const target = document.getElementById(targetId);
-        if (!target) {
-          return;
-        }
-        target.scrollIntoView({ behavior: "smooth", block: "start" });
-      });
-    });
-
-    clickButtons.forEach((button) => {
-      button.addEventListener("click", () => {
-        const actionId = button.dataset.builderClick;
-        if (!actionId) {
-          return;
-        }
-        const target = document.getElementById(actionId);
-        if (target) {
-          target.click();
-        }
-      });
-    });
-  })();
-</script>
+{% block extra_scripts %}
+<script src="/static/js/builder.js?v=20260322v2a"></script>
+<script src="/static/js/builder-wizard.js?v=20260322v2a"></script>
 {% endblock %}

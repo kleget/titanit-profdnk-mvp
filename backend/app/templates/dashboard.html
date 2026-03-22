@@ -1,93 +1,48 @@
 ﻿{% extends "base.html" %}
 {% block content %}
 {% set avg_submissions = (submissions_count / tests_count) if tests_count else 0 %}
-<section class="hero-surface" data-reveal>
-  <div class="hero-copy">
-    <p class="hero-eyebrow">Платформа профориентационной диагностики</p>
-    <h1>Личный кабинет психолога</h1>
-    <p class="muted">
-      Здесь собраны создание методик, кампании по ссылкам, результаты прохождений и отчеты.
-      Показывай на защите полный рабочий цикл без переключения между разными сервисами.
-    </p>
+<section class="panel">
+  <div class="panel-head">
+    <div>
+      <h1>Личный кабинет психолога</h1>
+      <p class="muted">Минимальный рабочий контур: создание методик, рассылка ссылок, сбор результатов и отчеты.</p>
+    </div>
     <div class="actions">
       <a class="btn" href="/tests/new">Создать методику</a>
-      <a class="btn ghost" href="/tests">Открыть опросники</a>
-      <a class="btn ghost" href="/features">Story-mode возможностей</a>
+      <a class="btn ghost" href="/tests">Опросники</a>
     </div>
   </div>
-  <div class="hero-kpi-grid">
-    <article class="kpi-card" data-reveal>
-      <p class="kpi-label">Всего тестов</p>
-      <strong class="kpi-value">{{ tests_count }}</strong>
-      <p class="kpi-meta">Готовых методик в рабочем контуре</p>
-      <div class="kpi-progress" style="--kpi-progress: {{ 100 if tests_count > 0 else 12 }}%"></div>
-    </article>
-    <article class="kpi-card" data-reveal>
-      <p class="kpi-label">Всего прохождений</p>
-      <strong class="kpi-value">{{ submissions_count }}</strong>
-      <p class="kpi-meta">Сохранённых анкет клиентов</p>
-      <div class="kpi-progress" style="--kpi-progress: {{ 100 if submissions_count > 0 else 10 }}%"></div>
-    </article>
-    <article class="kpi-card" data-reveal>
-      <p class="kpi-label">Среднее на тест</p>
-      <strong class="kpi-value">{{ "%.1f"|format(avg_submissions) }}</strong>
-      <p class="kpi-meta">Прохождений на одну методику</p>
-      <div class="kpi-progress" style="--kpi-progress: {{ 100 if avg_submissions >= 1 else 32 }}%"></div>
-    </article>
-    <article class="kpi-card" data-reveal>
-      <p class="kpi-label">Доступ до</p>
-      <strong class="kpi-value">{{ user.access_until.strftime("%Y-%m-%d") if user.access_until else "без срока" }}</strong>
-      <p class="kpi-meta">Срок действия кабинета</p>
-      <div class="kpi-progress" style="--kpi-progress: 72%"></div>
-    </article>
+
+  {% if access_reminder %}
+    <div class="alert {{ access_reminder.level }}">{{ access_reminder.message }}</div>
+  {% endif %}
+
+  <div class="stats">
+    <div class="stat">
+      <span class="muted">Тестов</span>
+      <strong>{{ tests_count }}</strong>
+    </div>
+    <div class="stat">
+      <span class="muted">Прохождений</span>
+      <strong>{{ submissions_count }}</strong>
+    </div>
+    <div class="stat">
+      <span class="muted">Среднее на тест</span>
+      <strong>{{ "%.1f"|format(avg_submissions) }}</strong>
+    </div>
   </div>
 </section>
 
-<section class="grid two-col dashboard-main-grid">
-  <article class="panel">
-    <h2>Рабочий контур психолога</h2>
-    {% if access_reminder %}
-      <div class="alert {{ access_reminder.level }}">{{ access_reminder.message }}</div>
-    {% endif %}
-    <div class="stats">
-      <div class="stat">
-        <strong>{{ tests_count }}</strong>
-        <span>Тестов</span>
-      </div>
-      <div class="stat">
-        <strong>{{ submissions_count }}</strong>
-        <span>Прохождений</span>
-      </div>
-      <div class="stat">
-        <strong>{{ user.access_until.strftime("%Y-%m-%d") if user.access_until else "без срока" }}</strong>
-        <span>Доступ до</span>
-      </div>
-    </div>
-    <div class="card-list">
-      <div class="card-item">
-        <h3>{{ user.full_name }}</h3>
-        <p class="muted">{{ user.email }} · {{ user.phone or "телефон не указан" }}</p>
-      </div>
-      <div class="card-item">
-        <h3>Возможности платформы</h3>
-        <p class="muted">Сводка текущих функций для демонстрации клиенту и жюри.</p>
-        <a class="btn small ghost" href="/features">Открыть список возможностей</a>
-      </div>
-      <div class="card-item">
-        <h3>Публичная визитка</h3>
-        <p class="muted">Ссылка для клиентов: <a href="/public/psychologists/{{ user.id }}" target="_blank">открыть</a></p>
-        <img class="qr" src="/public/psychologists/{{ user.id }}/qr" alt="QR визитки">
-      </div>
-    </div>
-  </article>
-
+<section class="grid two-col">
   <article class="panel">
     <h2>Профиль</h2>
+
     {% if user.photo_filename %}
       <img class="avatar" src="/static/uploads/{{ user.photo_filename }}" alt="Фото психолога">
     {% else %}
       <div class="avatar placeholder">Фото</div>
     {% endif %}
+
     <form method="post" action="/profile/photo" enctype="multipart/form-data" class="photo-upload-form">
       {{ csrf_input(request) }}
       <input
@@ -98,9 +53,10 @@
         accept=".png,.jpg,.jpeg,.webp"
         required
       >
-      <label class="btn ghost file-picker-btn" for="photo-file-input">Обновить фото</label>
+      <label class="btn ghost" for="photo-file-input">Обновить фото</label>
       <span class="muted">После выбора файл загрузится автоматически.</span>
     </form>
+
     <form method="post" action="/profile" class="form-grid">
       {{ csrf_input(request) }}
       <label>
@@ -110,27 +66,45 @@
       <button class="btn" type="submit">Сохранить</button>
     </form>
   </article>
-</section>
 
+  <article class="panel">
+    <h2>Рабочая информация</h2>
+    <div class="card-list">
+      <div class="card-item">
+        <h3>{{ user.full_name }}</h3>
+        <p class="muted">{{ user.email }}{% if user.phone %} · {{ user.phone }}{% endif %}</p>
+      </div>
+      <div class="card-item">
+        <h3>Доступ</h3>
+        <p class="muted">{{ user.access_until.strftime("%Y-%m-%d") if user.access_until else "без срока" }}</p>
+      </div>
+      <div class="card-item">
+        <h3>Публичная визитка</h3>
+        <p class="muted"><a href="/public/psychologists/{{ user.id }}" target="_blank">Открыть страницу визитки</a></p>
+        <img class="qr" src="/public/psychologists/{{ user.id }}/qr" alt="QR визитки">
+      </div>
+      <div class="card-item">
+        <h3>Возможности платформы</h3>
+        <p class="muted">Лаконичный one-pager для демо и жюри.</p>
+        <a class="btn small ghost" href="/features">Открыть /features</a>
+      </div>
+    </div>
+  </article>
+</section>
+{% endblock %}
+
+{% block extra_scripts %}
 <script>
   const photoInput = document.getElementById("photo-file-input");
   const photoForm = photoInput ? photoInput.closest("form") : null;
 
-  function submitPhotoOnSelect() {
-    if (!photoInput || !photoForm) {
-      return;
-    }
-    const file = photoInput.files && photoInput.files[0];
-    if (!file) {
-      return;
-    }
-    photoForm.submit();
-  }
-
-  if (photoInput) {
-    photoInput.addEventListener("change", submitPhotoOnSelect);
+  if (photoInput && photoForm) {
+    photoInput.addEventListener("change", () => {
+      const file = photoInput.files && photoInput.files[0];
+      if (file) {
+        photoForm.submit();
+      }
+    });
   }
 </script>
 {% endblock %}
-
-

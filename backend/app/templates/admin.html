@@ -1,63 +1,14 @@
 ﻿{% extends "base.html" %}
 {% block content %}
-<section class="panel">
-  <h2>Напоминания по доступу (7 / 3 / 1 дней)</h2>
-  {% if access_reminders %}
-    <div class="notice-list">
-      {% for reminder in access_reminders %}
-        <div class="alert {{ reminder.level }}">
-          <strong>{{ reminder.full_name }}</strong> · {{ reminder.email }}<br>
-          {{ reminder.message }}
-        </div>
-      {% endfor %}
-    </div>
-  {% else %}
-    <p class="muted">Сейчас нет психологов с напоминанием по доступу.</p>
-  {% endif %}
-</section>
-
-<section class="panel">
-  <h2>Аудит действий администратора</h2>
-  <div class="table-wrap">
-    <table class="responsive-table responsive-cards-table">
-      <thead>
-        <tr>
-          <th>Дата</th>
-          <th>Действие</th>
-          <th>Цель</th>
-          <th>Детали</th>
-        </tr>
-      </thead>
-      <tbody>
-        {% for item in audit_logs %}
-          <tr>
-            <td data-label="Дата">{{ item.created_at.strftime("%Y-%m-%d %H:%M") }}</td>
-            <td data-label="Действие"><code>{{ item.action }}</code></td>
-            <td data-label="Цель">{{ item.target_email or "-" }}</td>
-            <td data-label="Детали">
-              {% if item.details_json %}
-                <code>{{ item.details_json | tojson }}</code>
-              {% else %}
-                -
-              {% endif %}
-            </td>
-          </tr>
-        {% else %}
-          <tr>
-            <td colspan="4" class="muted">Пока нет записей аудита. Создай психолога или обнови доступ, чтобы появились первые события.</td>
-          </tr>
-        {% endfor %}
-      </tbody>
-    </table>
-  </div>
-</section>
-
 <section class="grid two-col">
   <article class="panel">
     <h1>Администрирование психологов</h1>
+    <p class="muted">Создание аккаунтов и управление сроком доступа выполняет только администратор.</p>
+
     {% if error %}
       <div class="alert">{{ error }}</div>
     {% endif %}
+
     <form method="post" action="/admin/psychologists" class="form-grid">
       {{ csrf_input(request) }}
       <label>
@@ -82,20 +33,21 @@
           autocomplete="new-password"
           data-password-input
         >
-        <small class="muted">
-          Минимум 8 символов, обязательно: строчная, заглавная буква и цифра.
-        </small>
+        <small class="field-hint">Минимум 8 символов, обязательно: строчная, заглавная буква и цифра.</small>
       </label>
+
       <div class="password-strength" data-password-meter data-level="0">
         <div class="password-strength-track">
           <span class="password-strength-fill"></span>
         </div>
         <p class="password-strength-text">Надежность пароля: не задан</p>
       </div>
+
       <label>
         Доступ до
         <input type="date" name="access_until">
       </label>
+
       <button class="btn" type="submit">Создать психолога</button>
     </form>
   </article>
@@ -123,7 +75,7 @@
                 <td data-label="Телефон">{{ p.phone or "-" }}</td>
                 <td data-label="Доступ до">{{ p.access_until.strftime("%Y-%m-%d") if p.access_until else "без срока" }}</td>
                 <td data-label="Статус">{{ "Заблокирован" if p.is_blocked else "Активен" }}</td>
-                <td data-label="Действия">
+                <td data-label="Действия" class="actions-row">
                   <form method="post" action="/admin/psychologists/{{ p.id }}/toggle-block" class="inline-form">
                     {{ csrf_input(request) }}
                     <button class="btn small ghost" type="submit">
@@ -143,13 +95,66 @@
       </div>
     {% else %}
       <div class="empty-state">
-        <p>Психологов пока нет. Заполни форму слева и создай первый аккаунт, чтобы открыть рабочий контур платформы.</p>
-        <p>После создания проверь вход под психологом и создание первого теста для демонстрации.</p>
+        <p>Психологов пока нет. Создайте первый аккаунт, чтобы открыть рабочий контур платформы.</p>
       </div>
     {% endif %}
   </article>
 </section>
 
+<details class="collapse-panel" {% if access_reminders %}open{% endif %}>
+  <summary>Напоминания по доступу (7 / 3 / 1 дней)</summary>
+  {% if access_reminders %}
+    <div class="notice-list">
+      {% for reminder in access_reminders %}
+        <div class="alert {{ reminder.level }}">
+          <strong>{{ reminder.full_name }}</strong> · {{ reminder.email }}<br>
+          {{ reminder.message }}
+        </div>
+      {% endfor %}
+    </div>
+  {% else %}
+    <p class="muted">Сейчас нет психологов с напоминаниями по доступу.</p>
+  {% endif %}
+</details>
+
+<details class="collapse-panel">
+  <summary>Аудит действий администратора</summary>
+  <div class="table-wrap">
+    <table class="responsive-table responsive-cards-table">
+      <thead>
+        <tr>
+          <th>Дата</th>
+          <th>Действие</th>
+          <th>Цель</th>
+          <th>Детали</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for item in audit_logs %}
+          <tr>
+            <td data-label="Дата">{{ item.created_at.strftime("%Y-%m-%d %H:%M") }}</td>
+            <td data-label="Действие"><code>{{ item.action }}</code></td>
+            <td data-label="Цель">{{ item.target_email or "-" }}</td>
+            <td data-label="Детали">
+              {% if item.details_json %}
+                <code>{{ item.details_json | tojson }}</code>
+              {% else %}
+                -
+              {% endif %}
+            </td>
+          </tr>
+        {% else %}
+          <tr>
+            <td colspan="4" class="muted">Пока нет записей аудита.</td>
+          </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</details>
+{% endblock %}
+
+{% block extra_scripts %}
 <script>
   const passwordInput = document.querySelector("[data-password-input]");
   const passwordMeter = document.querySelector("[data-password-meter]");
@@ -188,4 +193,3 @@
   }
 </script>
 {% endblock %}
-

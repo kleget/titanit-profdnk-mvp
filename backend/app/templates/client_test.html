@@ -1,4 +1,4 @@
-{% extends "base.html" %}
+﻿{% extends "base.html" %}
 {% block content %}
 <section class="panel client-progress-panel">
   <h1>{{ test.title }}</h1>
@@ -13,8 +13,10 @@
 <section class="panel">
   <form method="post" action="/t/{{ token }}" id="client-test-form" class="form-grid client-test-form">
     {{ csrf_input(request) }}
+
     <h2>Данные клиента</h2>
-    <p class="field-hint">Заполните блок о себе, затем пройдите вопросы методики. Прогресс обновляется автоматически.</p>
+    <p class="field-hint">Сначала заполните обязательные поля, затем пройдите разделы теста.</p>
+
     <label>
       ФИО *
       <input name="client_full_name" autocomplete="name" required>
@@ -36,8 +38,7 @@
             name="{{ field.name }}"
             placeholder="{{ field.placeholder }}"
             autocomplete="{{ 'email' if field.name == 'client_email' else 'tel' if field.name == 'client_phone' else 'off' }}"
-            {% if field.key == "age" %}inputmode="numeric"{% endif %}
-            {% if field.key == "age" %}min="0"{% endif %}
+            {% if field.key == "age" %}inputmode="numeric" min="0"{% endif %}
             {% if field.required %}required{% endif %}
           >
         {% endif %}
@@ -52,107 +53,111 @@
         data-if-op="{{ section.visibility_condition_json.operator if section.visibility_condition_json else '' }}"
         data-if-value="{{ section.visibility_condition_json.value if section.visibility_condition_json else '' }}"
       >
-      <div class="section-title">{{ section.title }}</div>
-      {% for q in section.questions %}
-        <div
-          class="question"
-          data-question
-          data-question-key="{{ q.key }}"
-          data-if-key="{{ q.visibility_condition_json.question_key if q.visibility_condition_json else '' }}"
-          data-if-op="{{ q.visibility_condition_json.operator if q.visibility_condition_json else '' }}"
-          data-if-value="{{ q.visibility_condition_json.value if q.visibility_condition_json else '' }}"
-        >
-          <div class="question-title">{{ q.text }} {% if q.required %}*{% endif %}</div>
+        <div class="section-title">{{ section.title }}</div>
 
-          {% if q.question_type.value == "text" %}
-            <input name="q_{{ q.id }}" {% if q.required %}required{% endif %}>
-          {% elif q.question_type.value == "textarea" %}
-            <textarea name="q_{{ q.id }}" rows="4" {% if q.required %}required{% endif %}></textarea>
-          {% elif q.question_type.value == "single_choice" %}
-            <select name="q_{{ q.id }}" {% if q.required %}required{% endif %}>
-              <option value="">Выберите вариант</option>
-              {% for option in q.options_json or [] %}
-                <option value="{{ option.value }}">{{ option.label }}</option>
-              {% endfor %}
-            </select>
-          {% elif q.question_type.value == "multiple_choice" %}
-            <div class="choice-group">
-              {% for option in q.options_json or [] %}
-                <label class="choice-option">
-                  <input type="checkbox" name="q_{{ q.id }}" value="{{ option.value }}">
-                  <span>{{ option.label }}</span>
-                </label>
-              {% endfor %}
-            </div>
-          {% elif q.question_type.value == "yes_no" %}
-            <div class="yesno-group">
-              <label class="choice-option">
-                <input type="radio" name="q_{{ q.id }}" value="true" {% if q.required %}required{% endif %}>
-                <span>Да</span>
-              </label>
-              <label class="choice-option">
-                <input type="radio" name="q_{{ q.id }}" value="false" {% if q.required %}required{% endif %}>
-                <span>Нет</span>
-              </label>
-            </div>
-          {% elif q.question_type.value == "number" %}
-            <input
-              type="number"
-              name="q_{{ q.id }}"
-              step="any"
-              min="{{ q.min_value if q.min_value is not none else '' }}"
-              max="{{ q.max_value if q.max_value is not none else '' }}"
-              placeholder="Введите число"
-              {% if q.required %}required{% endif %}
-            >
-          {% elif q.question_type.value == "slider" %}
-            {% set slider_min = (q.min_value if q.min_value is not none else 0) | int %}
-            {% set slider_max = (q.max_value if q.max_value is not none else 10) | int %}
-            {% set slider_start = slider_min %}
-            <div class="range-control">
-              <div class="range-control-top">
-                <span class="range-hint">Диапазон: {{ slider_min }}–{{ slider_max }}</span>
-                <output id="range-value-{{ q.id }}" class="range-value">{{ slider_start }}</output>
+        {% for q in section.questions %}
+          <div
+            class="question"
+            data-question
+            data-question-key="{{ q.key }}"
+            data-if-key="{{ q.visibility_condition_json.question_key if q.visibility_condition_json else '' }}"
+            data-if-op="{{ q.visibility_condition_json.operator if q.visibility_condition_json else '' }}"
+            data-if-value="{{ q.visibility_condition_json.value if q.visibility_condition_json else '' }}"
+          >
+            <div class="question-title">{{ q.text }} {% if q.required %}*{% endif %}</div>
+
+            {% if q.question_type.value == "text" %}
+              <input name="q_{{ q.id }}" {% if q.required %}required{% endif %}>
+            {% elif q.question_type.value == "textarea" %}
+              <textarea name="q_{{ q.id }}" rows="4" {% if q.required %}required{% endif %}></textarea>
+            {% elif q.question_type.value == "single_choice" %}
+              <select name="q_{{ q.id }}" {% if q.required %}required{% endif %}>
+                <option value="">Выберите вариант</option>
+                {% for option in q.options_json or [] %}
+                  <option value="{{ option.value }}">{{ option.label }}</option>
+                {% endfor %}
+              </select>
+            {% elif q.question_type.value == "multiple_choice" %}
+              <div class="choice-group">
+                {% for option in q.options_json or [] %}
+                  <label class="choice-option">
+                    <input type="checkbox" name="q_{{ q.id }}" value="{{ option.value }}">
+                    <span>{{ option.label }}</span>
+                  </label>
+                {% endfor %}
               </div>
+            {% elif q.question_type.value == "yes_no" %}
+              <div class="yesno-group">
+                <label class="choice-option">
+                  <input type="radio" name="q_{{ q.id }}" value="true" {% if q.required %}required{% endif %}>
+                  <span>Да</span>
+                </label>
+                <label class="choice-option">
+                  <input type="radio" name="q_{{ q.id }}" value="false" {% if q.required %}required{% endif %}>
+                  <span>Нет</span>
+                </label>
+              </div>
+            {% elif q.question_type.value == "number" %}
               <input
-                type="range"
+                type="number"
                 name="q_{{ q.id }}"
-                min="{{ slider_min }}"
-                max="{{ slider_max }}"
-                value="{{ slider_start }}"
-                data-range-output="range-value-{{ q.id }}"
+                step="any"
+                min="{{ q.min_value if q.min_value is not none else '' }}"
+                max="{{ q.max_value if q.max_value is not none else '' }}"
+                placeholder="Введите число"
                 {% if q.required %}required{% endif %}
               >
-            </div>
-          {% elif q.question_type.value == "datetime" %}
-            <input type="datetime-local" name="q_{{ q.id }}" {% if q.required %}required{% endif %}>
-          {% elif q.question_type.value == "rating" %}
-            {% set rating_min = (q.min_value if q.min_value is not none else 1) | int %}
-            {% set rating_max = (q.max_value if q.max_value is not none else 5) | int %}
-            <div class="rating-group">
-              {% for value in range(rating_min, rating_max + 1) %}
-                <label class="choice-option rating-option">
-                  <input
-                    type="radio"
-                    name="q_{{ q.id }}"
-                    value="{{ value }}"
-                    {% if q.required and loop.first %}required{% endif %}
-                  >
-                  <span>{{ value }}</span>
-                </label>
-              {% endfor %}
-            </div>
-          {% endif %}
-        </div>
-      {% endfor %}
+            {% elif q.question_type.value == "slider" %}
+              {% set slider_min = (q.min_value if q.min_value is not none else 0) | int %}
+              {% set slider_max = (q.max_value if q.max_value is not none else 10) | int %}
+              {% set slider_start = slider_min %}
+              <div class="range-control">
+                <div class="range-control-top">
+                  <span class="range-hint">Диапазон: {{ slider_min }}–{{ slider_max }}</span>
+                  <output id="range-value-{{ q.id }}" class="range-value">{{ slider_start }}</output>
+                </div>
+                <input
+                  type="range"
+                  name="q_{{ q.id }}"
+                  min="{{ slider_min }}"
+                  max="{{ slider_max }}"
+                  value="{{ slider_start }}"
+                  data-range-output="range-value-{{ q.id }}"
+                  {% if q.required %}required{% endif %}
+                >
+              </div>
+            {% elif q.question_type.value == "datetime" %}
+              <input type="datetime-local" name="q_{{ q.id }}" {% if q.required %}required{% endif %}>
+            {% elif q.question_type.value == "rating" %}
+              {% set rating_min = (q.min_value if q.min_value is not none else 1) | int %}
+              {% set rating_max = (q.max_value if q.max_value is not none else 5) | int %}
+              <div class="rating-group">
+                {% for value in range(rating_min, rating_max + 1) %}
+                  <label class="choice-option rating-option">
+                    <input
+                      type="radio"
+                      name="q_{{ q.id }}"
+                      value="{{ value }}"
+                      {% if q.required and loop.first %}required{% endif %}
+                    >
+                    <span>{{ value }}</span>
+                  </label>
+                {% endfor %}
+              </div>
+            {% endif %}
+          </div>
+        {% endfor %}
       </div>
     {% endfor %}
+
     <div class="sticky-action-bar">
       <button class="btn" type="submit">Отправить ответы</button>
     </div>
   </form>
 </section>
+{% endblock %}
 
+{% block extra_scripts %}
 <script>
   const form = document.getElementById("client-test-form");
   const questions = [...document.querySelectorAll("[data-question]")];
@@ -163,9 +168,7 @@
   const rangeInputs = [...document.querySelectorAll("input[type='range'][data-range-output]")];
 
   function parseAnswerValue(input) {
-    if (!input) {
-      return null;
-    }
+    if (!input) return null;
     if (input.type === "checkbox") {
       const nodes = [...form.querySelectorAll(`input[name='${input.name}']`)];
       return nodes.filter((item) => item.checked).map((item) => item.value);
@@ -181,9 +184,7 @@
     const result = {};
     questions.forEach((question) => {
       const key = question.dataset.questionKey || "";
-      if (!key) {
-        return;
-      }
+      if (!key) return;
       const firstInput = question.querySelector("input, textarea, select");
       result[key] = parseAnswerValue(firstInput);
     });
@@ -195,9 +196,7 @@
   }
 
   function toNumber(value) {
-    if (value === null || value === "") {
-      return null;
-    }
+    if (value === null || value === "") return null;
     const parsed = Number(String(value).replace(",", "."));
     return Number.isFinite(parsed) ? parsed : null;
   }
@@ -206,9 +205,8 @@
     const key = (node.dataset.ifKey || "").trim();
     const operator = (node.dataset.ifOp || "").trim().toLowerCase();
     const expected = (node.dataset.ifValue || "").trim();
-    if (!key || !operator) {
-      return true;
-    }
+    if (!key || !operator) return true;
+
     const actual = answersByKey[key];
     const actualText = `${actual ?? ""}`.trim().toLowerCase();
     const expectedText = expected.toLowerCase();
@@ -244,9 +242,11 @@
     sections.forEach((section) => {
       const sectionVisible = evaluateCondition(section, answersByKey);
       section.style.display = sectionVisible ? "" : "none";
+
       section.querySelectorAll("[data-question]").forEach((question) => {
         const questionVisible = sectionVisible && evaluateCondition(question, answersByKey);
         question.style.display = questionVisible ? "" : "none";
+
         question.querySelectorAll("input, select, textarea").forEach((input) => {
           if (questionVisible) {
             input.removeAttribute("disabled");
@@ -259,8 +259,7 @@
   }
 
   function updateRangeValue(input) {
-    const targetId = input.dataset.rangeOutput;
-    const output = targetId ? document.getElementById(targetId) : null;
+    const output = document.getElementById(input.dataset.rangeOutput || "");
     if (output) {
       output.textContent = input.value;
     }
@@ -269,10 +268,7 @@
   function questionFilled(block) {
     const inputs = [...block.querySelectorAll("input, textarea, select")];
     if (inputs.length === 0) return false;
-    if (inputs[0].type === "checkbox") {
-      return inputs.some((el) => el.checked);
-    }
-    if (inputs[0].type === "radio") {
+    if (inputs[0].type === "checkbox" || inputs[0].type === "radio") {
       return inputs.some((el) => el.checked);
     }
     return inputs.some((el) => `${el.value}`.trim() !== "");
@@ -283,21 +279,22 @@
     const total = visibleQuestions.length || 1;
     const completed = visibleQuestions.filter(questionFilled).length;
     const percent = Math.round((completed / total) * 100);
+
     fill.style.width = `${percent}%`;
     text.textContent = `${percent}%`;
-    if (progressDetail) {
-      progressDetail.textContent = `${completed} из ${total} вопросов заполнено`;
-    }
+    progressDetail.textContent = `${completed} из ${total} вопросов заполнено`;
   }
 
   form.addEventListener("input", () => {
     syncVisibility();
     updateProgress();
   });
+
   form.addEventListener("change", () => {
     syncVisibility();
     updateProgress();
   });
+
   form.addEventListener(
     "invalid",
     (event) => {
@@ -308,11 +305,13 @@
     },
     true
   );
+
   rangeInputs.forEach((input) => {
     updateRangeValue(input);
     input.addEventListener("input", () => updateRangeValue(input));
     input.addEventListener("change", () => updateRangeValue(input));
   });
+
   syncVisibility();
   updateProgress();
 </script>

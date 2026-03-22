@@ -1,24 +1,25 @@
-{% extends "base.html" %}
+﻿{% extends "base.html" %}
 {% block content %}
 <section class="panel card-page">
   <h1>{{ psychologist.full_name }}</h1>
-  <p class="muted">{{ psychologist.email }} · {{ psychologist.phone or "телефон не указан" }}</p>
+  <p class="muted">{{ psychologist.email }}{% if psychologist.phone %} · {{ psychologist.phone }}{% endif %}</p>
+
   <div class="grid two-col">
-    <div>
+    <div class="card-item">
       {% if psychologist.photo_filename %}
         <img class="avatar xl" src="/static/uploads/{{ psychologist.photo_filename }}" alt="Фото психолога">
       {% else %}
         <div class="avatar xl placeholder">Фото</div>
       {% endif %}
     </div>
-    <div>
+
+    <div class="card-item">
       <h2>О себе</h2>
       <div class="rich">{{ about_html | safe }}</div>
-      <h3>QR визитки</h3>
-      <img class="qr" src="/public/psychologists/{{ psychologist.id }}/qr" alt="QR код">
-      <p class="muted"><a href="{{ card_url }}">{{ card_url }}</a></p>
+      <h3>Публичная ссылка</h3>
+      <p><a href="{{ card_url }}">{{ card_url }}</a></p>
+      <img class="qr" src="/public/psychologists/{{ psychologist.id }}/qr" alt="QR код визитки">
     </div>
   </div>
 </section>
 {% endblock %}
-

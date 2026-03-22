@@ -1,12 +1,20 @@
-{% extends "base.html" %}
+﻿{% extends "base.html" %}
 {% block content %}
 <section class="center-wrap">
-  <div class="panel login-panel">
-    <h1>Вход в ПрофДНК</h1>
-    <p class="muted">Для хакатона доступны демо-аккаунты: <code>admin@profdnk.local / admin123</code> и <code>psychologist@demo.local / demo12345</code>.</p>
+  <article class="panel login-panel">
+    <h1>Вход в систему</h1>
+    <p class="muted">Платформа ПрофДНК: вход для администратора и психолога.</p>
+
+    <details class="collapse-panel">
+      <summary>Демо-доступы</summary>
+      <p><code>admin@profdnk.local / admin123</code></p>
+      <p><code>psychologist@demo.local / demo12345</code></p>
+    </details>
+
     {% if error %}
       <div class="alert">{{ error }}</div>
     {% endif %}
+
     <form method="post" action="/login" class="form-grid">
       {{ csrf_input(request) }}
       <label>
@@ -19,6 +27,6 @@
       </label>
       <button class="btn" type="submit">Войти</button>
     </form>
-  </div>
+  </article>
 </section>
 {% endblock %}
