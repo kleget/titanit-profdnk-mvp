@@ -19,35 +19,65 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&family=Sora:wght@500;600;700&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="/static/css/app.css?v=20260322a">
+  <link rel="stylesheet" href="/static/css/app.css?v=20260322b">
 </head>
 <body>
   <div class="orb orb-a"></div>
   <div class="orb orb-b"></div>
+  {% set current_path = request.url.path %}
   <header class="topbar">
-    <a class="brand" href="/">TITANIT · ПрофДНК</a>
-    <nav class="topnav">
-      <a href="/features">Возможности</a>
-      {% if user %}
-        {% if user.role.value == "admin" %}
-          <a href="/admin">Админ</a>
-        {% else %}
-          <a href="/dashboard">Кабинет</a>
-          <a href="/tests">Опросники</a>
-          <a href="/tests/new">Конструктор</a>
+    <div class="topbar-shell">
+      <div class="topbar-main">
+        <a class="brand" href="/">
+          <span class="brand-main">TITANIT</span>
+          <span class="brand-divider" aria-hidden="true">·</span>
+          <span class="brand-sub">ПрофДНК</span>
+        </a>
+        <div class="topbar-actions">
+          <button id="theme-toggle" class="btn ghost theme-toggle" type="button">Тема: тёмная</button>
+          {% if user %}
+            <form action="/logout" method="post">
+              {{ csrf_input(request) }}
+              <button class="btn ghost" type="submit">Выйти</button>
+            </form>
+          {% else %}
+            <a class="btn ghost" href="/login">Войти</a>
+          {% endif %}
+        </div>
+      </div>
+
+      <nav class="topnav" aria-label="Основная навигация">
+        <a
+          class="{% if current_path.startswith('/features') %}is-active{% endif %}"
+          href="/features"
+          {% if current_path.startswith('/features') %}aria-current="page"{% endif %}
+        >Возможности</a>
+        {% if user %}
+          {% if user.role.value == "admin" %}
+            <a
+              class="{% if current_path.startswith('/admin') %}is-active{% endif %}"
+              href="/admin"
+              {% if current_path.startswith('/admin') %}aria-current="page"{% endif %}
+            >Админ</a>
+          {% else %}
+            <a
+              class="{% if current_path.startswith('/dashboard') %}is-active{% endif %}"
+              href="/dashboard"
+              {% if current_path.startswith('/dashboard') %}aria-current="page"{% endif %}
+            >Кабинет</a>
+            <a
+              class="{% if current_path.startswith('/tests') and not current_path.startswith('/tests/new') %}is-active{% endif %}"
+              href="/tests"
+              {% if current_path.startswith('/tests') and not current_path.startswith('/tests/new') %}aria-current="page"{% endif %}
+            >Опросники</a>
+            <a
+              class="{% if current_path.startswith('/tests/new') %}is-active{% endif %}"
+              href="/tests/new"
+              {% if current_path.startswith('/tests/new') %}aria-current="page"{% endif %}
+            >Конструктор</a>
+          {% endif %}
         {% endif %}
-      {% endif %}
-    </nav>
-    <div class="topbar-actions">
-      <button id="theme-toggle" class="btn ghost theme-toggle" type="button">Тема: тёмная</button>
-      {% if user %}
-        <form action="/logout" method="post">
-          {{ csrf_input(request) }}
-          <button class="btn ghost" type="submit">Выйти</button>
-        </form>
-      {% else %}
-        <a class="btn ghost" href="/login">Войти</a>
-      {% endif %}
+      </nav>
     </div>
   </header>
 
