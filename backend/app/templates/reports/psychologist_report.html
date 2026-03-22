@@ -290,6 +290,8 @@
               <th>Раздел</th>
               <th>Вопрос</th>
               <th>Ответ</th>
+              <th>Правильный ответ</th>
+              <th>Проверка</th>
               <th>Тип</th>
             </tr>
           </thead>
@@ -299,6 +301,8 @@
                 <td>{{ row.section_title }}</td>
                 <td>{{ row.question_text }}</td>
                 <td>{{ row.answer_value }}</td>
+                <td>{{ row.correct_answer }}</td>
+                <td>{{ row.correctness_status }}</td>
                 <td>{{ row.question_type }}</td>
               </tr>
             {% endfor %}

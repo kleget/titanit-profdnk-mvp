@@ -7,7 +7,7 @@ from typing import Literal
 
 from docx import Document
 
-from app.models import QuestionType, Submission, Test
+from app.models import Question, QuestionType, Submission, Test
 from app.services.client_fields import REPORT_BLOCK_LABELS, normalize_client_fields_config
 from app.web import templates
 
@@ -20,18 +20,97 @@ class AnswerRow:
     question_text: str
     answer_value: str
     question_type: str
+    correct_answer: str = "-"
+    correctness_status: str = "-"
 
 
-def _format_answer(value: object, question_type: QuestionType) -> str:
+def _safe_option_list(question_options: object) -> list[dict]:
+    if not isinstance(question_options, list):
+        return []
+    return [option for option in question_options if isinstance(option, dict)]
+
+
+def _option_label_map(question_options: object) -> dict[str, str]:
+    labels: dict[str, str] = {}
+    for option in _safe_option_list(question_options):
+        value = str(option.get("value") or "").strip()
+        label = str(option.get("label") or "").strip()
+        if not value or not label:
+            continue
+        labels[value] = label
+    return labels
+
+
+def _correct_option_values(question_options: object) -> set[str]:
+    result: set[str] = set()
+    for option in _safe_option_list(question_options):
+        value = str(option.get("value") or "").strip()
+        if not value:
+            continue
+        if bool(option.get("is_correct")):
+            result.add(value)
+    return result
+
+
+def _format_answer(value: object, question_type: QuestionType, question_options: object) -> str:
     if value is None:
         return "-"
     if question_type == QuestionType.YES_NO:
         return "Да" if value in {True, "true", "True", "1", 1, "yes", "on"} else "Нет"
+
+    option_labels = _option_label_map(question_options)
+    if question_type == QuestionType.SINGLE_CHOICE:
+        value_text = str(value)
+        return option_labels.get(value_text, value_text)
+    if question_type == QuestionType.MULTIPLE_CHOICE:
+        selected_values = value if isinstance(value, list) else [value]
+        selected_values = [str(item) for item in selected_values if item not in {None, ""}]
+        if not selected_values:
+            return "-"
+        return ", ".join(option_labels.get(item, item) for item in selected_values)
+
     if isinstance(value, list):
         if not value:
             return "-"
         return ", ".join(str(v) for v in value)
     return str(value)
+
+
+def _format_correct_answer(question_options: object) -> str:
+    options = _safe_option_list(question_options)
+    correct_values = _correct_option_values(options)
+    if not correct_values:
+        return "-"
+    labels = _option_label_map(options)
+    ordered_labels = [
+        labels.get(str(option.get("value")), str(option.get("value")))
+        for option in options
+        if str(option.get("value") or "").strip() in correct_values
+    ]
+    rendered = ", ".join(label for label in ordered_labels if label)
+    return rendered or "-"
+
+
+def _resolve_correctness_status(question: Question, answer_value: object) -> tuple[str, str]:
+    correct_values = _correct_option_values(question.options_json)
+    if not correct_values:
+        return "-", "-"
+
+    correct_answer = _format_correct_answer(question.options_json)
+    if question.question_type == QuestionType.SINGLE_CHOICE:
+        if answer_value in {None, ""}:
+            return correct_answer, "Нет ответа"
+        status = "Верно" if str(answer_value) in correct_values else "Неверно"
+        return correct_answer, status
+    if question.question_type == QuestionType.MULTIPLE_CHOICE:
+        selected_values = answer_value if isinstance(answer_value, list) else [answer_value]
+        selected_set = {str(item) for item in selected_values if item not in {None, ""}}
+        if not selected_set:
+            return correct_answer, "Нет ответа"
+        status = "Верно" if selected_set == correct_values else "Неверно"
+        return correct_answer, status
+
+    return correct_answer, "-"
 
 
 def _safe_float(value: object) -> float | None:
@@ -137,14 +216,20 @@ def build_report_context(
     rows: list[AnswerRow] = []
     for section in test.sections:
         for question in section.questions:
+            answer_value = answer_by_question_id.get(question.id)
+            correct_answer, correctness_status = _resolve_correctness_status(question, answer_value)
             rows.append(
                 AnswerRow(
                     section_title=section.title,
                     question_text=question.text,
                     answer_value=_format_answer(
-                        answer_by_question_id.get(question.id), question.question_type
+                        answer_value,
+                        question.question_type,
+                        question.options_json,
                     ),
                     question_type=question.question_type.value,
+                    correct_answer=correct_answer,
+                    correctness_status=correctness_status,
                 )
             )
 
@@ -231,7 +316,10 @@ def build_docx_report(context: dict, report_kind: ReportKind) -> BytesIO:
         doc.add_heading("Ответы", level=1)
         for row in context["answers"]:
             doc.add_paragraph(f"[{row.section_title}] {row.question_text}", style="List Bullet")
-            doc.add_paragraph(row.answer_value)
+            doc.add_paragraph(f"Ответ: {row.answer_value}")
+            if report_kind == "psychologist" and row.correct_answer != "-":
+                doc.add_paragraph(f"Правильный ответ: {row.correct_answer}")
+                doc.add_paragraph(f"Статус: {row.correctness_status}")
 
     docx_block_renderers = {
         "profile": append_profile_block,

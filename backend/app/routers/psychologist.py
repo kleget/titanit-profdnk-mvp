@@ -953,6 +953,7 @@ async def create_test_manual(
         question_types=form.getlist("q_type[]"),
         question_required=form.getlist("q_required[]"),
         question_options=form.getlist("q_options[]"),
+        question_correct=form.getlist("q_correct[]"),
         question_min=form.getlist("q_min[]"),
         question_max=form.getlist("q_max[]"),
         question_weight=form.getlist("q_weight[]"),

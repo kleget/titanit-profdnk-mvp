@@ -1297,9 +1297,36 @@ tbody tr:last-child td {
 
 .builder-option-row {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) 140px auto;
+  grid-template-columns: minmax(0, 1fr) 140px auto auto;
   gap: var(--space-2);
   align-items: end;
+}
+
+.builder-option-correct {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  margin: 0;
+  min-height: var(--control-h);
+}
+
+.builder-option-correct-flag {
+  width: 18px;
+  height: 18px;
+  margin: 0;
+}
+
+.drag-handle {
+  cursor: grab;
+}
+
+.drag-handle:active {
+  cursor: grabbing;
+}
+
+.is-dragging {
+  opacity: 0.66;
+  border-style: dashed !important;
 }
 
 .builder-option-row .btn {

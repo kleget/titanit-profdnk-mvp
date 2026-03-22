@@ -29,7 +29,7 @@ def _build_report_test_case() -> tuple[SurveyTest, Submission]:
     q1 = Question(
         id=1,
         key="remote_ready",
-        text="Готовы ли работать удаленно?",
+        text="Готовы ли работать удалённо?",
         question_type=QuestionType.YES_NO,
         required=True,
         weight=1.0,
@@ -41,8 +41,8 @@ def _build_report_test_case() -> tuple[SurveyTest, Submission]:
         question_type=QuestionType.SINGLE_CHOICE,
         required=True,
         options_json=[
-            {"label": "IT", "value": "it", "score": 3},
-            {"label": "Маркетинг", "value": "marketing", "score": 2},
+            {"label": "IT", "value": "it", "score": 3, "is_correct": True},
+            {"label": "Маркетинг", "value": "marketing", "score": 2, "is_correct": False},
         ],
         weight=1.0,
     )
@@ -133,6 +133,11 @@ def test_build_report_context_respects_templates() -> None:
         "answers",
     ]
     assert len(client_context["answers"]) == 2
+    interest_row = next(
+        row for row in psych_context["answers"] if row.question_text == "Что ближе?"
+    )
+    assert interest_row.correct_answer == "IT"
+    assert interest_row.correctness_status == "Верно"
     assert any(item["label"] == "Заполнение теста" for item in psych_context["chart_items"])
 
 
@@ -144,6 +149,8 @@ def test_render_html_and_docx_reports() -> None:
     assert "Отчёт для профориентолога" in html
     assert "Клиент Тестов" in html
     assert "Фокус" in html
+    assert "Правильный ответ" in html
+    assert "Верно" in html
 
     docx_buffer = build_docx_report(psych_context, report_kind="psychologist")
     payload = docx_buffer.getvalue()

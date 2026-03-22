@@ -47,6 +47,7 @@ class ConstructorQuestionOptionSchema(BaseModel):
     label: str = Field(min_length=1, max_length=160)
     value: str = Field(min_length=1, max_length=128, pattern=r"^[a-zA-Z0-9_]+$")
     score: float = Field(default=1.0, ge=-100000, le=100000)
+    is_correct: bool = False
 
 
 class ConstructorLogicConditionSchema(BaseModel):

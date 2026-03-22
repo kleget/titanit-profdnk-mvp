@@ -106,9 +106,21 @@ def validate_formula_logic(
         available_variables.add(key)
 
 
-def parse_options(raw: str) -> list[dict] | None:
+def _parse_correct_option_values(raw: str | None) -> set[str]:
+    if not raw:
+        return set()
+    return {
+        item.strip()
+        for item in str(raw).split(",")
+        if item and item.strip()
+    }
+
+
+def parse_options(raw: str, correct_raw: str | None = None) -> list[dict] | None:
     if not raw or not raw.strip():
         return None
+    correct_values = _parse_correct_option_values(correct_raw)
+    has_correct_markers = bool(correct_values)
     options: list[dict] = []
     for chunk in raw.split(","):
         item = chunk.strip()
@@ -122,11 +134,17 @@ def parse_options(raw: str) -> list[dict] | None:
             except ValueError:
                 score = 1.0
             value = normalize_key(label, f"option_{len(options)+1}")
-            options.append({"label": label, "value": value, "score": score})
+            payload = {"label": label, "value": value, "score": score}
+            if has_correct_markers:
+                payload["is_correct"] = value in correct_values
+            options.append(payload)
         else:
             label = item
             value = normalize_key(label, f"option_{len(options)+1}")
-            options.append({"label": label, "value": value, "score": 1.0})
+            payload = {"label": label, "value": value, "score": 1.0}
+            if has_correct_markers:
+                payload["is_correct"] = value in correct_values
+            options.append(payload)
     return options or None
 
 
@@ -440,6 +458,7 @@ def sections_from_flat_form(
     question_types: list[str],
     question_required: list[str],
     question_options: list[str],
+    question_correct: list[str] | None,
     question_min: list[str],
     question_max: list[str],
     question_weight: list[str],
@@ -486,6 +505,9 @@ def sections_from_flat_form(
     question_keys = list(question_keys or [])
     if not question_keys:
         question_keys = [""] * size
+    question_correct = list(question_correct or [])
+    if not question_correct:
+        question_correct = [""] * size
     question_if_key = list(question_if_key or [])
     if not question_if_key:
         question_if_key = [""] * size
@@ -496,7 +518,7 @@ def sections_from_flat_form(
     if not question_if_value:
         question_if_value = [""] * size
     attrs.extend([question_if_key, question_if_operator, question_if_value])
-    attrs.append(question_keys)
+    attrs.extend([question_keys, question_correct])
     if any(len(arr) != size for arr in attrs):
         raise HTTPException(status_code=400, detail="Invalid question form payload")
 
@@ -526,7 +548,7 @@ def sections_from_flat_form(
         unique_sections.setdefault(section_title, [])
         q_type = question_types[idx].strip()
         required = question_required[idx].strip().lower() in {"true", "1", "yes"}
-        options_json = parse_options(question_options[idx])
+        options_json = parse_options(question_options[idx], question_correct[idx])
         min_value = None
         max_value = None
         try:

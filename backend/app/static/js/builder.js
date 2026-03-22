@@ -619,6 +619,7 @@
     const keyInput = box.querySelector("input[name='q_key[]']");
     const textInput = box.querySelector("input[name='q_text[]']");
     const optionsInput = box.querySelector("input[name='q_options[]']");
+    const correctInput = box.querySelector("input[name='q_correct[]']");
     const minInput = box.querySelector("input[name='q_min[]']");
     const maxInput = box.querySelector("input[name='q_max[]']");
     const weightInput = box.querySelector("input[name='q_weight[]']");
@@ -633,6 +634,7 @@
       key: keyInput?.value || "",
       text: textInput?.value || "",
       options_flat: optionsInput?.value || "",
+      correct_values_flat: correctInput?.value || "",
       min_value: minInput?.value || "",
       max_value: maxInput?.value || "",
       weight: weightInput?.value || "1",
@@ -1030,6 +1032,7 @@
           };
     const wrapper = document.createElement("div");
     wrapper.className = "question-item section-item builder-section-card";
+    wrapper.setAttribute("draggable", "true");
     const input = document.createElement("input");
     input.name = "section_titles[]";
     input.placeholder = "Название секции";
@@ -1125,6 +1128,13 @@
       notify("success", "Секция и её вопросы продублированы.");
     });
 
+    const dragHandle = document.createElement("button");
+    dragHandle.type = "button";
+    dragHandle.className = "btn small ghost drag-handle";
+    dragHandle.textContent = "Перетащить";
+    dragHandle.dataset.dragHandle = "1";
+    dragHandle.title = "Перетащить секцию";
+
     const headRow = document.createElement("div");
     headRow.className = "inline-form builder-section-head";
     const titleLabel = document.createElement("label");
@@ -1132,7 +1142,7 @@
     titleLabel.appendChild(input);
     const actionRow = document.createElement("div");
     actionRow.className = "actions-row";
-    actionRow.append(duplicate, remove);
+    actionRow.append(dragHandle, duplicate, remove);
     headRow.append(titleLabel, actionRow);
 
     ifOperatorSelect.addEventListener("change", () => {
@@ -1164,6 +1174,10 @@
     return String(numeric);
   }
 
+  function normalizeOptionValue(label, index) {
+    return normalizeBuilderKey(label, `option_${index + 1}`);
+  }
+
   function createChoiceOptionRow(questionBox, payload = {}) {
     const row = document.createElement("div");
     row.className = "builder-option-row";
@@ -1176,11 +1190,16 @@
         Балл
         <input type="number" class="builder-option-score" step="0.1" value="1">
       </label>
+      <label class="builder-option-correct">
+        <input type="checkbox" class="builder-option-correct-flag">
+        <span>Верный</span>
+      </label>
       <button type="button" class="btn small ghost builder-option-remove">Удалить</button>
     `;
 
     const labelInput = row.querySelector(".builder-option-label");
     const scoreInput = row.querySelector(".builder-option-score");
+    const correctInput = row.querySelector(".builder-option-correct-flag");
     const removeBtn = row.querySelector(".builder-option-remove");
 
     if (labelInput) {
@@ -1193,6 +1212,13 @@
     if (scoreInput) {
       scoreInput.value = scoreToText(toNumericScore(payload.score, 1));
       scoreInput.addEventListener("input", () => {
+        syncChoiceOptionsInput(questionBox);
+        markDraftDirty();
+      });
+    }
+    if (correctInput) {
+      correctInput.checked = Boolean(payload.is_correct);
+      correctInput.addEventListener("change", () => {
         syncChoiceOptionsInput(questionBox);
         markDraftDirty();
       });
@@ -1210,14 +1236,20 @@
 
   function syncChoiceOptionsInput(questionBox) {
     const hiddenOptionsInput = questionBox.querySelector("input[name='q_options[]']");
+    const hiddenCorrectInput = questionBox.querySelector("input[name='q_correct[]']");
     const rows = [...questionBox.querySelectorAll(".builder-option-row")];
+    const correctValues = [];
     const serialized = rows
-      .map((row) => {
+      .map((row, index) => {
         const label = String(row.querySelector(".builder-option-label")?.value || "").trim();
         if (!label) {
           return "";
         }
         const scoreValue = toNumericScore(row.querySelector(".builder-option-score")?.value, 1);
+        const optionValue = normalizeOptionValue(label, index);
+        if (row.querySelector(".builder-option-correct-flag")?.checked) {
+          correctValues.push(optionValue);
+        }
         return `${label}:${scoreValue}`;
       })
       .filter(Boolean)
@@ -1226,6 +1258,9 @@
     if (hiddenOptionsInput) {
       hiddenOptionsInput.value = serialized;
     }
+    if (hiddenCorrectInput) {
+      hiddenCorrectInput.value = correctValues.join(",");
+    }
 
     const emptyHint = questionBox.querySelector("[data-options-empty]");
     if (emptyHint instanceof HTMLElement) {
@@ -1233,16 +1268,34 @@
     }
   }
 
-  function renderChoiceOptions(questionBox, flatValue = "") {
+  function parseCorrectValuesFlat(value) {
+    return new Set(
+      String(value || "")
+        .split(",")
+        .map((item) => item.trim())
+        .filter(Boolean)
+    );
+  }
+
+  function renderChoiceOptions(questionBox, flatValue = "", correctFlatValue = "") {
     const listNode = questionBox.querySelector("[data-options-list]");
     if (!(listNode instanceof HTMLElement)) {
       return;
     }
     listNode.innerHTML = "";
+    const correctValues = parseCorrectValuesFlat(correctFlatValue);
     const parsed = parseChoiceOptions(flatValue);
     const seed = parsed.length ? parsed : [{ label: "", score: 1 }, { label: "", score: 1 }];
     seed.forEach((item) => {
       listNode.appendChild(createChoiceOptionRow(questionBox, item));
+    });
+    [...listNode.querySelectorAll(".builder-option-row")].forEach((row, index) => {
+      const label = String(row.querySelector(".builder-option-label")?.value || "").trim();
+      const optionValue = normalizeOptionValue(label, index);
+      const checkbox = row.querySelector(".builder-option-correct-flag");
+      if (checkbox instanceof HTMLInputElement) {
+        checkbox.checked = correctValues.has(optionValue);
+      }
     });
     syncChoiceOptionsInput(questionBox);
   }
@@ -1257,6 +1310,7 @@
     const maxInput = questionBox.querySelector("input[name='q_max[]']");
     const optionsList = questionBox.querySelector("[data-options-list]");
     const optionsInput = questionBox.querySelector("input[name='q_options[]']");
+    const correctInput = questionBox.querySelector("input[name='q_correct[]']");
 
     const isChoiceType = CHOICE_QUESTION_TYPES.has(typeValue);
     const isRangeType = RANGE_QUESTION_TYPES.has(typeValue);
@@ -1264,7 +1318,16 @@
     if (optionsEditor instanceof HTMLElement) {
       optionsEditor.hidden = !isChoiceType;
       if (isChoiceType && optionsList instanceof HTMLElement && !optionsList.children.length) {
-        renderChoiceOptions(questionBox, optionsInput?.value || "");
+        renderChoiceOptions(questionBox, optionsInput?.value || "", correctInput?.value || "");
+      }
+    }
+
+    if (!isChoiceType && applyDefaults) {
+      if (optionsInput instanceof HTMLInputElement) {
+        optionsInput.value = "";
+      }
+      if (correctInput instanceof HTMLInputElement) {
+        correctInput.value = "";
       }
     }
 
@@ -1317,6 +1380,7 @@
   function createQuestionItem(payload = {}) {
     const box = document.createElement("div");
     box.className = "question-item builder-question-card";
+    box.setAttribute("draggable", "true");
     box.innerHTML = `
       <div class="inline-form builder-question-row builder-question-row--meta">
         <label>Секция
@@ -1362,6 +1426,7 @@
           Заполняйте вариант и балл в отдельных полях. Формат <code>Текст:балл</code> формируется автоматически.
         </p>
         <input type="hidden" name="q_options[]">
+        <input type="hidden" name="q_correct[]">
         <div class="builder-options-list" data-options-list></div>
         <p class="field-hint" data-options-empty>Пока нет вариантов. Для выбора обычно нужно минимум 2.</p>
       </div>
@@ -1401,6 +1466,7 @@
       </details>
 
       <div class="actions-row builder-question-actions">
+        <button type="button" class="btn small ghost drag-handle" data-drag-handle="1" title="Перетащить вопрос">Перетащить</button>
         <button type="button" class="btn small ghost duplicate-question">Дублировать вопрос</button>
         <button type="button" class="btn small ghost remove-question">Удалить вопрос</button>
       </div>
@@ -1412,6 +1478,7 @@
     const keyInput = box.querySelector("input[name='q_key[]']");
     const textInput = box.querySelector("input[name='q_text[]']");
     const optionsInput = box.querySelector("input[name='q_options[]']");
+    const correctInput = box.querySelector("input[name='q_correct[]']");
     const minInput = box.querySelector("input[name='q_min[]']");
     const maxInput = box.querySelector("input[name='q_max[]']");
     const weightInput = box.querySelector("input[name='q_weight[]']");
@@ -1442,6 +1509,9 @@
     if (optionsInput && payload.options_flat) {
       optionsInput.value = payload.options_flat;
     }
+    if (correctInput && payload.correct_values_flat) {
+      correctInput.value = payload.correct_values_flat;
+    }
     if (minInput) {
       minInput.value = payload.min_value || "";
     }
@@ -1465,7 +1535,7 @@
     }
 
     if (optionsList instanceof HTMLElement) {
-      renderChoiceOptions(box, optionsInput?.value || "");
+      renderChoiceOptions(box, optionsInput?.value || "", correctInput?.value || "");
     }
     if (addOptionBtn) {
       addOptionBtn.addEventListener("click", () => {
@@ -1534,6 +1604,7 @@
   function createFormulaItem(payload = {}) {
     const box = document.createElement("div");
     box.className = "question-item";
+    box.setAttribute("draggable", "true");
     box.innerHTML = `
       <div class="inline-form">
         <label>Ключ метрики
@@ -1550,6 +1621,7 @@
         <input name="metric_description[]" placeholder="Что показывает метрика">
       </label>
       <div class="actions-row">
+        <button type="button" class="btn small ghost drag-handle" data-drag-handle="1" title="Перетащить блок">Перетащить</button>
         <button type="button" class="btn small ghost duplicate-formula">Дублировать формулу</button>
         <button type="button" class="btn small ghost remove-formula">Удалить формулу</button>
       </div>
@@ -1678,12 +1750,14 @@
   function createReportBlockItem(fieldName, selectedKey = "summary_metrics") {
     const box = document.createElement("div");
     box.className = "inline-form report-block-item";
+    box.setAttribute("draggable", "true");
     box.innerHTML = `
       <label>
         Блок
         <select name="${fieldName}"></select>
       </label>
       <div class="actions-row">
+        <button type="button" class="btn small ghost drag-handle" data-drag-handle="1" title="Перетащить блок">Перетащить</button>
         <button type="button" class="btn small ghost move-up">Вверх</button>
         <button type="button" class="btn small ghost move-down">Вниз</button>
         <button type="button" class="btn small ghost remove-report-block">Удалить</button>
@@ -2254,6 +2328,107 @@
     });
     syncLogicKeyReferences();
   }
+
+  function findSortTarget(container, itemSelector, draggingItem, clientY) {
+    const siblings = [...container.querySelectorAll(itemSelector)].filter(
+      (item) => item !== draggingItem && !item.classList.contains("empty-state")
+    );
+    let closest = null;
+    let closestOffset = Number.NEGATIVE_INFINITY;
+    siblings.forEach((item) => {
+      const rect = item.getBoundingClientRect();
+      const offset = clientY - rect.top - rect.height / 2;
+      if (offset < 0 && offset > closestOffset) {
+        closestOffset = offset;
+        closest = item;
+      }
+    });
+    return closest;
+  }
+
+  function initSortableList(container, itemSelector, handleSelector, onReorder) {
+    if (!(container instanceof HTMLElement)) {
+      return;
+    }
+    let draggingItem = null;
+    let startIndex = -1;
+
+    container.addEventListener("dragstart", (event) => {
+      const target = event.target;
+      if (!(target instanceof HTMLElement)) {
+        return;
+      }
+      const item = target.closest(itemSelector);
+      if (!(item instanceof HTMLElement) || item.parentElement !== container) {
+        return;
+      }
+      if (handleSelector) {
+        const handle = target.closest(handleSelector);
+        if (!(handle instanceof HTMLElement) || !item.contains(handle)) {
+          event.preventDefault();
+          return;
+        }
+      }
+      draggingItem = item;
+      startIndex = [...container.querySelectorAll(itemSelector)].indexOf(item);
+      item.classList.add("is-dragging");
+      if (event.dataTransfer) {
+        event.dataTransfer.effectAllowed = "move";
+        event.dataTransfer.setData("text/plain", "sort");
+      }
+    });
+
+    container.addEventListener("dragover", (event) => {
+      if (!(draggingItem instanceof HTMLElement)) {
+        return;
+      }
+      event.preventDefault();
+      const target = findSortTarget(container, itemSelector, draggingItem, event.clientY);
+      if (target) {
+        container.insertBefore(draggingItem, target);
+      } else {
+        container.appendChild(draggingItem);
+      }
+    });
+
+    container.addEventListener("drop", (event) => {
+      if (draggingItem) {
+        event.preventDefault();
+      }
+    });
+
+    container.addEventListener("dragend", () => {
+      if (!(draggingItem instanceof HTMLElement)) {
+        return;
+      }
+      draggingItem.classList.remove("is-dragging");
+      const endIndex = [...container.querySelectorAll(itemSelector)].indexOf(draggingItem);
+      const changed = startIndex !== -1 && endIndex !== -1 && startIndex !== endIndex;
+      draggingItem = null;
+      startIndex = -1;
+      if (!changed) {
+        return;
+      }
+      if (typeof onReorder === "function") {
+        onReorder();
+      }
+      markDraftDirty();
+    });
+  }
+
+  initSortableList(sectionsNode, ".section-item", "[data-drag-handle]", () => {
+    syncQuestionSections();
+    syncLogicKeyReferences();
+  });
+  initSortableList(questionsNode, ".question-item", "[data-drag-handle]", () => {
+    syncLogicKeyReferences();
+    syncFormulaPreviewContextInputs();
+  });
+  initSortableList(formulaNode, ".question-item", "[data-drag-handle]", () => {
+    syncFormulaPreviewContextInputs();
+  });
+  initSortableList(clientReportBlockNode, ".report-block-item", "[data-drag-handle]");
+  initSortableList(psychReportBlockNode, ".report-block-item", "[data-drag-handle]");
 
   addSectionBtn.addEventListener("click", () => {
     sectionsNode.appendChild(createSectionInput());
