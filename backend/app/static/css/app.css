@@ -1165,6 +1165,76 @@ tbody tr:last-child td {
   margin-left: auto;
 }
 
+.builder-step[data-builder-step="3"] {
+  gap: var(--space-5);
+}
+
+#builder-block-sections,
+#builder-block-questions {
+  gap: var(--space-4);
+}
+
+#sections,
+#question-list {
+  display: grid;
+  gap: var(--space-4);
+}
+
+.builder-section-card,
+.builder-question-card {
+  background: var(--surface);
+  border-color: var(--line-strong);
+  padding: var(--space-4);
+  gap: var(--space-4);
+}
+
+.builder-section-head,
+.builder-section-logic,
+.builder-question-row {
+  display: grid;
+  gap: var(--space-3);
+  align-items: end;
+}
+
+.builder-section-head {
+  grid-template-columns: minmax(0, 1fr) auto;
+}
+
+.builder-section-head > label,
+.builder-section-logic > label,
+.builder-question-row > label {
+  margin: 0;
+  min-width: 0;
+}
+
+.builder-section-head .actions-row {
+  justify-content: flex-end;
+}
+
+.builder-section-logic,
+.builder-question-row--meta,
+.builder-question-row--range,
+.builder-question-row--logic {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.builder-question-row--text {
+  grid-template-columns: minmax(220px, 0.9fr) minmax(0, 1.2fr);
+}
+
+.builder-question-card > .question-key-preview {
+  margin-top: calc(var(--space-2) * -1);
+}
+
+.builder-question-actions {
+  padding-top: var(--space-2);
+  border-top: 1px solid var(--line);
+}
+
+.builder-question-actions .btn {
+  min-height: 38px;
+}
+
 .builder-report-grid,
 .formula-preview-grid {
   grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -1231,6 +1301,12 @@ details.collapse-panel > *:not(summary) {
 
 @media (max-width: 1320px) {
   .builder-layout {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 1200px) {
+  .builder-question-row--text {
     grid-template-columns: 1fr;
   }
 }
@@ -1328,6 +1404,19 @@ details.collapse-panel > *:not(summary) {
     overflow: visible;
     border: 0;
     background: transparent;
+  }
+
+  .builder-section-head,
+  .builder-section-logic,
+  .builder-question-row--meta,
+  .builder-question-row--range,
+  .builder-question-row--logic,
+  .builder-question-row--text {
+    grid-template-columns: 1fr;
+  }
+
+  .builder-section-head .actions-row {
+    justify-content: flex-start;
   }
 
   .responsive-cards-table {

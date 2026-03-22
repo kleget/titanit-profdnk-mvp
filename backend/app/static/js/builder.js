@@ -962,7 +962,7 @@
             if_value: "",
           };
     const wrapper = document.createElement("div");
-    wrapper.className = "question-item section-item";
+    wrapper.className = "question-item section-item builder-section-card";
     const input = document.createElement("input");
     input.name = "section_titles[]";
     input.placeholder = "Название секции";
@@ -1003,7 +1003,7 @@
     });
 
     const logicRow = document.createElement("div");
-    logicRow.className = "inline-form logic-inline";
+    logicRow.className = "inline-form logic-inline builder-section-logic";
 
     const keyLabel = document.createElement("label");
     keyLabel.textContent = "Показать секцию, если ключ";
@@ -1059,7 +1059,7 @@
     });
 
     const headRow = document.createElement("div");
-    headRow.className = "inline-form";
+    headRow.className = "inline-form builder-section-head";
     const titleLabel = document.createElement("label");
     titleLabel.textContent = "Название секции";
     titleLabel.appendChild(input);
@@ -1082,9 +1082,9 @@
 
   function createQuestionItem(payload = {}) {
     const box = document.createElement("div");
-    box.className = "question-item";
+    box.className = "question-item builder-question-card";
     box.innerHTML = `
-      <div class="inline-form">
+      <div class="inline-form builder-question-row builder-question-row--meta">
         <label>Секция
           <select name="q_section[]"></select>
         </label>
@@ -1108,7 +1108,7 @@
           </select>
         </label>
       </div>
-      <div class="inline-form">
+      <div class="inline-form builder-question-row builder-question-row--text">
         <label>Ключ вопроса (опционально)
           <input name="q_key[]" placeholder="remote_ready">
         </label>
@@ -1120,7 +1120,7 @@
       <label>Опции (для choice): формат "Текст:балл, Текст2:балл"
         <input name="q_options[]" placeholder="Например: Доход:2, Стабильность:1">
       </label>
-      <div class="inline-form">
+      <div class="inline-form builder-question-row builder-question-row--range">
         <label>Минимум
           <input type="number" step="any" name="q_min[]">
         </label>
@@ -1131,7 +1131,7 @@
           <input type="number" step="0.1" name="q_weight[]" value="1">
         </label>
       </div>
-      <div class="inline-form logic-inline">
+      <div class="inline-form logic-inline builder-question-row builder-question-row--logic">
         <label>Показать вопрос, если ключ
           <input name="q_if_key[]" placeholder="Ключ вопроса (например: remote_ready)">
         </label>
@@ -1144,7 +1144,7 @@
           <input name="q_if_value[]" data-logic-value placeholder="Значение условия">
         </label>
       </div>
-      <div class="actions-row">
+      <div class="actions-row builder-question-actions">
         <button type="button" class="btn small ghost duplicate-question">Дублировать вопрос</button>
         <button type="button" class="btn small ghost remove-question">Удалить вопрос</button>
       </div>
