@@ -62,6 +62,8 @@ def test_admin_create_psychologist_password_policy(tmp_path: Path, monkeypatch):
         assert 'name="email" value="weak-password@demo.local"' in weak_password_response.text
         assert 'name="phone" placeholder="+7..." value="+79990001122"' in weak_password_response.text
         assert 'name="access_until" value="2026-09-16"' in weak_password_response.text
+        assert 'name="password"' in weak_password_response.text
+        assert 'value="weakpass"' in weak_password_response.text
 
         strong_password_response = post_form_with_csrf(
             client,

@@ -34,6 +34,7 @@ def _render_admin_page(
         "email": "",
         "phone": "",
         "access_until": "",
+        "password": "",
     }
     psychologists = db.scalars(
         select(User).where(User.role == UserRole.PSYCHOLOGIST).order_by(User.created_at.desc())
@@ -89,6 +90,7 @@ def create_psychologist(
         "email": email.strip(),
         "phone": phone.strip(),
         "access_until": access_until.strip(),
+        "password": password,
     }
     normalized_email = email.strip().lower()
     password_error = validate_password_policy(password)
