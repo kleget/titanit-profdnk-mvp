@@ -1621,7 +1621,7 @@
         <input name="metric_description[]" placeholder="Что показывает метрика">
       </label>
       <div class="actions-row">
-        <button type="button" class="btn small ghost drag-handle" data-drag-handle="1" title="Перетащить блок">Перетащить</button>
+        <button type="button" class="btn small ghost drag-handle" data-drag-handle="1" title="Перетащить формулу">Перетащить</button>
         <button type="button" class="btn small ghost duplicate-formula">Дублировать формулу</button>
         <button type="button" class="btn small ghost remove-formula">Удалить формулу</button>
       </div>
