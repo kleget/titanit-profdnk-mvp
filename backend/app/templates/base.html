@@ -1,29 +1,15 @@
-<!doctype html>
+﻿<!doctype html>
 <html lang="ru">
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>{% if title %}{{ title }} · ПрофДНК{% else %}ПрофДНК{% endif %}</title>
-  <script>
-    (function () {
-      let savedTheme = null;
-      try {
-        savedTheme = localStorage.getItem("profdnk_theme");
-      } catch (error) {
-        savedTheme = null;
-      }
-      const theme = savedTheme === "light" || savedTheme === "dark" ? savedTheme : "dark";
-      document.documentElement.setAttribute("data-theme", theme);
-    })();
-  </script>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&family=Sora:wght@500;600;700&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="/static/css/app.css?v=20260322b">
+  <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/static/css/app.css?v=20260322v2a">
 </head>
 <body>
-  <div class="orb orb-a"></div>
-  <div class="orb orb-b"></div>
   {% set current_path = request.url.path %}
   <header class="topbar">
     <div class="topbar-shell">
@@ -34,7 +20,6 @@
           <span class="brand-sub">ПрофДНК</span>
         </a>
         <div class="topbar-actions">
-          <button id="theme-toggle" class="btn ghost theme-toggle" type="button">Тема: тёмная</button>
           {% if user %}
             <form action="/logout" method="post">
               {{ csrf_input(request) }}
@@ -84,137 +69,9 @@
   <main class="container">
     {% block content %}{% endblock %}
   </main>
+
   <div id="toast-stack" class="toast-stack" aria-live="polite" aria-atomic="true"></div>
-  <script>
-    (function () {
-      const toggle = document.getElementById("theme-toggle");
-      if (!toggle) {
-        return;
-      }
-
-      function currentTheme() {
-        return document.documentElement.getAttribute("data-theme") === "light" ? "light" : "dark";
-      }
-
-      function setTheme(theme) {
-        document.documentElement.setAttribute("data-theme", theme);
-        try {
-          localStorage.setItem("profdnk_theme", theme);
-        } catch (error) {
-          // Ничего не делаем, если хранилище недоступно.
-        }
-        toggle.textContent = theme === "light" ? "Тема: светлая" : "Тема: тёмная";
-      }
-
-      setTheme(currentTheme());
-      toggle.addEventListener("click", function () {
-        const nextTheme = currentTheme() === "dark" ? "light" : "dark";
-        setTheme(nextTheme);
-      });
-    })();
-
-    (function () {
-      const stack = document.getElementById("toast-stack");
-      if (!stack) {
-        return;
-      }
-
-      const noticeMessages = {
-        test_created: "Тест успешно создан.",
-        test_cloned: "Копия теста успешно создана.",
-        test_imported: "Тест успешно импортирован.",
-        profile_saved: "Профиль сохранен.",
-        photo_uploaded: "Фото профиля обновлено.",
-        invite_link_added: "Именованная ссылка добавлена.",
-        invite_link_toggled: "Статус ссылки обновлен.",
-        psychologist_created: "Психолог успешно создан.",
-        psychologist_block_toggled: "Статус блокировки обновлен.",
-        psychologist_access_updated: "Дата доступа обновлена.",
-      };
-
-      window.uiNotify = function (type, message, timeoutMs) {
-        const toast = document.createElement("div");
-        toast.className = `toast toast-${type || "info"}`;
-        toast.setAttribute("role", "status");
-        toast.textContent = message;
-        stack.appendChild(toast);
-
-        requestAnimationFrame(() => {
-          toast.classList.add("is-visible");
-        });
-
-        const lifetime = Number.isFinite(timeoutMs) ? timeoutMs : 2600;
-        setTimeout(() => {
-          toast.classList.remove("is-visible");
-          setTimeout(() => toast.remove(), 220);
-        }, lifetime);
-      };
-
-      const params = new URLSearchParams(window.location.search);
-      const noticeCode = params.get("notice");
-      const noticeType = params.get("notice_type") || "success";
-      if (noticeCode) {
-        const message = noticeMessages[noticeCode] || noticeCode;
-        window.uiNotify(noticeType, message);
-        params.delete("notice");
-        params.delete("notice_type");
-        const nextQuery = params.toString();
-        const nextUrl =
-          window.location.pathname + (nextQuery ? `?${nextQuery}` : "") + window.location.hash;
-        window.history.replaceState({}, "", nextUrl);
-      }
-    })();
-
-    (function () {
-      const revealNodes = Array.from(
-        document.querySelectorAll("[data-reveal], .panel, .hero-surface, .kpi-card")
-      );
-      if (!revealNodes.length) {
-        return;
-      }
-
-      const uniqueNodes = Array.from(new Set(revealNodes));
-      const animatedNodes = [];
-      const viewportHeight = Math.max(window.innerHeight || 0, 1);
-
-      uniqueNodes.forEach((node, index) => {
-        const nodeHeight = Math.max(node.getBoundingClientRect().height || 0, node.scrollHeight || 0);
-        const isVeryTall = nodeHeight >= viewportHeight * 3;
-        if (isVeryTall) {
-          // Очень длинные панели (например, конструктор тестов) на мобильных экранах
-          // не всегда пересекают высокий threshold и могут оставаться невидимыми.
-          node.classList.add("is-visible");
-          return;
-        }
-        node.classList.add("reveal-item");
-        node.style.setProperty("--reveal-delay", `${Math.min(index * 28, 220)}ms`);
-        animatedNodes.push(node);
-      });
-
-      if (!animatedNodes.length) {
-        return;
-      }
-
-      if (!("IntersectionObserver" in window)) {
-        animatedNodes.forEach((node) => node.classList.add("is-visible"));
-        return;
-      }
-
-      const observer = new IntersectionObserver(
-        (entries) => {
-          entries.forEach((entry) => {
-            if (!entry.isIntersecting) {
-              return;
-            }
-            entry.target.classList.add("is-visible");
-            observer.unobserve(entry.target);
-          });
-        },
-        { threshold: 0.02, rootMargin: "0px 0px -4% 0px" }
-      );
-
-      animatedNodes.forEach((node) => observer.observe(node));
-    })();
-  </script>
+  <script src="/static/js/core-ui.js?v=20260322v2a"></script>
+  {% block extra_scripts %}{% endblock %}
 </body>
 </html>
