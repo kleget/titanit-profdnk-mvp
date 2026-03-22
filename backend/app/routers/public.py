@@ -10,7 +10,7 @@ from sqlalchemy.orm import Session, selectinload
 
 from app.config import settings
 from app.db import get_db
-from app.dependencies import require_csrf_token
+from app.dependencies import get_optional_user, require_csrf_token
 from app.models import Answer, InviteLink, QuestionType, Submission, Test, TestSection, User
 from app.services.client_fields import build_client_form_fields, normalize_client_fields_config
 from app.services.content import render_safe_markdown
@@ -75,12 +75,13 @@ def _get_test_by_token(token: str, db: Session) -> tuple[Test, InviteLink | None
 
 
 @router.get("/features")
-def features_page(request: Request) -> object:
+def features_page(request: Request, user: User | None = Depends(get_optional_user)) -> object:
     return templates.TemplateResponse(
         request,
         "features.html",
         {
             "title": "Возможности платформы",
+            "user": user,
         },
     )
 
