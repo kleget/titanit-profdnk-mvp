@@ -43,27 +43,31 @@ def test_admin_create_psychologist_password_policy(tmp_path: Path, monkeypatch):
         assert login_response.status_code == 303
         assert login_response.headers["location"] == "/admin"
 
+        weak_payload = {
+            "full_name": "Weak Password User",
+            "email": "weak-password@demo.local",
+            "phone": "+79990001122",
+            "password": "weakpass",
+            "access_until": "2026-09-16",
+        }
         weak_password_response = post_form_with_csrf(
             client,
             "/admin/psychologists",
-            data={
-                "full_name": "Слабый Пароль",
-                "email": "weak-password@demo.local",
-                "phone": "+79990001122",
-                "password": "weakpass",
-                "access_until": "",
-            },
+            data=weak_payload,
             csrf_page_path="/admin",
             follow_redirects=False,
         )
         assert weak_password_response.status_code == 400
-        assert "Пароль должен содержать хотя бы одну заглавную букву." in weak_password_response.text
+        assert 'name="full_name" value="Weak Password User"' in weak_password_response.text
+        assert 'name="email" value="weak-password@demo.local"' in weak_password_response.text
+        assert 'name="phone" placeholder="+7..." value="+79990001122"' in weak_password_response.text
+        assert 'name="access_until" value="2026-09-16"' in weak_password_response.text
 
         strong_password_response = post_form_with_csrf(
             client,
             "/admin/psychologists",
             data={
-                "full_name": "Сильный Пароль",
+                "full_name": "Strong Password User",
                 "email": "strong-password@demo.local",
                 "phone": "+79990001123",
                 "password": "StrongPass1",

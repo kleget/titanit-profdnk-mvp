@@ -26,8 +26,15 @@ def _render_admin_page(
     *,
     current_user: User | None,
     error: str | None = None,
+    form_values: dict[str, str] | None = None,
     status_code: int = 200,
 ) -> object:
+    safe_form_values = form_values or {
+        "full_name": "",
+        "email": "",
+        "phone": "",
+        "access_until": "",
+    }
     psychologists = db.scalars(
         select(User).where(User.role == UserRole.PSYCHOLOGIST).order_by(User.created_at.desc())
     ).all()
@@ -37,12 +44,13 @@ def _render_admin_page(
         request,
         "admin.html",
         {
-            "title": "Админ",
+            "title": "\u0410\u0434\u043c\u0438\u043d",
             "user": current_user,
             "psychologists": psychologists,
             "access_reminders": access_reminders,
             "audit_logs": audit_logs,
             "error": error,
+            "form_values": safe_form_values,
         },
         status_code=status_code,
     )
@@ -76,6 +84,12 @@ def create_psychologist(
     db: Session = Depends(get_db),
 ) -> object:
     current_user = db.get(User, request.session.get("user_id"))
+    input_values = {
+        "full_name": full_name.strip(),
+        "email": email.strip(),
+        "phone": phone.strip(),
+        "access_until": access_until.strip(),
+    }
     normalized_email = email.strip().lower()
     password_error = validate_password_policy(password)
     if password_error:
@@ -84,6 +98,7 @@ def create_psychologist(
             db,
             current_user=current_user,
             error=password_error,
+            form_values=input_values,
             status_code=400,
         )
 
@@ -93,6 +108,7 @@ def create_psychologist(
             db,
             current_user=current_user,
             error="Пользователь с таким email уже существует",
+            form_values=input_values,
             status_code=400,
         )
 
@@ -102,9 +118,15 @@ def create_psychologist(
             access_until_dt = datetime.strptime(access_until.strip(), "%Y-%m-%d").replace(
                 tzinfo=timezone.utc
             )
-        except ValueError as exc:
-            raise HTTPException(status_code=400, detail="Неверный формат даты") from exc
-
+        except ValueError:
+            return _render_admin_page(
+                request,
+                db,
+                current_user=current_user,
+                error="Неверный формат даты",
+                form_values=input_values,
+                status_code=400,
+            )
     user = User(
         full_name=full_name.strip(),
         email=normalized_email,

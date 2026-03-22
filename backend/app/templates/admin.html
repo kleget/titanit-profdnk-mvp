@@ -13,15 +13,15 @@
       {{ csrf_input(request) }}
       <label>
         ФИО
-        <input name="full_name" required>
+        <input name="full_name" value="{{ form_values.full_name }}" required>
       </label>
       <label>
         E-mail
-        <input type="email" name="email" required>
+        <input type="email" name="email" value="{{ form_values.email }}" required>
       </label>
       <label>
         Телефон
-        <input name="phone" placeholder="+7...">
+        <input name="phone" placeholder="+7..." value="{{ form_values.phone }}">
       </label>
       <label>
         Пароль
@@ -45,7 +45,7 @@
 
       <label>
         Доступ до
-        <input type="date" name="access_until">
+        <input type="date" name="access_until" value="{{ form_values.access_until }}">
       </label>
 
       <button class="btn" type="submit">Создать психолога</button>
