@@ -3,7 +3,131 @@
 <section class="panel feature-hero">
   <p class="hero-eyebrow">One-page для защиты</p>
   <h1>ПрофДНК: рабочий сервис от конструктора до отчёта</h1>
-  <p class="muted">Лаконичный сценарий презентации без перегруза. Каждый блок отражает реальную функцию платформы.</p>
+  <p class="muted">Короткий и понятный сценарий презентации: что сделано по ТЗ, как быстро показать продукт и где открывать ключевые экраны.</p>
+</section>
+
+<section class="panel" id="demo-scenario">
+  <div class="panel-head">
+    <div>
+      <h2>Демо за 2 минуты</h2>
+      <p class="muted">Одна кнопка создает демонстрационные прохождения и готовит данные для уверенного показа перед жюри.</p>
+    </div>
+    {% if can_prepare_demo %}
+      <form method="post" action="/features/demo/bootstrap">
+        {{ csrf_input(request) }}
+        <button class="btn" type="submit">Подготовить демо-данные</button>
+      </form>
+    {% else %}
+      <a class="btn ghost" href="/login">Войти для подготовки демо</a>
+    {% endif %}
+  </div>
+
+  {% if demo_story %}
+    <div class="stats">
+      <article class="stat">
+        <strong>{{ demo_story.submissions_count }}</strong>
+        <span class="muted">Прохождений</span>
+      </article>
+      <article class="stat">
+        <strong>{{ demo_story.named_links_count }}</strong>
+        <span class="muted">Именованных ссылок</span>
+      </article>
+      <article class="stat">
+        <strong>{{ "Готово" if demo_story.is_ready else "Нужно нажать кнопку" }}</strong>
+        <span class="muted">Статус демо-пакета</span>
+      </article>
+    </div>
+  {% endif %}
+
+  <div class="guide-steps">
+    <article class="guide-step">
+      <span class="guide-step-index">1</span>
+      <div>
+        <h3>Админ-контур</h3>
+        <p class="muted">Покажите создание психологов, срок доступа и контроль блокировок.</p>
+        <div class="actions">
+          <a class="btn small ghost" href="/admin">Открыть админку</a>
+        </div>
+      </div>
+    </article>
+
+    <article class="guide-step">
+      <span class="guide-step-index">2</span>
+      <div>
+        <h3>Конструктор методик</h3>
+        <p class="muted">Покажите ручной конструктор, JSON-импорт, формулы и ветвления.</p>
+        <div class="actions">
+          {% if user and user.role.value == "psychologist" %}
+            <a class="btn small ghost" href="/tests/new">Открыть конструктор</a>
+          {% else %}
+            <a class="btn small ghost" href="/login">Войти как психолог</a>
+          {% endif %}
+          {% if demo_story %}
+            <a class="btn small ghost" href="{{ demo_story.test_detail_url }}">Открыть демо-тест</a>
+          {% endif %}
+        </div>
+      </div>
+    </article>
+
+    <article class="guide-step">
+      <span class="guide-step-index">3</span>
+      <div>
+        <h3>Клиент проходит тест по ссылке</h3>
+        <p class="muted">Без регистрации, с сохранением ответов и метрик в системе.</p>
+        <div class="actions">
+          {% if demo_story %}
+            <a class="btn small ghost" href="{{ demo_story.client_url }}" target="_blank" rel="noopener">Открыть клиентскую ссылку</a>
+          {% else %}
+            <span class="status-badge status-pending">Сначала подготовьте демо-данные</span>
+          {% endif %}
+        </div>
+      </div>
+    </article>
+
+    <article class="guide-step">
+      <span class="guide-step-index">4</span>
+      <div>
+        <h3>Отчеты и аналитика</h3>
+        <p class="muted">HTML/DOCX отчеты, сравнение кампаний и экспорты CSV/XLSX/PDF.</p>
+        <div class="actions">
+          {% if demo_story %}
+            <a class="btn small ghost" href="{{ demo_story.test_detail_url }}">Результаты теста</a>
+            {% if demo_story.psychologist_report_url %}
+              <a class="btn small ghost" href="{{ demo_story.psychologist_report_url }}" target="_blank" rel="noopener">Проф. отчет (HTML)</a>
+            {% endif %}
+            {% if demo_story.client_report_url %}
+              <a class="btn small ghost" href="{{ demo_story.client_report_url }}" target="_blank" rel="noopener">Клиентский отчет (HTML)</a>
+            {% endif %}
+          {% else %}
+            <span class="status-badge status-pending">Нет данных для отчета</span>
+          {% endif %}
+        </div>
+      </div>
+    </article>
+  </div>
+</section>
+
+<section class="panel">
+  <h2>Покрытие ТЗ хакатона</h2>
+  <p class="muted">Обязательные пункты кейса в одном месте, с быстрыми переходами на рабочие экраны.</p>
+  <ul class="tz-checklist">
+    {% for item in tz_checklist %}
+      <li class="tz-checklist-item">
+        <div class="tz-checklist-main">
+          <h3>{{ item.title }}</h3>
+          <p class="muted">{{ item.description }}</p>
+        </div>
+        <div class="actions">
+          <span class="status-badge {{ 'status-active' if item.done else 'status-pending' }}">
+            {{ 'Готово' if item.done else 'Требует шага' }}
+          </span>
+          {% if item.url %}
+            <a class="btn small ghost" href="{{ item.url }}">Открыть</a>
+          {% endif %}
+        </div>
+      </li>
+    {% endfor %}
+  </ul>
 </section>
 
 <section class="grid two-col">

@@ -425,6 +425,30 @@ code {
   gap: var(--space-2);
 }
 
+.tz-checklist {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  display: grid;
+  gap: var(--space-3);
+}
+
+.tz-checklist-item {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: var(--space-3);
+  align-items: start;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-md);
+  background: var(--surface-2);
+  padding: var(--space-3);
+}
+
+.tz-checklist-main {
+  display: grid;
+  gap: var(--space-2);
+}
+
 .guide-steps {
   display: grid;
   gap: var(--space-3);
@@ -1516,6 +1540,10 @@ details.collapse-panel > *:not(summary) {
   }
 
   .guide-step {
+    grid-template-columns: 1fr;
+  }
+
+  .tz-checklist-item {
     grid-template-columns: 1fr;
   }
 

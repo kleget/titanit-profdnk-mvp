@@ -15,6 +15,7 @@
     psychologist_created: "Психолог успешно создан.",
     psychologist_block_toggled: "Статус блокировки обновлен.",
     psychologist_access_updated: "Дата доступа обновлена.",
+    demo_showcase_ready: "Демо-данные подготовлены. Можно показывать сценарий жюри.",
   };
 
   window.uiNotify = function (type, message, timeoutMs) {

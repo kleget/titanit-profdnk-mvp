@@ -10,8 +10,8 @@ from sqlalchemy.orm import Session, selectinload
 
 from app.config import settings
 from app.db import get_db
-from app.dependencies import get_optional_user, require_csrf_token
-from app.models import Answer, InviteLink, QuestionType, Submission, Test, TestSection, User
+from app.dependencies import get_optional_user, require_csrf_token, require_psychologist_or_admin
+from app.models import Answer, InviteLink, QuestionType, Submission, Test, TestSection, User, UserRole
 from app.services.client_fields import build_client_form_fields, normalize_client_fields_config
 from app.services.content import render_safe_markdown
 from app.services.email import send_client_report_email
@@ -25,6 +25,7 @@ from app.services.logic import evaluate_condition
 from app.services.rate_limit import check_request_rate_limit
 from app.services.reports import build_docx_report, build_report_context, render_html_report
 from app.services.scoring import calculate_metrics
+from app.services.seed import DEMO_PSYCHOLOGIST_EMAIL, ensure_demo_showcase_data
 from app.services.test_changes import log_test_change
 from app.web import templates
 
@@ -74,15 +75,120 @@ def _get_test_by_token(token: str, db: Session) -> tuple[Test, InviteLink | None
     return test, invite_link
 
 
+def _load_demo_story(db: Session) -> dict[str, object] | None:
+    demo_psychologist = db.scalar(select(User).where(User.email == DEMO_PSYCHOLOGIST_EMAIL))
+    if demo_psychologist is None:
+        return None
+
+    demo_test = db.scalar(
+        select(Test)
+        .where(Test.psychologist_id == demo_psychologist.id)
+        .order_by(Test.created_at.asc())
+        .options(selectinload(Test.invite_links), selectinload(Test.submissions))
+    )
+    if demo_test is None:
+        return None
+
+    submissions = sorted(demo_test.submissions, key=lambda row: row.submitted_at, reverse=True)
+    latest_submission = submissions[0] if submissions else None
+    named_links_count = len(demo_test.invite_links)
+    submissions_count = len(submissions)
+
+    return {
+        "test_id": demo_test.id,
+        "test_title": demo_test.title,
+        "client_url": f"/t/{demo_test.share_token}",
+        "test_detail_url": f"/tests/{demo_test.id}",
+        "submissions_count": submissions_count,
+        "named_links_count": named_links_count,
+        "latest_submission_id": latest_submission.id if latest_submission else None,
+        "psychologist_report_url": (
+            f"/reports/{latest_submission.id}/psychologist.html" if latest_submission else None
+        ),
+        "client_report_url": (
+            f"/reports/{latest_submission.id}/client.html"
+            if latest_submission and demo_test.allow_client_report
+            else None
+        ),
+        "is_ready": submissions_count >= 3 and named_links_count >= 2,
+    }
+
+
+def _build_tz_coverage_checklist(demo_story: dict[str, object] | None) -> list[dict[str, object]]:
+    demo_ready = bool(demo_story and demo_story.get("is_ready"))
+    test_detail_url = demo_story.get("test_detail_url") if demo_story else None
+    return [
+        {
+            "title": "Роли и доступ",
+            "description": "Админ создает психологов, управляет сроком доступа и блокировками.",
+            "done": True,
+            "url": "/admin",
+        },
+        {
+            "title": "Конструктор методик",
+            "description": "Психолог собирает тест в конструкторе, поддержан импорт JSON.",
+            "done": True,
+            "url": "/tests/new",
+        },
+        {
+            "title": "Прохождение по ссылке без регистрации",
+            "description": "Клиент открывает уникальный URL, заполняет поля и проходит тест онлайн.",
+            "done": True,
+            "url": demo_story.get("client_url") if demo_story else None,
+        },
+        {
+            "title": "Результаты и метрики в системе",
+            "description": "Сохранение прохождений + сравнение кампаний + аналитика на странице теста.",
+            "done": True,
+            "url": test_detail_url,
+        },
+        {
+            "title": "Два вида отчетов (HTML и DOCX)",
+            "description": "Отчеты для клиента и профориентолога формируются в реальном времени.",
+            "done": True,
+            "url": test_detail_url,
+        },
+        {
+            "title": "Быстрый демо-пакет для защиты",
+            "description": "Одна кнопка подготавливает демонстрационные данные и шаги презентации.",
+            "done": demo_ready,
+            "url": "/features#demo-scenario",
+        },
+    ]
+
+
 @router.get("/features")
-def features_page(request: Request, user: User | None = Depends(get_optional_user)) -> object:
+def features_page(
+    request: Request,
+    user: User | None = Depends(get_optional_user),
+    db: Session = Depends(get_db),
+) -> object:
+    demo_story = _load_demo_story(db)
+    can_prepare_demo = bool(user and user.role in {UserRole.ADMIN, UserRole.PSYCHOLOGIST})
+    tz_checklist = _build_tz_coverage_checklist(demo_story)
     return templates.TemplateResponse(
         request,
         "features.html",
         {
             "title": "О сайте",
             "user": user,
+            "can_prepare_demo": can_prepare_demo,
+            "demo_story": demo_story,
+            "tz_checklist": tz_checklist,
         },
+    )
+
+
+@router.post("/features/demo/bootstrap")
+def bootstrap_demo_showcase(
+    _: None = Depends(require_csrf_token),
+    _current_user: User = Depends(require_psychologist_or_admin),
+    db: Session = Depends(get_db),
+) -> object:
+    payload = ensure_demo_showcase_data(db, target_submissions=3)
+    return RedirectResponse(
+        f"/features?notice=demo_showcase_ready&notice_type=success&demo_test_id={payload['test_id']}",
+        status_code=303,
     )
 
 
@@ -413,3 +519,4 @@ def client_report_docx(
         media_type="application/vnd.openxmlformats-officedocument.wordprocessingml.document",
         headers=headers,
     )
+
