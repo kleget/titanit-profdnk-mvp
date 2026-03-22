@@ -144,13 +144,29 @@
       }
 
       const uniqueNodes = Array.from(new Set(revealNodes));
+      const animatedNodes = [];
+      const viewportHeight = Math.max(window.innerHeight || 0, 1);
+
       uniqueNodes.forEach((node, index) => {
+        const nodeHeight = Math.max(node.getBoundingClientRect().height || 0, node.scrollHeight || 0);
+        const isVeryTall = nodeHeight >= viewportHeight * 3;
+        if (isVeryTall) {
+          // Очень длинные панели (например, конструктор тестов) на мобильных экранах
+          // не всегда пересекают высокий threshold и могут оставаться невидимыми.
+          node.classList.add("is-visible");
+          return;
+        }
         node.classList.add("reveal-item");
         node.style.setProperty("--reveal-delay", `${Math.min(index * 28, 220)}ms`);
+        animatedNodes.push(node);
       });
 
+      if (!animatedNodes.length) {
+        return;
+      }
+
       if (!("IntersectionObserver" in window)) {
-        uniqueNodes.forEach((node) => node.classList.add("is-visible"));
+        animatedNodes.forEach((node) => node.classList.add("is-visible"));
         return;
       }
 
@@ -164,10 +180,10 @@
             observer.unobserve(entry.target);
           });
         },
-        { threshold: 0.12, rootMargin: "0px 0px -8% 0px" }
+        { threshold: 0.02, rootMargin: "0px 0px -4% 0px" }
       );
 
-      uniqueNodes.forEach((node) => observer.observe(node));
+      animatedNodes.forEach((node) => observer.observe(node));
     })();
   </script>
 </body>
