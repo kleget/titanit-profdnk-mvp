@@ -4,6 +4,9 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>{{ title }}</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&family=Sora:wght@500;600;700&display=swap" rel="stylesheet">
   <script>
     (function () {
       let savedTheme = null;
@@ -40,8 +43,8 @@
       --bar-bg: #243349;
       color-scheme: dark;
     }
-    body { font-family: "Segoe UI", Arial, sans-serif; margin: 24px; color: var(--ink); background: var(--page-bg); transition: background-color .2s ease, color .2s ease; }
-    h1, h2, h3 { margin: 0 0 12px; }
+    body { font-family: "IBM Plex Sans", "Segoe UI", sans-serif; margin: 24px; color: var(--ink); background: var(--page-bg); transition: background-color .2s ease, color .2s ease; }
+    h1, h2, h3 { margin: 0 0 12px; font-family: "Sora", "IBM Plex Sans", sans-serif; letter-spacing: -0.01em; }
     .muted { color: var(--muted); }
     .panel { border: 1px solid var(--line); border-radius: 12px; padding: 16px; margin: 12px 0; background: var(--surface); }
     .panel-soft { background: var(--surface-soft); }
