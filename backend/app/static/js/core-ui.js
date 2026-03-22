@@ -59,4 +59,19 @@
       window.location.pathname + (nextQuery ? `?${nextQuery}` : "") + window.location.hash;
     window.history.replaceState({}, "", nextUrl);
   }
+
+  document.querySelectorAll("[data-history-back]").forEach((button) => {
+    if (button.dataset.bound === "1") {
+      return;
+    }
+    button.dataset.bound = "1";
+    button.addEventListener("click", () => {
+      const fallback = button.dataset.fallback || "/login";
+      if (window.history.length > 1) {
+        window.history.back();
+        return;
+      }
+      window.location.href = fallback;
+    });
+  });
 })();

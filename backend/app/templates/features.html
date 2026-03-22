@@ -1,10 +1,15 @@
 ﻿{% extends "base.html" %}
 {% block content %}
+{% set back_fallback = "/login" %}
+{% if user %}
+  {% set back_fallback = "/admin" if user.role.value == "admin" else "/dashboard" %}
+{% endif %}
 <section class="panel feature-hero">
   <p class="hero-eyebrow">One-page для защиты</p>
   <h1>ПрофДНК: рабочий сервис от конструктора до отчёта</h1>
   <p class="muted">Лаконичный сценарий презентации без перегруза. Каждый блок отражает реальную функцию платформы.</p>
   <div class="actions">
+    <button class="btn ghost" type="button" data-history-back data-fallback="{{ back_fallback }}">Назад</button>
     <a class="btn" href="/tests/new">Открыть конструктор</a>
     <a class="btn ghost" href="/tests">Мои опросники</a>
     <a class="btn ghost" href="/dashboard">Кабинет</a>
