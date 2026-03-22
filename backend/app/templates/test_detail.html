@@ -1,12 +1,12 @@
 {% extends "base.html" %}
 {% block content %}
-<section class="panel">
-  <div class="panel-head">
+<section class="panel test-detail-hero">
+  <div class="panel-head panel-head-stack">
     <div>
       <h1>{{ test.title }}</h1>
       <p class="muted">{{ test.description }}</p>
     </div>
-    <div class="actions">
+    <div class="actions test-detail-actions">
       <button class="btn ghost copy-link-btn" data-link="{{ base_url }}/t/{{ test.share_token }}">Скопировать основную ссылку</button>
       <form method="post" action="/tests/{{ test.id }}/clone">
         {{ csrf_input(request) }}
@@ -22,12 +22,12 @@
 </section>
 
 <section class="panel">
-  <div class="panel-head">
+  <div class="panel-head panel-head-stack">
     <div>
       <h2>Именованные ссылки / кампании</h2>
       <p class="muted">Создавай отдельные URL для группировки прохождений, например: School-234, VK-Ads, Webinar.</p>
     </div>
-    <form class="inline-form" method="post" action="/tests/{{ test.id }}/links">
+    <form class="inline-form test-detail-link-form" method="post" action="/tests/{{ test.id }}/links">
       {{ csrf_input(request) }}
       <input type="text" name="label" maxlength="120" placeholder="Название кампании" required>
       <input type="number" name="usage_limit" min="1" step="1" placeholder="Лимит (опционально)">

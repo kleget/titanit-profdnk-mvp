@@ -292,6 +292,10 @@ code {
   align-items: start;
 }
 
+.panel-head-stack {
+  grid-template-columns: 1fr;
+}
+
 .panel-head > div:first-child {
   display: grid;
   gap: var(--space-2);
@@ -320,6 +324,15 @@ code {
 .card-list {
   display: grid;
   gap: var(--space-3);
+}
+
+.dashboard-columns {
+  align-items: stretch;
+}
+
+.dashboard-columns > .panel {
+  height: 100%;
+  align-content: start;
 }
 
 .stats,
@@ -426,6 +439,14 @@ code {
 
 .actions-row {
   row-gap: var(--space-2);
+}
+
+.test-detail-actions {
+  row-gap: var(--space-2);
+}
+
+.test-detail-link-form {
+  width: 100%;
 }
 
 .inline-form {
@@ -539,6 +560,17 @@ input[type="file"]::file-selector-button {
   overflow: hidden !important;
   clip-path: inset(100%) !important;
   border: 0 !important;
+}
+
+.password-field {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: var(--space-2);
+  align-items: center;
+}
+
+.password-field .password-toggle {
+  min-width: 108px;
 }
 
 input[type="checkbox"],
@@ -1277,6 +1309,15 @@ details.collapse-panel > *:not(summary) {
   .inline-form input,
   .inline-form select {
     width: 100%;
+  }
+
+  .password-field {
+    grid-template-columns: 1fr;
+  }
+
+  .password-field .password-toggle {
+    width: 100%;
+    min-width: 0;
   }
 
   .topnav {

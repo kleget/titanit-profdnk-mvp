@@ -25,15 +25,27 @@
       </label>
       <label>
         Пароль
-        <input
-          type="password"
-          name="password"
-          value="{{ form_values.password }}"
-          required
-          minlength="8"
-          autocomplete="new-password"
-          data-password-input
-        >
+        <div class="password-field" data-password-field>
+          <input
+            id="admin-create-password"
+            type="password"
+            name="password"
+            value="{{ form_values.password }}"
+            required
+            minlength="8"
+            autocomplete="new-password"
+            data-password-input
+          >
+          <button
+            class="btn ghost small password-toggle"
+            type="button"
+            data-password-toggle
+            data-target="admin-create-password"
+            aria-pressed="false"
+          >
+            Показать
+          </button>
+        </div>
         <small class="field-hint">Минимум 8 символов, обязательно: строчная, заглавная буква и цифра.</small>
       </label>
 

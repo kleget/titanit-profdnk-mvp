@@ -23,7 +23,24 @@
       </label>
       <label>
         Пароль
-        <input type="password" name="password" required autocomplete="current-password">
+        <div class="password-field" data-password-field>
+          <input
+            id="login-password"
+            type="password"
+            name="password"
+            required
+            autocomplete="current-password"
+          >
+          <button
+            class="btn ghost small password-toggle"
+            type="button"
+            data-password-toggle
+            data-target="login-password"
+            aria-pressed="false"
+          >
+            Показать
+          </button>
+        </div>
       </label>
       <button class="btn" type="submit">Войти</button>
     </form>

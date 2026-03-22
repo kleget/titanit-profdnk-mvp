@@ -60,6 +60,33 @@
     window.history.replaceState({}, "", nextUrl);
   }
 
+  document.querySelectorAll("[data-password-toggle]").forEach((button) => {
+    if (button.dataset.bound === "1") {
+      return;
+    }
+
+    const targetId = button.dataset.target;
+    const input = targetId ? document.getElementById(targetId) : null;
+    if (!input) {
+      return;
+    }
+
+    const syncState = () => {
+      const isVisible = input.type === "text";
+      button.textContent = isVisible ? "Скрыть" : "Показать";
+      button.setAttribute("aria-pressed", isVisible ? "true" : "false");
+    };
+
+    button.dataset.bound = "1";
+    syncState();
+
+    button.addEventListener("click", () => {
+      input.type = input.type === "password" ? "text" : "password";
+      syncState();
+      input.focus({ preventScroll: true });
+    });
+  });
+
   document.querySelectorAll("[data-history-back]").forEach((button) => {
     if (button.dataset.bound === "1") {
       return;
