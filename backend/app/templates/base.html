@@ -7,7 +7,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="/static/css/app.css?v=20260322v2a">
+  <link rel="stylesheet" href="/static/css/app.css?v=20260322v2b">
 </head>
 <body>
   {% set current_path = request.url.path %}
@@ -37,6 +37,11 @@
           href="/features"
           {% if current_path.startswith('/features') %}aria-current="page"{% endif %}
         >О сайте</a>
+        <a
+          class="{% if current_path.startswith('/guide/psychologist') %}is-active{% endif %}"
+          href="/guide/psychologist"
+          {% if current_path.startswith('/guide/psychologist') %}aria-current="page"{% endif %}
+        >Инструкция</a>
         {% if user %}
           {% if user.role.value == "admin" %}
             <a

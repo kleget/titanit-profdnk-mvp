@@ -425,6 +425,46 @@ code {
   gap: var(--space-2);
 }
 
+.guide-steps {
+  display: grid;
+  gap: var(--space-3);
+}
+
+.guide-step {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  align-items: start;
+  gap: var(--space-3);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-md);
+  background: var(--surface-2);
+  padding: var(--space-3);
+}
+
+.guide-step-index {
+  width: 30px;
+  height: 30px;
+  border-radius: var(--radius-pill);
+  border: 1px solid color-mix(in srgb, var(--accent) 52%, var(--line-strong));
+  background: color-mix(in srgb, var(--accent) 22%, var(--surface));
+  color: #1b5547;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 700;
+  font-size: 0.9rem;
+}
+
+.guide-flow,
+.guide-faq {
+  display: grid;
+  gap: var(--space-3);
+}
+
+.guide-flow {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
 .actions,
 .actions-row,
 .inline-form,
@@ -1351,6 +1391,10 @@ details.collapse-panel > *:not(summary) {
     width: 100%;
   }
 
+  .guide-flow {
+    grid-template-columns: 1fr;
+  }
+
   .inline-form.compact-filter {
     justify-content: flex-start;
   }
@@ -1385,6 +1429,10 @@ details.collapse-panel > *:not(summary) {
   .inline-form input,
   .inline-form select {
     width: 100%;
+  }
+
+  .guide-step {
+    grid-template-columns: 1fr;
   }
 
   .password-field {

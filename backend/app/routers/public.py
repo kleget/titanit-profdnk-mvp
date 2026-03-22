@@ -86,6 +86,21 @@ def features_page(request: Request, user: User | None = Depends(get_optional_use
     )
 
 
+@router.get("/guide/psychologist")
+def psychologist_guide_page(
+    request: Request,
+    user: User | None = Depends(get_optional_user),
+) -> object:
+    return templates.TemplateResponse(
+        request,
+        "psychologist_guide.html",
+        {
+            "title": "Инструкция психолога",
+            "user": user,
+        },
+    )
+
+
 @router.get("/public/psychologists/{psychologist_id}")
 def psychologist_business_card(
     psychologist_id: int,

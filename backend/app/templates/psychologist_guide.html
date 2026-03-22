@@ -1,0 +1,131 @@
+{% extends "base.html" %}
+{% block content %}
+<section class="panel feature-hero">
+  <p class="hero-eyebrow">Инструкция для психолога</p>
+  <h1>Как работать с ПрофДНК: от методики до отчёта</h1>
+  <p class="muted">
+    Короткий рабочий сценарий: как создать тест, выдать ссылку клиенту, проверить результаты и отправить отчёт.
+  </p>
+  <div class="actions-row">
+    {% if user and user.role.value == "admin" %}
+      <a class="btn" href="/admin">Открыть админку</a>
+      <a class="btn ghost" href="/tests">Опросники</a>
+    {% elif user %}
+      <a class="btn" href="/tests/new">Создать методику</a>
+      <a class="btn ghost" href="/tests">Мои опросники</a>
+      <a class="btn ghost" href="/dashboard">Кабинет</a>
+    {% else %}
+      <a class="btn" href="/login">Войти в кабинет</a>
+      <a class="btn ghost" href="/features">О сайте</a>
+    {% endif %}
+  </div>
+</section>
+
+<section class="grid two-col">
+  <article class="panel">
+    <h2>Быстрый старт</h2>
+    <div class="guide-steps">
+      <div class="guide-step">
+        <span class="guide-step-index">1</span>
+        <div>
+          <h3>Войдите в систему</h3>
+          <p class="muted">Используйте логин и пароль, которые выдал администратор.</p>
+        </div>
+      </div>
+      <div class="guide-step">
+        <span class="guide-step-index">2</span>
+        <div>
+          <h3>Создайте методику</h3>
+          <p class="muted">Откройте «Конструктор», заполните шаги и нажмите «Создать тест».</p>
+        </div>
+      </div>
+      <div class="guide-step">
+        <span class="guide-step-index">3</span>
+        <div>
+          <h3>Отправьте ссылку клиенту</h3>
+          <p class="muted">В карточке теста создайте ссылку/кампанию и передайте её клиенту.</p>
+        </div>
+      </div>
+      <div class="guide-step">
+        <span class="guide-step-index">4</span>
+        <div>
+          <h3>Проверьте прохождения</h3>
+          <p class="muted">Смотрите таблицу результатов, метрики и статусы по ссылкам.</p>
+        </div>
+      </div>
+      <div class="guide-step">
+        <span class="guide-step-index">5</span>
+        <div>
+          <h3>Сформируйте отчёты</h3>
+          <p class="muted">Откройте HTML/DOCX-отчёт для клиента и профессиональный отчёт для себя.</p>
+        </div>
+      </div>
+    </div>
+  </article>
+
+  <article class="panel">
+    <h2>Что умеет платформа</h2>
+    <ul class="feature-list">
+      <li>Пошаговый конструктор методик с секциями, типами вопросов и формулами метрик.</li>
+      <li>Именованные ссылки кампаний: лимит, дедлайн, отложенный старт, персональная ссылка.</li>
+      <li>Сбор и хранение результатов по каждому клиенту без ручного переноса данных.</li>
+      <li>Два отчёта на одно прохождение: клиентский и профессиональный.</li>
+      <li>Экспорт данных и сравнение кампаний по ключевым показателям.</li>
+      <li>Публичная визитка психолога с QR-кодом.</li>
+    </ul>
+  </article>
+</section>
+
+<section class="panel">
+  <h2>Пошагово: как создать и провести тест</h2>
+  <div class="guide-flow">
+    <article class="card-item">
+      <h3>Шаг 1. Конструктор</h3>
+      <ul class="feature-list">
+        <li>Заполните «Основное»: название, описание, обязательные поля клиента.</li>
+        <li>Добавьте секции и вопросы или импортируйте JSON.</li>
+        <li>При необходимости задайте формулы производных метрик.</li>
+      </ul>
+    </article>
+    <article class="card-item">
+      <h3>Шаг 2. Публикация</h3>
+      <ul class="feature-list">
+        <li>После создания тест появится в разделе «Опросники».</li>
+        <li>Откройте карточку теста и проверьте основные настройки.</li>
+      </ul>
+    </article>
+    <article class="card-item">
+      <h3>Шаг 3. Ссылки клиентам</h3>
+      <ul class="feature-list">
+        <li>Используйте основную ссылку или создайте отдельные кампании по меткам.</li>
+        <li>Для группы задавайте лимиты и дедлайны, для индивидуальной работы — персональную ссылку.</li>
+      </ul>
+    </article>
+    <article class="card-item">
+      <h3>Шаг 4. Аналитика и отчёты</h3>
+      <ul class="feature-list">
+        <li>В результатах отслеживайте источник прохождения, дату и метрики.</li>
+        <li>Открывайте HTML-отчёт или скачивайте DOCX для передачи клиенту.</li>
+      </ul>
+    </article>
+  </div>
+</section>
+
+<section class="panel">
+  <h2>Частые вопросы</h2>
+  <div class="guide-faq">
+    <article class="card-item">
+      <h3>Клиенту нужна регистрация?</h3>
+      <p class="muted">Нет. Клиент проходит тест по ссылке без регистрации.</p>
+    </article>
+    <article class="card-item">
+      <h3>Можно ли разделять потоки клиентов?</h3>
+      <p class="muted">Да. Создавайте именованные ссылки и смотрите результаты по меткам кампаний.</p>
+    </article>
+    <article class="card-item">
+      <h3>Можно ли ограничить доступ к ссылке?</h3>
+      <p class="muted">Да. Можно задать лимит прохождений, дедлайн и ручное включение/выключение.</p>
+    </article>
+  </div>
+</section>
+{% endblock %}
