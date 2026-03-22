@@ -61,7 +61,9 @@ def upgrade() -> None:
         unique=False,
     )
 
-    op.alter_column("invite_links", "single_use", server_default=None)
+    bind = op.get_bind()
+    if bind.dialect.name != "sqlite":
+        op.alter_column("invite_links", "single_use", server_default=None)
 
 
 def downgrade() -> None:
